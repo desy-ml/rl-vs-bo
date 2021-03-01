@@ -1,3 +1,9 @@
 .DS_Store
 
 model*.zip
+.gitignore.swp
+.ipynb_checkpoints/
+recordings/
+slurm-*.out
+train*.py
+train*.sh
