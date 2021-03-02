@@ -7,3 +7,4 @@ recordings/
 slurm-*.out
 train*.py
 train*.sh
+*.pkl
