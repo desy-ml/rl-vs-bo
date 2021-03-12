@@ -1,17 +1,30 @@
 import accelerator_environments
 import gym
 import numpy as np
-from stable_baselines3 import DDPG
-from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
+from stable_baselines3 import TD3
+from stable_baselines3.common import callbacks
+from stable_baselines3.common.noise import NormalActionNoise
+import wandb
 
 
-env = gym.make("ARESExperimentalArea-JOSS-v0")
+wandb.init(project="ares-ea-rl", entity="msk-ipc", sync_tensorboard=True, monitor_gym=True)
+
+env = gym.make("ARESEA-JOSS-v0")
 env = accelerator_environments.wrappers.NormalizeAction(env)
 env = accelerator_environments.wrappers.NormalizeObservation(env)
+env = accelerator_environments.wrappers.NormalizeReward(env)
+
+env = gym.wrappers.Monitor(env, f"recordings/{wandb.run.name}")
 
 n_actions = env.action_space.shape[-1]
-action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-model = DDPG("MlpPolicy", env, action_noise=action_noise, buffer_size=20000, verbose=2)
-model.learn(total_timesteps=800, log_interval=1)
+noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=np.zeros(n_actions))
+model = TD3("MlpPolicy",
+            env,
+            action_noise=noise,
+            buffer_size=20000,
+            tensorboard_log=f"log/{wandb.run.name}",
+            verbose=2)
 
-model.save("model_pang")
+model.learn(total_timesteps=10000)
+
+model.save("model_wandb")

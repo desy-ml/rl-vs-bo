@@ -1,11 +1,10 @@
 .DS_Store
 
+__pycache__
+.ipynb_checkpoints
+
 model*.zip
-.gitignore.swp
-.ipynb_checkpoints/
-recordings/
+recordings
 slurm-*.out
-train*.py
-train*.sh
-*.pkl
-plots/*
+log
+wandb
