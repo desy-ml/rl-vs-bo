@@ -1,0 +1,34 @@
+name: First Sweep
+project: ares-ea-rl
+entity: msk-ipc
+program: train.py
+command:
+  - ${env}
+  - python3
+  - ${program}
+  - ${args}
+method: random
+metric:
+  goal: maximize
+  name: rollout/ep_rew_mean
+parameters:
+  learning_rate:
+    values: [0.01, 0.001, 0.0001]
+  learning_starts:
+    values: [50, 100, 400]
+  batch_size:
+    values: [50, 100, 200]
+  tau:
+    values: [0.05, 0.005, 0.0005]
+  gamma:
+    values: [0.8, 0.9, 0.99]
+  policy_delay:
+    values: [1, 2, 4]
+  target_policy_noise:
+    values: [0.05, 0.2, 1.0]
+  target_noise_clip:
+    values: [0.1, 0.5, 2.0]
+  action_noise_scale:
+    values: [0.1, 0.5, 1.0, 2.0]
+  net_arch:
+    values: [[32,32], [400,300], [800,600]]
