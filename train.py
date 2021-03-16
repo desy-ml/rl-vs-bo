@@ -7,17 +7,18 @@ from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
 
+# feasible-sweep-1935
 hyperparameter_defaults = {
-    "learning_rate": 0.001,
+    "learning_rate": 0.0001,
     "learning_starts": 100,
-    "batch_size": 100,
+    "batch_size": 200,
     "tau": 0.005,
-    "gamma": 0.99,
-    "policy_delay": 2,
-    "target_policy_noise": 0.2,
-    "target_noise_clip": 0.5,
-    "action_noise_scale": 1.0,
-    "net_arch": [400, 300]
+    "gamma": 0.8,
+    "policy_delay": 4,
+    "target_policy_noise": 0.05,
+    "target_noise_clip": 2.0,
+    "action_noise_scale": 0.1,
+    "net_arch": [32, 32]
 }
 
 wandb.init(project="ares-ea-rl",
@@ -54,4 +55,4 @@ model = TD3("MlpPolicy",
 
 model.learn(total_timesteps=15000, log_interval=10)
 
-model.save("model_wandb")
+model.save(f"model_sweep2nd_{wandb.run.name}")
