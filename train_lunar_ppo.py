@@ -28,7 +28,7 @@ wandb.init(project="ares-ea-rl",
 env = make_vec_env("LunarLanderContinuous-v2", n_envs=wandb.config["n_envs"])
 
 eval_env = gym.make("LunarLanderContinuous-v2")
-# eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}")
+eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}")
 
 model = PPO("MlpPolicy",
             env,
