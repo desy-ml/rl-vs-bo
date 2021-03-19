@@ -2,21 +2,22 @@ import accelerator_environments
 import gym
 import numpy as np
 from stable_baselines3 import TD3
-from stable_baselines3.common import callbacks
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
 
 hyperparameter_defaults = {
-    "learning_rate": 0.001,
-    "learning_starts": 100,
-    "batch_size": 100,
+    "total_timesteps": 300000,
+    "buffer_size": 200000,
+    "learning_rate": 1e-3,
+    "learning_starts": 10000,
+    "batch_size": 200,
     "tau": 0.005,
-    "gamma": 0.99,
-    "policy_delay": 2,
-    "target_policy_noise": 0.2,
-    "target_noise_clip": 0.5,
-    "action_noise_scale": 1.0,
+    "gamma": 0.98,
+    "policy_delay": 4,
+    "target_policy_noise": 0.05,
+    "target_noise_clip": 2.0,
+    "action_noise_scale": 0.1,
     "net_arch": [400, 300]
 }
 
@@ -39,6 +40,7 @@ noise = NormalActionNoise(mean=np.zeros(n_actions),
 
 model = TD3("MlpPolicy",
             env,
+            buffer_size=wandb.config["buffer_size"],
             action_noise=noise,
             learning_rate=wandb.config["learning_rate"],
             learning_starts=wandb.config["learning_starts"],
@@ -52,6 +54,6 @@ model = TD3("MlpPolicy",
             tensorboard_log=f"log/{wandb.run.name}",
             verbose=2)
 
-model.learn(total_timesteps=15000, log_interval=10)
+model.learn(total_timesteps=wandb.config["total_timesteps"], log_interval=10)
 
-model.save("model_wandb")
+model.save(f"model_zoo_parameters_{wandb.run.name}")
