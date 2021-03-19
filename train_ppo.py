@@ -13,7 +13,7 @@ import wandb
 hyperparameter_defaults = {
     "n_envs": 16,
     "total_timesteps": int(1e6),
-    "n_steps": 1024,
+    "n_steps": 50,
     "batch_size": 64,
     "gae_lambda": 0.98,
     "gamma": 0.999,
