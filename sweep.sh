@@ -10,7 +10,7 @@ source /etc/profile.d/modules.sh
 module load anaconda3
 module load cuda
 
-cd ~/ares-ea-rl
+cd /beegfs/desy/user/kaiserja/ares-ea-rl
 wandb agent --count 100 msk-ipc/ares-ea-rl/6z82s34s
 
 exit
