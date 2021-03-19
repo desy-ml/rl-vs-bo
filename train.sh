@@ -10,7 +10,7 @@ source /etc/profile.d/modules.sh
 module load anaconda3
 module load cuda
 
-cd ~/ares-ea-rl
+cd /beegfs/desy/user/kaiserja/ares-ea-rl
 python3 train.py
 
 exit

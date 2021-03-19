@@ -10,7 +10,7 @@ source /etc/profile.d/modules.sh
 module load anaconda3
 module load cuda
 
-cd ~/ares-ea-rl
-python3 train_lunar.py
+cd /beegfs/desy/user/kaiserja/ares-ea-rl
+xvfb-run -s "-screen 0 1400x900x24" python3 train_lunar.py
 
 exit
