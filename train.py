@@ -1,5 +1,7 @@
 import accelerator_environments
+from accelerator_environments.wrappers import NormalizeAction, NormalizeObservation, NormalizeReward
 import gym
+from gym.wrappers import Monitor
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
@@ -7,7 +9,7 @@ import wandb
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 300000,
+    "total_timesteps": 100000,
     "buffer_size": 200000,
     "learning_rate": 1e-3,
     "learning_starts": 10000,
@@ -28,11 +30,15 @@ wandb.init(project="ares-ea-rl",
            monitor_gym=True)
 
 env = gym.make("ARESEA-JOSS-v0")
-env = accelerator_environments.wrappers.NormalizeAction(env)
-env = accelerator_environments.wrappers.NormalizeObservation(env)
-env = accelerator_environments.wrappers.NormalizeReward(env)
+env = NormalizeAction(env)
+env = NormalizeObservation(env)
+env = NormalizeReward(env)
 
-env = gym.wrappers.Monitor(env, f"recordings/{wandb.run.name}")
+eval_env = gym.make("ARESEA-JOSS-v0")
+eval_env = NormalizeAction(eval_env)
+eval_env = NormalizeObservation(eval_env)
+eval_env = NormalizeReward(eval_env)
+eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}")
 
 n_actions = env.action_space.shape[-1]
 noise = NormalActionNoise(mean=np.zeros(n_actions),
@@ -54,6 +60,9 @@ model = TD3("MlpPolicy",
             tensorboard_log=f"log/{wandb.run.name}",
             verbose=2)
 
-model.learn(total_timesteps=wandb.config["total_timesteps"], log_interval=10)
+model.learn(total_timesteps=wandb.config["total_timesteps"],
+            log_interval=10,
+            eval_env=eval_env,
+            eval_freq=1000)
 
 model.save(f"model_zoo_parameters_{wandb.run.name}")
