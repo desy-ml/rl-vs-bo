@@ -8,17 +8,23 @@ import stable_baselines3 as sb3
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 import wandb
+from wandb import wandb_agent
 
 
 hyperparameter_defaults = {
     "n_envs": 16,
     "total_timesteps": int(1e6),
     "n_steps": 50,
+    "learning_rate": 0.0003,
     "batch_size": 64,
     "gae_lambda": 0.98,
     "gamma": 0.999,
     "n_epochs": 4,
-    "ent_coef": 0.01
+    "clip_range": 0.2,
+    "ent_coef": 0.01,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "net_arch": [400, 300]
 }
 
 wandb.init(project="ares-ea-rl",
@@ -46,10 +52,15 @@ model = PPO("MlpPolicy",
             vectorized,
             n_steps=wandb.config["n_steps"],
             batch_size=wandb.config["batch_size"],
+            learning_rate=wandb.config["learning_rate"],
             gae_lambda=wandb.config["gae_lambda"],
             gamma=wandb.config["gamma"],
             n_epochs=wandb.config["n_epochs"],
+            clip_range=wandb.config["clip_range"],
             ent_coef=wandb.config["ent_coef"],
+            vf_coef=wandb.config["wf_coef"],
+            max_grad_norm=wandb.config["max_grad_norm"],
+            policy_kwargs={"net_arch": wandb.config["net_arch"]},
             tensorboard_log=f"log/{wandb.run.name}",
             verbose=2)
 

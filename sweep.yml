@@ -10,7 +10,7 @@ command:
 method: random
 metric:
   goal: maximize
-  name: rollout/ep_rew_mean
+  name: eval/mean_reward
 parameters:
   learning_rate:
     values: [0.01, 0.001, 0.0001]
