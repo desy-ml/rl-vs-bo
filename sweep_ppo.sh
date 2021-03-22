@@ -11,6 +11,6 @@ module load anaconda3
 module load cuda
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
-wandb agent --count 6 msk-ipc/ares-ea-rl/tc8nz3w3
+wandb agent --count 6 msk-ipc/ares-ea-rl/apm1miw7
 
 exit
