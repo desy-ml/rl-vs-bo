@@ -37,8 +37,8 @@ wandb.init(project="ares-ea-rl",
 
 def make_environment():
     env = gym.make("ARESEA-JOSS-v0")
-    env.action_space = gym.spaces.Box(low=-np.array([wandb.config["max_delta_quadrupole"]] * 3 + wandb.config["max_delta_corrector"] * 2),
-                                      high=np.array([wandb.config["max_delta_quadrupole"]] * 3 + wandb.config["max_delta_corrector"] * 2))
+    env.action_space = gym.spaces.Box(low=-np.array([wandb.config["max_delta_quadrupole"]] * 3 + [wandb.config["max_delta_corrector"]] * 2),
+                                      high=np.array([wandb.config["max_delta_quadrupole"]] * 3 + [wandb.config["max_delta_corrector"]] * 2))
     env = NormalizeAction(env)
     env = NormalizeObservation(env)
     env = NormalizeReward(env)
