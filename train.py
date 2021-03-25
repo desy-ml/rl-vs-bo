@@ -9,17 +9,11 @@ import wandb
 
 
 hyperparameter_defaults = {
-    "total_timesteps": int(3e5),
-    "buffer_size": 200000,
+    "total_timesteps": 50000,
+    "buffer_size": 50000,
     "learning_rate": 1e-3,
-    "learning_starts": 10000,
-    # "batch_size": 200,
-    # "tau": 0.005,
+    "learning_starts": 2000,
     "gamma": 0.98,
-    "gradient_steps": -1,
-    # "policy_delay": 4,
-    # "target_policy_noise": 0.05,
-    # "target_noise_clip": 2.0,
     "action_noise_scale": 0.1,
     "net_arch": [400, 300]
 }
@@ -51,13 +45,7 @@ model = TD3("MlpPolicy",
             action_noise=noise,
             learning_rate=wandb.config["learning_rate"],
             learning_starts=wandb.config["learning_starts"],
-            # batch_size=wandb.config["batch_size"],
-            # tau=wandb.config["tau"],
             gamma=wandb.config["gamma"],
-            gradient_steps=wandb.config["gradient_steps"],
-            # policy_delay=wandb.config["policy_delay"],
-            # target_policy_noise=wandb.config["target_policy_noise"],
-            # target_noise_clip=wandb.config["target_noise_clip"],
             policy_kwargs={"net_arch": wandb.config["net_arch"]},
             tensorboard_log=f"log/{wandb.run.name}",
             verbose=2)
