@@ -28,7 +28,7 @@ hyperparameter_defaults = {
     "max_delta_quadrupole": 0.1,
     "max_delta_corrector": 0.05
 }
-[0.1, 0.1, 0.1, 0.05, 0.05]
+
 wandb.init(project="ares-ea-rl",
            entity="msk-ipc",
            config=hyperparameter_defaults,
