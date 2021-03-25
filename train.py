@@ -1,6 +1,7 @@
 import accelerator_environments
 from accelerator_environments.wrappers import NormalizeAction, NormalizeObservation, NormalizeReward
 import gym
+from gym import wrappers
 from gym.wrappers import Monitor
 import numpy as np
 from stable_baselines3 import TD3
@@ -25,15 +26,11 @@ wandb.init(project="ares-ea-rl",
            monitor_gym=True)
 
 env = gym.make("ARESEA-JOSS-v0")
-env = NormalizeAction(env)
 env = NormalizeObservation(env)
-env = NormalizeReward(env)
 
 eval_env = gym.make("ARESEA-JOSS-v0")
-eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
-eval_env = NormalizeReward(eval_env)
-eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}")
+eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: i % 5)
 
 n_actions = env.action_space.shape[-1]
 noise = NormalActionNoise(mean=np.zeros(n_actions),
