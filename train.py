@@ -10,13 +10,13 @@ import wandb
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 50000,
-    "buffer_size": 50000,
+    "total_timesteps": 25000,
+    "buffer_size": 25000,
     "learning_rate": 1e-3,
     "learning_starts": 2000,
     "gamma": 0.98,
     "action_noise_scale": 0.1,
-    "net_arch": [400, 300]
+    "net_arch": [64, 32]
 }
 
 wandb.init(project="ares-ea-rl",
@@ -27,10 +27,12 @@ wandb.init(project="ares-ea-rl",
 
 env = gym.make("ARESEA-JOSS-v0")
 env = NormalizeObservation(env)
+env = NormalizeAction(env)
 
 eval_env = gym.make("ARESEA-JOSS-v0")
-eval_env = NormalizeObservation(eval_env)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
+eval_env = NormalizeObservation(eval_env)
+eval_env = NormalizeAction(eval_env)
 
 n_actions = env.action_space.shape[-1]
 noise = NormalActionNoise(mean=np.zeros(n_actions),
@@ -52,4 +54,4 @@ model.learn(total_timesteps=wandb.config["total_timesteps"],
             eval_env=eval_env,
             eval_freq=1000)
 
-model.save(f"model_zoo_parameters_{wandb.run.name}")
+model.save(f"model-{wandb.run.name}")
