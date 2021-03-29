@@ -30,7 +30,7 @@ env = NormalizeObservation(env)
 
 eval_env = gym.make("ARESEA-JOSS-v0")
 eval_env = NormalizeObservation(eval_env)
-eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: i % 5)
+eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
 noise = NormalActionNoise(mean=np.zeros(n_actions),
