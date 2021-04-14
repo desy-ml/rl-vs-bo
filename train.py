@@ -1,7 +1,5 @@
 import accelerator_environments
-from accelerator_environments.wrappers import NormalizeAction, NormalizeObservation, NormalizeReward
 import gym
-from gym import wrappers
 from gym.wrappers import Monitor
 import numpy as np
 from stable_baselines3 import TD3
@@ -10,8 +8,8 @@ import wandb
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 25000,
-    "buffer_size": 25000,
+    "total_timesteps": 10000000,
+    "buffer_size": 1000000,
     "learning_rate": 1e-3,
     "learning_starts": 2000,
     "gamma": 0.98,
@@ -26,13 +24,9 @@ wandb.init(project="ares-ea-rl",
            monitor_gym=True)
 
 env = gym.make("ARESEA-JOSS-v0")
-env = NormalizeObservation(env)
-env = NormalizeAction(env)
 
 eval_env = gym.make("ARESEA-JOSS-v0")
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
-eval_env = NormalizeObservation(eval_env)
-eval_env = NormalizeAction(eval_env)
 
 n_actions = env.action_space.shape[-1]
 noise = NormalActionNoise(mean=np.zeros(n_actions),
@@ -52,6 +46,6 @@ model = TD3("MlpPolicy",
 model.learn(total_timesteps=wandb.config["total_timesteps"],
             log_interval=10,
             eval_env=eval_env,
-            eval_freq=1000)
+            eval_freq=10000)
 
 model.save(f"model-{wandb.run.name}")
