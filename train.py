@@ -17,7 +17,7 @@ hyperparameter_defaults = {
     "net_arch": [64, 32]
 }
 
-wandb.init(project="ares-ea-rl",
+wandb.init(project="ares-ea-rl-a-new-hope",
            entity="msk-ipc",
            config=hyperparameter_defaults,
            sync_tensorboard=True,
