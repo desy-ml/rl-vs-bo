@@ -3,7 +3,6 @@
 #SBATCH --job-name aresea-no-time-penalty
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
-#SBATCH --constraint=7402
 #SBATCH --mail-type ALL
 
 source /etc/profile.d/modules.sh
