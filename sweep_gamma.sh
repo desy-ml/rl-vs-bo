@@ -11,6 +11,6 @@ source ~/.bashrc
 conda activate rl
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
-wandb agent msk-ipc/ares-ea-rl-a-new-hope/aso8962p
+wandb agent msk-ipc/ares-ea-rl-a-new-hope/zwhxczsw
 
 exit
