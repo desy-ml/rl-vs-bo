@@ -12,7 +12,7 @@ hyperparameter_defaults = {
     "buffer_size": 600000,
     "learning_rate": 1e-3,
     "learning_starts": 2000,
-    "gamma": 0.98,
+    "gamma": 0.8,
     "action_noise_scale": 0.1,
     "net_arch": [64, 32]
 }
@@ -21,7 +21,8 @@ wandb.init(project="ares-ea-rl-a-new-hope",
            entity="msk-ipc",
            config=hyperparameter_defaults,
            sync_tensorboard=True,
-           monitor_gym=True)
+           monitor_gym=True,
+           settings=wandb.Settings(start_method="fork"))
 
 env = gym.make("ARESEA-JOSS-v0")
 
