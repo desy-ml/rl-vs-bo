@@ -49,4 +49,4 @@ model.learn(total_timesteps=wandb.config["total_timesteps"],
             eval_env=eval_env,
             eval_freq=10000)
 
-model.save(f"model-{wandb.run.name}")
+model.save(f"models/model-{wandb.run.name}")
