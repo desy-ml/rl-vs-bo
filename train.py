@@ -12,7 +12,7 @@ hyperparameter_defaults = {
     "buffer_size": 600000,
     "learning_rate": 1e-3,
     "learning_starts": 2000,
-    "gamma": 0.8,
+    "gamma": 0.55,
     "action_noise_scale": 0.1,
     "net_arch": [64, 32]
 }
