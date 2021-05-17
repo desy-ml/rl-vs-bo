@@ -1,5 +1,5 @@
 import accelerator_environments
-from accelerator_environments.wrappers import RescaleAction, RescaleObservation
+from accelerator_environments.wrappers import ScaleAction, ScaleObservation
 import gym
 from gym.wrappers import Monitor, TimeLimit
 import numpy as np
@@ -27,13 +27,13 @@ wandb.init(project="ares-ea-rl-a-new-hope",
 
 env = gym.make("ARESEA-JOSS-v0")
 env = TimeLimit(env, max_episode_steps=50)
-env = RescaleAction(env, env.action_space.high)
-env = RescaleObservation(env, env.observation_space.high)
+env = ScaleAction(env, env.action_space.high)
+env = ScaleObservation(env, env.observation_space.high)
 
 eval_env = gym.make("ARESEA-JOSS-v0")
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
-eval_env = RescaleAction(eval_env, eval_env.action_space.high)
-eval_env = RescaleObservation(eval_env, eval_env.observation_space.high)
+eval_env = ScaleAction(eval_env, eval_env.action_space.high)
+eval_env = ScaleObservation(eval_env, eval_env.observation_space.high)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
