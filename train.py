@@ -1,5 +1,5 @@
 import accelerator_environments
-from accelerator_environments.wrappers import ScaleAction, ScaleObservation
+from accelerator_environments.wrappers import ScaleAction, ScaleObservation, ScaleReward
 import gym
 from gym.wrappers import Monitor, TimeLimit
 import numpy as np
@@ -29,11 +29,13 @@ env = gym.make("ARESEA-JOSS-v0", random_actuators=False, random_incoming=False)
 env = TimeLimit(env, max_episode_steps=50)
 env = ScaleAction(env, env.action_space.high)
 env = ScaleObservation(env, env.observation_space.high)
+env = ScaleReward(env, env.env.observation_space.high[0])
 
 eval_env = gym.make("ARESEA-JOSS-v0", random_actuators=False, random_incoming=False)
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = ScaleAction(eval_env, eval_env.action_space.high)
 eval_env = ScaleObservation(eval_env, eval_env.observation_space.high)
+eval_env = ScaleReward(eval_env, eval_env.env.observation_space.high[0])
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
