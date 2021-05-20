@@ -26,13 +26,13 @@ wandb.init(project="ares-ea-rl-a-new-hope",
            monitor_gym=True,
            settings=wandb.Settings(start_method="fork"))
 
-env = gym.make("ARESEA-JOSS-v0", random_actuators=False, random_incoming=False)
+env = gym.make("ARESEA-JOSS-v1", random_actuators=False, random_incoming=False)
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
 env = ScaleReward(env, unwrap(env).observation_space.high[0])
 
-eval_env = gym.make("ARESEA-JOSS-v0", random_actuators=False, random_incoming=False)
+eval_env = gym.make("ARESEA-JOSS-v1", random_actuators=False, random_incoming=False)
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
