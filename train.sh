@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=maxwell
-#SBATCH --job-name target-translation
+#SBATCH --job-name sigma-scale
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --mail-type ALL
