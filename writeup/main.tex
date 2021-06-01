@@ -1,0 +1,68 @@
+\documentclass[paper=a4, fontsize=11pt]{scrartcl} % A4 paper and 11pt font size
+
+\usepackage[T1]{fontenc}
+\usepackage{fourier}
+\usepackage[english]{babel}
+\usepackage{amsmath,amsfonts,amsthm}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{bm}
+
+\lstset{
+    basicstyle=\scriptsize\ttfamily,
+    keepspaces=true,
+    numbers=left, numberstyle=\tiny, numbersep=-10pt,
+    breaklines=true,
+    frame=tb
+}
+
+\usepackage{sectsty}
+\allsectionsfont{\centering \normalfont\scshape}
+
+\usepackage{fancyhdr}
+\pagestyle{fancyplain}
+\fancyhead{}
+\fancyfoot[L]{}
+\fancyfoot[C]{}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{13.6pt}
+
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+
+\setlength\parindent{0pt}
+
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}}
+
+\DeclareMathOperator*{\argmin}{\arg\!\min}
+
+\usepackage[nolist]{acronym}
+
+\input{abbreviations}
+
+\title{	
+\normalfont \normalsize 
+\textsc{Deutsches Elektronen-Synchrotron DESY} \\ [25pt]
+\horrule{0.5pt} \\[0.4cm]
+\huge Reinforcement Learning to Achieve Optimal Beam Focusing and Positioning in the ARES Experimental Area
+\horrule{2pt} \\[0.5cm]
+}
+
+\author{Jan Kaiser, Oliver Stein, Annika Eichler \\
+        MSK}
+
+\date{\normalsize\today}
+
+\begin{document}
+
+\maketitle
+
+\newpage
+
+\include{content}
+
+\end{document}

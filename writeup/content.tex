@@ -1,0 +1,137 @@
+\section{Introduction}
+
+Particle accelerators are very complex machines. Controlling these machines to achieve a beam of desired properties has proven to be a difficult task that takes expert human operators hours or even up to days or weeks to achieve. In some cases achieving certain beam parameters turns out to be impossible in practice despite being physically possible according to theory. This is the result of various difficult to predict effects such as inaccuracies and drifts that mean the real machine deviates from its physical models in ways substantial to their sensitive operation. Furthermore, some effects like drifts vary over time, making it impossible to return to optimal working modes even if one was found.
+
+In most cases this problem is barely solved and most machines rely of experiences expert operators to regularly tune them to the desired working modes. Some solutions using black box optimisation have been implemented~\cite{TODO}. One specific such tool is Ocelot Optimizer~\cite{TODO}. These tools, however suffer from two downsides: Most black box optimisers converge towards local minima, which might lack far behind the desired performance. Such optimisers also tend to require hundreds of function evaluations to achieve convergence. On particle accelerators, setting magnets and then reading sensors can often take upwards of multiple seconds and in some cases even minutes, making some of these optimisation approaches prohibitively expensive due to the number of function evaluations that are required. The first issue can be approach by global optimisers like Bayesian Optimisation. But here too problems arise. Bayesian Optimisation requires choosing hyperparameters at run time and reacts very sensitively to choice of those in conjunction with the problem to optimise. It turns out that setting hyperparameters on-fly during operation only to discover that clearly that choice was not good and not know what might be a good choice drives operators away from using these algorithms and takes a lot of time in itself, even when it has been shown that there does exist a choice of the hyperparameters that has the algorithm solve the problem nicely.
+
+Reinforcement learning promises to be a viable alternative to optimisation that can achieve competitive results using less function evaluations. At the same time \ac{RL} promises to remove the need for operators to have to find optimal hyperparameters and allow system designers to do so at design time. Furthermore, reinforcement learning has the potential to not only achieve optimal beam parameters, but also hold that while drift changes the machine or even while other parts of the machine are reconfigured. Unlike optimisation, \ac{RL} is likely to not have to make extreme steps away from the optimum, to find the latter, but rather has the ability to immediately take steps toward the optimum, improving safety and stability of machine operation.
+
+\section{Reinforcement Learning}
+
+\Acf{RL} is a machine learning technique to design and train agents capable of solving problems. A key advantage of \ac{RL} is that there is no need for labelled data, as agents are rewarded for the results they achieve and trained to maximise some cumulative reward over a so-called episode.
+
+The key component in \ac{RL} is a function called the policy. The policy maps observations
+
+\begin{itemize}
+    \item Policies are denoted by either $\mu$ for deterministic policies or $\pi$ for stochastic policies. A policy is a function that maps state $\bm{s}$ or observation $\bm{o}$ to an action $\bm{a}$. It follows at time step $t$ that $\bm{a}_t = \pi(\bm{s}_t)$.
+    \item It is important to differentiate between observations $\bm{o}_t$ and states $\bm{s}_t$. An observation $\bm{o}_t$ is the information that an agent observes about the environment at time step $t$. A state $\bm{s}_t$ is a complete description of the environment at time step $t$. In fully-observed environments $\bm{o}_t = \bm{s}_t$ applies. Most environments however are partially observed and $\bm{o}_t \neq \bm{s}_t$. \textbf{Be careful:} In reinforcement learning literature the symbol $\bm{s}_t$ is often used even when referring to an observation in a partially-observed environment. We may do the same when the context or accompanying definitions clarify this.
+    \item While a policy can be an arbitrary function, many policies such as neural networks are parameterised by a set of parameters $\theta$. Parameterised policies are denoted using a subscript $\mu_\theta$ or $\pi_\theta$.
+    \item Problems such as the ARES experimental area focusing and centring problem have an objective function $O(\bm{x})$ of some input $\bm{x}$ describing how good or bad the inputs are. This is not to be confused with the value function $V(\bm{s}_t)$ or the action-value function $Q(\bm{s}_t, \bm{a}_t)$.
+    \item The value function (otherwise known as state-value function) $V_{\pi_\theta}(\bm{s})$ gives the expected return when starting in state $\bm{s}$ and using policy $\pi_\theta$. This is not the same as the action-value function $Q_{\pi_\theta}(\bm{s}_t, \bm{a}_t)$, which gives the expected future return when executing action $\bm{a}_t$ in state $\bm{s}_t$ and then afterwards following policy $\pi_\theta$. According to Bellman's equations the on-policy action-value function $Q_{\pi_\theta}(\bm{s}_t, \bm{a}_t) = r(\bm{s}_t, \bm{a}_t) + \gamma V_{\pi_\theta}(\bm{s}_{t+1})$ or in terms of the action-value function $Q_{\pi_\theta}(\bm{s}_t, \bm{a}_t) = r(\bm{s}_t, \bm{a}_t) + \gamma Q_{\pi_\theta}(\bm{s}_{t+1}, \pi_\theta(s_{t+1}))$.
+    \item Return $R$ is the cumulative reward from some time step $t$ forward. The reward $r_t$ for performing action $\bm{a}_t$ in state $\bm{s}_t$ is given by the reward function $r(\bm{s}_t, \bm{a}_t)$.
+    \item The optimal policy, i.e. the policy that maximises the cumulative reward, is denoted by $\pi_*$. The optimal state- and action- value functions, i.e. the ground-truth value functions are denoted as $V_*$ and $Q_*$.
+\end{itemize}
+
+\section{Problem Formulation}
+
+A particular problem that we hope to solve using reinforcement learning is the focusing and centring of the beam in the experimental area of the ARES particle accelerator. In formal notation the problem is described as follows.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.6\textwidth]{ares_ea_environment}
+    \caption{Flow chart of the ARES experimental area reinforcement learning loop.}
+    \label{fig:ares_ea_environment}
+\end{figure}
+
+\begin{itemize}
+    \item After the experimental area, the beam hits a screen. We use the image on the screen to acquire the $4$-tuple of beam parameters $\bm{b} = (\mu_x, \mu_y, \sigma_x, \sigma_y)$ where $\mu_x$ and $\mu_y$ are the particles' mean positions in $x$- and in $y$-directions (we sometimes call this the beam position), and $\sigma_x$ and $\sigma_y$ are the particles' standard deviations in $x$- and in $y$-directions (we sometimes call this the beam size).
+    \item In the ARES experimental area, there are five magnets we can control -- three quadrupole magnets $Q_1$, $Q_2$ and $Q_3$ as well as a vertical and a horizontal corrector magnet $C_v$ and $C_h$. Of the quadrupole magnets we control their so-called strength parameter denoted as $k$ and given in $\frac{1}{\text{m}^2}$. Of the corrector magnets, we control the deflection angle denoted as $\alpha$ and given in $\text{rad}$. The resulting input vector $\bm{x} = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$.
+    \item Let there be a function $f(\bm{x}) = \bm{b}$. We define our optimisation problem as $\argmin_{\bm{x}} O(\bm{x}) = \sum_{p \in \bm{b}} |p|$ where $\bm{b} = f(\bm{x})$.
+    \item Based in this optimisation problem we define a reinforcement learning problem where $\bm{a} = (\Delta k_{Q_1}, \Delta k_{Q_2}, \Delta k_{Q_3}, \Delta \alpha_{C_v}, \Delta \alpha_{C_h})$ with $\Delta k_{Q_1}$ denoting the change to setting $k_{Q_1} \in \bm{x}$ and all other actuators respectively. Furthermore, the observation is defined as $o = (\mu_x, \mu_y, \sigma_x, \sigma_y, k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$. This makes the problem partially-observed and (in simulation) fulfil the Markov property. The reward $r(\bm{s}_t, \bm{a}_t) = \sum_{p \in \bm{b}_{t-1}} |p| - \sum_{p \in \bm{b}_t} |p|$ which translates to $r(\bm{s}_t, \bm{a}_t) = O(\bm{x}_{t-1}) - O(\bm{x}_t)$ where $x_t = x_0 + \sum_{i = 0}^t a_i$. Intuitively, the reward $r_t$ is the improvement of the objective function at time step $t$ over the objective function at time step $t-1$. Figure \ref{fig:ares_ea_environment} gives an overview over the reinforcement learning problem. Note that the policy is only stochastic during training. It could (should) therefore be denoted as $\mu_\theta$.
+    \item Let $f(\bm{x})$ be named the accelerator function. It describes the particle movement through the beam line and the image they produce on the screen based on the settings $\bm{x}$ to the accelerator section's (considered) magnets. Let $f(\bm{x}) = \mathcal{S}(\mathcal{T}(P, \bm{x}))$.
+    \item We define the screen acquisition function $\mathcal{S}(P) = (\mu_x(P), \mu_y(P), \sigma_x(P), \sigma_y(P))$ that retrieves a $4$-tuple of beam parameters from a set of particles $P$.
+    \item The function $\mathcal{T}(P, \bm{x}) = PR_{\bm{x}}^T$ describes the transformations to particles $P$ when travelling through the beam line with actuator settings $\bm{x}$ applied. $R_{\bm{x}}$ is the transfer map describing the beam line under actuator settings $\bm{x}$ and computed as $R_{\bm{x}} = \prod_{E \in L} R_{\bm{x}}^{E}$ where $R_{\bm{x}}^{E}$ is the transfer map of a particular element such as a quadrupole magnet and $L$ is the lattice, a sequence of elements. One such sequence (not the exact sequence of the experimental area) may be defined as $L = (Q_1, D_1, Q_2, D_2, C_v, D_3, Q_3, D_4, C_h, D_5)$.
+    \item The (true) value function of the optimal policy $V_{\mu_*}$ for the focusing and centring problem can be derived as $V_{\mu_*}(\bm{o}) = O(\bm{x})$ with $\bm{o} = (\bm{b}, \bm{x})$. That is $V_{\mu_*}$ is the expected improvement in the objective function when using the optimal policy. With the policy being optimal and deterministic, this is actually the maximum improvement. We know that the best possible objective function $O(\bm{x}_*) = 0$ and the best possible improvement is $V_{\mu_*}(\bm{o}) = O(\bm{x}) - O(\bm{x}_*) = O(\bm{x})$.
+    \item The transfer maps $R_{\bm{x}}^{E}$ for different elements look as follows:
+    \begin{itemize}
+        \item Drift:
+            \begin{equation*}
+                D(l) = R_{\bm{x}}^D(l) = \begin{pmatrix}
+                                             1 & l & 0 & 0 & 0 & 0 & 0 \\ % x
+                                             0 & 1 & 0 & 0 & 0 & 0 & 0 \\ % xp
+                                             0 & 0 & 1 & l & 0 & 0 & 0 \\ % y
+                                             0 & 0 & 0 & 1 & 0 & 0 & 0 \\ % yp
+                                             0 & 0 & 0 & 0 & 1 & \frac{l}{\gamma^2} & 0 \\ % delta s
+                                             0 & 0 & 0 & 0 & 0 & 1 & 0 \\ % delta sp
+                                             0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+                                         \end{pmatrix}
+            \end{equation*}
+        \item Focusing Quadrupole:
+            \begin{equation*}
+                Q(l,k) = R_{\bm{x}}^Q (l,k) = \begin{pmatrix}
+                                                  \cos{\sqrt{k} l} & \frac{\sin{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 & 0 & 0 \\ % x
+                                                  -\sqrt{k}\sin{\sqrt{k} l} & \cos{\sqrt{k} l} & 0 & 0 & 0 & 0 & 0 \\ % xp
+                                                  0 & 0 & \cosh{\sqrt{k} l} & \frac{\sinh{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 \\ % y
+                                                  0 & 0 & \sqrt{k}\sinh{\sqrt{k} l} & \cosh{\sqrt{k} l} & 0 & 0 & 0 \\ % yp
+                                                  0 & 0 & 0 & 0 & 1 & \frac{l}{\gamma^2} & 0 \\ % delta s
+                                                  0 & 0 & 0 & 0 & 0 & 1 & 0 \\ % delta sp
+                                                  0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+                                              \end{pmatrix}
+            \end{equation*}
+        \item Defocusing Quadrupole:
+            \begin{equation*}
+                Q(l,k) = R_{\bm{x}}^Q (l,k) = \begin{pmatrix}
+                                                  \cosh{\sqrt{k} l} & \frac{\sinh{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 & 0 & 0 \\ % x
+                                                  \sqrt{k}\sinh{\sqrt{k} l} & \cosh{\sqrt{k} l} & 0 & 0 & 0 & 0 & 0 \\ % xp
+                                                  0 & 0 & \cos{\sqrt{k} l} & \frac{\sin{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 \\ % y
+                                                  0 & 0 & -\sqrt{k}\sin{\sqrt{k} l} & \cos{\sqrt{k} l} & 0 & 0 & 0  \\ % yp
+                                                  0 & 0 & 0 & 0 & 1 & \frac{l}{\gamma^2} & 0 \\ % delta s
+                                                  0 & 0 & 0 & 0 & 0 & 1 & 0 \\ % delta sp
+                                                  0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+                                              \end{pmatrix}
+            \end{equation*}
+        \item Horizontal Corrector: 
+            \begin{equation*}
+                C_h(l,\alpha) = R_{\bm{x}}^{C_h}(l,\alpha) = \begin{pmatrix}
+                                                                 1 & l & 0 & 0 & 0 & 0 & 0 \\ % x
+                                                                 0 & 1 & 0 & 0 & 0 & 0 & \alpha \\ % xp
+                                                                 0 & 0 & 1 & l & 0 & 0 & 0 \\ % y
+                                                                 0 & 0 & 0 & 1 & 0 & 0 & 0 \\ % yp
+                                                                 0 & 0 & 0 & 0 & 1 & \frac{l}{\gamma^2} & 0 \\ % delta s
+                                                                 0 & 0 & 0 & 0 & 0 & 1 & 0 \\ % delta sp
+                                                                 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+                                                             \end{pmatrix}
+            \end{equation*}
+        \item Vertical Corrector:
+            \begin{equation*}
+                C_v(l,\alpha) = R_{\bm{x}}^{C_v}(l,\alpha) = \begin{pmatrix}
+                                                                     1 & l & 0 & 0 & 0 & 0 & 0 \\ % x
+                                                                     0 & 1 & 0 & 0 & 0 & 0 & 0 \\ % xp
+                                                                     0 & 0 & 1 & l & 0 & 0 & 0 \\ % y
+                                                                     0 & 0 & 0 & 1 & 0 & 0 & \alpha \\ % yp
+                                                                     0 & 0 & 0 & 0 & 1 & \frac{l}{\gamma^2} & 0 \\ % delta s
+                                                                     0 & 0 & 0 & 0 & 0 & 1 & 0 \\ % delta sp
+                                                                     0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+                                                                 \end{pmatrix}
+            \end{equation*}
+    \end{itemize}
+    \begin{itemize}
+        \item $l$: length of the element in $\text{m}$
+        \item $k$: quadrupole strength in $\frac{1}{\text{m}^2}$
+        \item $\alpha$: corrector kick in $\text{rad}$
+        \item $\gamma$: relativistic gamma  
+    \end{itemize}
+    
+    \item Given the actuator vector $\bm{x} = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$ we have the (simplified but equivalent) lattice
+    \begin{equation*}
+    \begin{aligned}
+        L = \langle & D_1(0.175), Q_1(0.122,k_{Q_1}), D_2(0.428), Q_2(0.122,k_{Q_2}), D_3(0.204), C_v(0.02,\alpha_{C_v}), \\ & D_4(0.204), Q_3(0.122,k_{Q_3}), D_5(0.179), C_h(0.02,\alpha_{C_h}), D_6(4.8791) \rangle
+    \end{aligned}
+    \end{equation*}
+    
+    % $$R_{\bm{x}} = Q1(Q1.k).D.Q2(Q2.k).D.Q3(Q3.k)$$
+    
+    \item Reformulation as ADP
+    
+    \begin{align*}
+        \min_{x_t} \quad&\mathbb{E} V_t(x_t)\\ = \min_{x_t} \quad& \left(|f(x_t)|_1-|f(x_t+u_t)|_1 +\gamma \mathbb{E} V_{t+1}(x_{t+1}) \right)\\
+        \text{such that} \quad &x_{t+1}=x_t+u_t\\
+        & (x_t,u_t)\in\mathcal{Z}_t 
+    \end{align*}
+\end{itemize}
+
+\section{Our Approach}
+
+\section{Experiments}
+
+\section{Conclusion}
