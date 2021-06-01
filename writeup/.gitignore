@@ -3,6 +3,5 @@
 *.fls
 *.log
 *.pdf
+!figures/*.pdf
 *.synctex.gz
-
-!ares_ea_environment.pdf
