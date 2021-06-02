@@ -13,7 +13,7 @@ Reinforcement learning promises to be a viable alternative to optimisation that 
 The key component in \ac{RL} is a function called the policy. The policy maps observations
 
 \begin{itemize}
-    \item Policies are denoted by either $\deterministicpolicy$ for deterministic policies or $\stochasticpolicy$ for stochastic policies. A policy is a function that maps state $\bm{s}$ or observation $\bm{o}$ to an action $\bm{a}$. It follows at time step $t$ that $\bm{a}_t = \pi(\bm{s}_t)$.
+    \item Policies are denoted by either $\policydeterministic$ for deterministic policies or $\policystochastic$ for stochastic policies. A policy is a function that maps state $\bm{s}$ or observation $\bm{o}$ to an action $\bm{a}$. It follows at time step $t$ that $\bm{a}_t = \pi(\bm{s}_t)$.
     \item It is important to differentiate between observations $\bm{o}_t$ and states $\bm{s}_t$. An observation $\bm{o}_t$ is the information that an agent observes about the environment at time step $t$. A state $\bm{s}_t$ is a complete description of the environment at time step $t$. In fully-observed environments $\bm{o}_t = \bm{s}_t$ applies. Most environments however are partially observed and $\bm{o}_t \neq \bm{s}_t$. \textbf{Be careful:} In reinforcement learning literature the symbol $\bm{s}_t$ is often used even when referring to an observation in a partially-observed environment. We may do the same when the context or accompanying definitions clarify this.
     \item While a policy can be an arbitrary function, many policies such as neural networks are parameterised by a set of parameters $\theta$. Parameterised policies are denoted using a subscript $\mu_\theta$ or $\pi_\theta$.
     \item Problems such as the ARES experimental area focusing and centring problem have an objective function $O(\bm{x})$ of some input $\bm{x}$ describing how good or bad the inputs are. This is not to be confused with the value function $V(\bm{s}_t)$ or the action-value function $Q(\bm{s}_t, \bm{a}_t)$.
@@ -24,7 +24,54 @@ The key component in \ac{RL} is a function called the policy. The policy maps ob
 
 \section{Problem Formulation}
 
-A particular problem that we hope to solve using reinforcement learning is the focusing and centring of the beam in the experimental area of the ARES particle accelerator. In formal notation the problem is described as follows.
+The electron accelerator ARES is a research and development machine at DESY. The layout of ARES is shown in \cref{fig:ares_layout}. We consider a section of ARES called Experimental Area 1. This section houses an experimental chamber where experiments require a well focussed and well positioned beam. A set of quadrupole and steerer magnets upstream from the experimental chamber can be used to produce the desired beam. The beam can be observed using a diagnostic screen in the experimental area. Focusing and positioning the beam by hand is a difficult and lengthy process that has to be repeated often and can take operators up to multiple hours to do. The results achieved by hand are not necessarily optimal.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{ares_layout}
+    \caption{Layout of the charged particle accelerator ARES at DESY. The Experimental Area 1 considered in this work is found just left from the centre of the layout shown here.}
+    \label{fig:ares_layout}
+\end{figure}
+
+We formulate this task as an optimisation problem where optimal focus and positioning is described in terms of the beam size in $x$- and $y$-direction $\beamwidth$ and $\beamheight$ as well as the beam position in $x$- and $y$-direction $\beampositionx$ and $\beampositiony$. The beam positions $\beampositionx$ and $\beampositiony$ are computed as the mean of all particles' positions in the respective dimension. Accordingly, the beam sizes $\beamwidth$ and $\beamheight$ are computed as the standard deviation of the particles' positions in the respective dimensions. We collect the beam parameters in a vector $\bm{b} = (\mu_x, \mu_y, \sigma_x, \sigma_y)$. All four beam parameters can be read from an image of the beam on the diagnostic screen. While there is a diagnostic screen in the experimental area, the latter is very small. We therefore consider a diagnostic screen downstream from the experimental area. In order to achieve focus and positioning, we can control a set of magnets $Q_1$, $Q_2$, $Q_3$, $C_v$ and $C_h$, where $Q_i$ is a quadrupole magnet, $C_v$ is a steerer magnet along the $y$-axis and $C_h$ is a steerer magnet along the $x$-axis. The inputs to these magnets are defined by the actuator vector $\bm{x} = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$, where $k_m$ is the strength of quadrupole $m$ measured in $\frac{1}{\text{m}^2}$, and $\alpha_m$ is the angle in $\text{rad}$ by which steerer $m$ deflects passing particles.
+
+We define a black box function
+
+\begin{equation}
+    \bm{b} = f(\bm{x})
+\end{equation}
+
+mapping an actuator vector $\bm{x}$ to resulting beam parameters $\bm{x}$ by setting the actuator values on the machine and reading the beam parameters from the diagnostic screen inside the machine. This constitutes our optimisation problem as
+
+\begin{equation}
+    \argmin_{\bm{x}} \; O(\bm{x}) = \sum_{p \in \bm{b}} \alpha_p |p|
+\end{equation}
+
+where $\alpha_p$ is a hyperparameter weighting for beam parameter $p$.
+
+We can approach solving this black box optimisation problem using numerical black box optimisation algorithms, such as L-BFGS~\cite{TODO} or Bayesian Optimisation~\cite{TODO}. L-BFGS can find very good solutions most of the time and converge towards these in $300-800$ steps. \Cref{TODO} shows the final screen image of an L-BFGS optimisation as well as the development of actuator and beam parameter values over the steps taken. In some cases the L-BFGS algorithm does not converge toward an global optimum but gets stuck at its initial position instead. This likely occurs when that position is a local optimum. Furthermore, each step of setting the magnets and then reading the sensor values can take up to $10$ seconds on ARES. As a result the optimisation takes somewhere from $50$ minutes up to almost $2.5$ hours. This is about the same it takes a human operator to solve the same task. Yet one has to note that the result achieved by the numerical optimiser is better than that the human operator achieves, if the optimiser does in fact converge. A further disadvantage of black box optimisation is that algorithms like L-BFGS set extreme values for the actuators during optimisation. Such behaviour can be a risk to machine safety, resulting in machine protection intervention and beam loss in the best case, and in serious damage in the worst.
+
+To resolve the aforementioned issues of black box optimisation in particle accelerator optimisation and control, be propose an approach based on \ac{RL}. Such approach promises potentially super-human performance and can, if necessary, be trained in a save simulation environment before every seeing the real machine.
+
+To apply \ac{RL} to our optimisation problem, it must first be rephrased as an \ac{RL} problem. We define an action
+
+\begin{equation}
+    \bm{a} = (\Delta k_{Q_1}, \Delta k_{Q_2}, \Delta k_{Q_3}, \Delta \alpha_{C_v}, \Delta \alpha_{C_h})
+\end{equation}
+
+with $\Delta k_{Q_1}$ denoting the change to setting $k_{Q_1} \in \bm{x}$ and all other actuators respectively in this time step. Furthermore, we define an observation as
+
+\begin{equation}
+    \bm{o} = (\mu_x, \mu_y, \sigma_x, \sigma_y, k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})
+\end{equation}
+
+The problem is partially-observed. In simulation the \ac{RL} problem fulfils the Markov property. The reward is defined as
+
+\begin{equation}
+    r(\bm{s}_t, \bm{a}_t) = O(\bm{x}_{t-1}) - O(\bm{x}_t)
+\end{equation}
+
+where $\bm{x}_t = \bm{x}_0 + \sum_{i = 0}^t \bm{a}_i$. Intuitively, the reward $r_t$ is the improvement of the objective function at time step $t$ over the objective function at time step $t-1$. Figure \ref{fig:ares_ea_environment} gives an overview over the \ac{RL} problem. Note that the policy is only stochastic during training. It could (should) therefore be denoted as $\policydeterministic_\theta$.
 
 \begin{figure}
     \centering
@@ -33,11 +80,24 @@ A particular problem that we hope to solve using reinforcement learning is the f
     \label{fig:ares_ea_environment}
 \end{figure}
 
+To train the policy $\policydeterministic$, we use the TD3 algorithm~\cite{TODO} with the hyperparameters given in \cref{TODOTABLE}. After $15,000$ to $20,000$ steps, the training converges to an agent that can solve the task well, though we observed that training longer for up to $600,000$ steps results in an agent that performs more stably. TODO The resulting beam parameters achieved by the agent are similar to those achieved by numerical optimisers. The \ac{RL} agent however does not get stuck on certain initial conditions. Furthermore, the agent can reach the desired beam in $5$ to $15$ steps, i.e. less than $2.5$ minutes on the real machine. This is superhuman performance and negligible temporal cost.
+
+Training the \ac{RL} agent was not trivial. We identified crucial design decisions that had to be made to make \ac{RL} work well on this problem. First experiments indicate that these design decisions and general design patterns carry over to solving other tasks on particle accelerators using \ac{RL} as well. We list them in descending order of perceived importance.
+
+Firstly, we scaled all action components, observation components and the reward. They should be scaled such that from the outside they fall somewhere into the interval $|[0.1,1]|$ in most situations. Different components of either actions or observation likely need to be scaled by different factors. This is to ensure that the optimisation problem is well defined in that all actuators are mapped to roughly the same range of values, which is unlikely to be that case for the true values. Furthermore, all components should be effectively normalised, hence the aforementioned interval. This is necessary to improved \ac{ANN} convergence and because the policy uses a $\text{tanh}$ activation function and will therefore only output values in the range $[-1,1]$. In our particular case we set sensible limits for all action and observation components and then apply normalisation according to those limits. The scalar for the reward is chosen manually.
+
+Secondly, we chose to set actuators via deltas and include their absolute values in the observation. The reason for this design choice is twofold. Including the actuators' absolute values in the observation provides a lightweight form of temporal integration. Seeing both the current actuator settings and the resulting sensory observation components, allows the agent to deduce potential deviations of the machine from the ideal learned model of the latter. Setting deltas then instead of absolute actuator values, allows the agent to counter those deviations.
+
+Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewhat arbitrarily chosen, we found that discount factors below the value of $0.8$ perform much better than those above that threshold. We show the relation of the selected $\gamma$ and the achieved mean reward over episodes in \cref{fig:gamma_sweep}. This observation is unusual for \ac{RL} problems, where $\gamma$ is usually set on the interval $[0.9,1]$. It appears that the reason for this behaviour is TODO.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{gamma_sweep}
+    \caption{Lines connecting the chosen value for the discount factor $\gamma$ on the left to the achieved mean reward over episodes on the right. For $\gamma \leq 0.8$ the results are almost identical, with the mean reward dropping slightly for $\gamma = 0.9$ and the dropping significantly for $\gamma \geq 0.9$.}
+    \label{fig:gamma_sweep}
+\end{figure}
+ 
 \begin{itemize}
-    \item After the experimental area, the beam hits a screen. We use the image on the screen to acquire the $4$-tuple of beam parameters $\bm{b} = (\mu_x, \mu_y, \sigma_x, \sigma_y)$ where $\mu_x$ and $\mu_y$ are the particles' mean positions in $x$- and in $y$-directions (we sometimes call this the beam position), and $\sigma_x$ and $\sigma_y$ are the particles' standard deviations in $x$- and in $y$-directions (we sometimes call this the beam size).
-    \item In the ARES experimental area, there are five magnets we can control -- three quadrupole magnets $Q_1$, $Q_2$ and $Q_3$ as well as a vertical and a horizontal corrector magnet $C_v$ and $C_h$. Of the quadrupole magnets we control their so-called strength parameter denoted as $k$ and given in $\frac{1}{\text{m}^2}$. Of the corrector magnets, we control the deflection angle denoted as $\alpha$ and given in $\text{rad}$. The resulting input vector $\bm{x} = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$.
-    \item Let there be a function $f(\bm{x}) = \bm{b}$. We define our optimisation problem as $\argmin_{\bm{x}} O(\bm{x}) = \sum_{p \in \bm{b}} |p|$ where $\bm{b} = f(\bm{x})$.
-    \item Based in this optimisation problem we define a reinforcement learning problem where $\bm{a} = (\Delta k_{Q_1}, \Delta k_{Q_2}, \Delta k_{Q_3}, \Delta \alpha_{C_v}, \Delta \alpha_{C_h})$ with $\Delta k_{Q_1}$ denoting the change to setting $k_{Q_1} \in \bm{x}$ and all other actuators respectively. Furthermore, the observation is defined as $o = (\mu_x, \mu_y, \sigma_x, \sigma_y, k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$. This makes the problem partially-observed and (in simulation) fulfil the Markov property. The reward $r(\bm{s}_t, \bm{a}_t) = \sum_{p \in \bm{b}_{t-1}} |p| - \sum_{p \in \bm{b}_t} |p|$ which translates to $r(\bm{s}_t, \bm{a}_t) = O(\bm{x}_{t-1}) - O(\bm{x}_t)$ where $x_t = x_0 + \sum_{i = 0}^t a_i$. Intuitively, the reward $r_t$ is the improvement of the objective function at time step $t$ over the objective function at time step $t-1$. Figure \ref{fig:ares_ea_environment} gives an overview over the reinforcement learning problem. Note that the policy is only stochastic during training. It could (should) therefore be denoted as $\mu_\theta$.
     \item Let $f(\bm{x})$ be named the accelerator function. It describes the particle movement through the beam line and the image they produce on the screen based on the settings $\bm{x}$ to the accelerator section's (considered) magnets. Let $f(\bm{x}) = \mathcal{S}(\mathcal{T}(P, \bm{x}))$.
     \item We define the screen acquisition function $\mathcal{S}(P) = (\mu_x(P), \mu_y(P), \sigma_x(P), \sigma_y(P))$ that retrieves a $4$-tuple of beam parameters from a set of particles $P$.
     \item The function $\mathcal{T}(P, \bm{x}) = PR_{\bm{x}}^T$ describes the transformations to particles $P$ when travelling through the beam line with actuator settings $\bm{x}$ applied. $R_{\bm{x}}$ is the transfer map describing the beam line under actuator settings $\bm{x}$ and computed as $R_{\bm{x}} = \prod_{E \in L} R_{\bm{x}}^{E}$ where $R_{\bm{x}}^{E}$ is the transfer map of a particular element such as a quadrupole magnet and $L$ is the lattice, a sequence of elements. One such sequence (not the exact sequence of the experimental area) may be defined as $L = (Q_1, D_1, Q_2, D_2, C_v, D_3, Q_3, D_4, C_h, D_5)$.
