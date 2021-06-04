@@ -13,12 +13,12 @@ Reinforcement learning promises to be a viable alternative to optimisation that 
 The key component in \ac{RL} is a function called the policy. The policy maps observations
 
 \begin{itemize}
-    \item Policies are denoted by either $\policydeterministic$ for deterministic policies or $\policystochastic$ for stochastic policies. A policy is a function that maps state $\bm{s}$ or observation $\bm{o}$ to an action $\bm{a}$. It follows at time step $t$ that $\bm{a}_t = \pi(\bm{s}_t)$.
-    \item It is important to differentiate between observations $\bm{o}_t$ and states $\bm{s}_t$. An observation $\bm{o}_t$ is the information that an agent observes about the environment at time step $t$. A state $\bm{s}_t$ is a complete description of the environment at time step $t$. In fully-observed environments $\bm{o}_t = \bm{s}_t$ applies. Most environments however are partially observed and $\bm{o}_t \neq \bm{s}_t$. \textbf{Be careful:} In reinforcement learning literature the symbol $\bm{s}_t$ is often used even when referring to an observation in a partially-observed environment. We may do the same when the context or accompanying definitions clarify this.
+    \item Policies are denoted by either $\policydeterministic$ for deterministic policies or $\policystochastic$ for stochastic policies. A policy is a function that maps state $\bm{s}$ or observation $\observation$ to an action $\action$. It follows at time step $t$ that $\action_t = \pi(\bm{s}_t)$.
+    \item It is important to differentiate between observations $\observation_t$ and states $\bm{s}_t$. An observation $\observation_t$ is the information that an agent observes about the environment at time step $t$. A state $\bm{s}_t$ is a complete description of the environment at time step $t$. In fully-observed environments $\observation_t = \bm{s}_t$ applies. Most environments however are partially observed and $\observation_t \neq \bm{s}_t$. \textbf{Be careful:} In reinforcement learning literature the symbol $\bm{s}_t$ is often used even when referring to an observation in a partially-observed environment. We may do the same when the context or accompanying definitions clarify this.
     \item While a policy can be an arbitrary function, many policies such as neural networks are parameterised by a set of parameters $\theta$. Parameterised policies are denoted using a subscript $\mu_\theta$ or $\pi_\theta$.
-    \item Problems such as the ARES experimental area focusing and centring problem have an objective function $O(\bm{x})$ of some input $\bm{x}$ describing how good or bad the inputs are. This is not to be confused with the value function $V(\bm{s}_t)$ or the action-value function $Q(\bm{s}_t, \bm{a}_t)$.
-    \item The value function (otherwise known as state-value function) $V_{\pi_\theta}(\bm{s})$ gives the expected return when starting in state $\bm{s}$ and using policy $\pi_\theta$. This is not the same as the action-value function $Q_{\pi_\theta}(\bm{s}_t, \bm{a}_t)$, which gives the expected future return when executing action $\bm{a}_t$ in state $\bm{s}_t$ and then afterwards following policy $\pi_\theta$. According to Bellman's equations the on-policy action-value function $Q_{\pi_\theta}(\bm{s}_t, \bm{a}_t) = r(\bm{s}_t, \bm{a}_t) + \gamma V_{\pi_\theta}(\bm{s}_{t+1})$ or in terms of the action-value function $Q_{\pi_\theta}(\bm{s}_t, \bm{a}_t) = r(\bm{s}_t, \bm{a}_t) + \gamma Q_{\pi_\theta}(\bm{s}_{t+1}, \pi_\theta(s_{t+1}))$.
-    \item Return $R$ is the cumulative reward from some time step $t$ forward. The reward $r_t$ for performing action $\bm{a}_t$ in state $\bm{s}_t$ is given by the reward function $r(\bm{s}_t, \bm{a}_t)$.
+    \item Problems such as the ARES experimental area focusing and centring problem have an objective function $O(\actuators)$ of some input $\actuators$ describing how good or bad the inputs are. This is not to be confused with the value function $V(\bm{s}_t)$ or the action-value function $Q(\bm{s}_t, \action_t)$.
+    \item The value function (otherwise known as state-value function) $V_{\pi_\theta}(\bm{s})$ gives the expected return when starting in state $\bm{s}$ and using policy $\pi_\theta$. This is not the same as the action-value function $Q_{\pi_\theta}(\bm{s}_t, \action_t)$, which gives the expected future return when executing action $\action_t$ in state $\bm{s}_t$ and then afterwards following policy $\pi_\theta$. According to Bellman's equations the on-policy action-value function $Q_{\pi_\theta}(\bm{s}_t, \action_t) = r(\bm{s}_t, \action_t) + \gamma V_{\pi_\theta}(\bm{s}_{t+1})$ or in terms of the action-value function $Q_{\pi_\theta}(\bm{s}_t, \action_t) = r(\bm{s}_t, \action_t) + \gamma Q_{\pi_\theta}(\bm{s}_{t+1}, \pi_\theta(s_{t+1}))$.
+    \item Return $R$ is the cumulative reward from some time step $t$ forward. The reward $r_t$ for performing action $\action_t$ in state $\bm{s}_t$ is given by the reward function $r(\bm{s}_t, \action_t)$.
     \item The optimal policy, i.e. the policy that maximises the cumulative reward, is denoted by $\pi_*$. The optimal state- and action- value functions, i.e. the ground-truth value functions are denoted as $V_*$ and $Q_*$.
 \end{itemize}
 
@@ -33,21 +33,23 @@ The electron accelerator ARES is a research and development machine at DESY. The
     \label{fig:ares_layout}
 \end{figure}
 
-We formulate this task as an optimisation problem where optimal focus and positioning is described in terms of the beam size in $x$- and $y$-direction $\beamwidth$ and $\beamheight$ as well as the beam position in $x$- and $y$-direction $\beampositionx$ and $\beampositiony$. The beam positions $\beampositionx$ and $\beampositiony$ are computed as the mean of all particles' positions in the respective dimension. Accordingly, the beam sizes $\beamwidth$ and $\beamheight$ are computed as the standard deviation of the particles' positions in the respective dimensions. We collect the beam parameters in a vector $\bm{b} = (\mu_x, \mu_y, \sigma_x, \sigma_y)$. All four beam parameters can be read from an image of the beam on the diagnostic screen. While there is a diagnostic screen in the experimental area, the latter is very small. We therefore consider a diagnostic screen downstream from the experimental area. In order to achieve focus and positioning, we can control a set of magnets $Q_1$, $Q_2$, $Q_3$, $C_v$ and $C_h$, where $Q_i$ is a quadrupole magnet, $C_v$ is a steerer magnet along the $y$-axis and $C_h$ is a steerer magnet along the $x$-axis. The inputs to these magnets are defined by the actuator vector $\bm{x} = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$, where $k_m$ is the strength of quadrupole $m$ measured in $\frac{1}{\text{m}^2}$, and $\alpha_m$ is the angle in $\text{rad}$ by which steerer $m$ deflects passing particles.
+We formulate this task as an optimisation problem where optimal focus and positioning is described in terms of the beam size in $x$- and $y$-direction $\beamwidth$ and $\beamheight$ as well as the beam position in $x$- and $y$-direction $\beampositionx$ and $\beampositiony$. The beam positions $\beampositionx$ and $\beampositiony$ are computed as the mean of all particles' positions in the respective dimension. Accordingly, the beam sizes $\beamwidth$ and $\beamheight$ are computed as the standard deviation of the particles' positions in the respective dimensions. We collect the beam parameters in a vector $\bm{b} = (\mu_x, \mu_y, \sigma_x, \sigma_y)$. All four beam parameters can be read from an image of the beam on the diagnostic screen. While there is a diagnostic screen in the experimental area, the latter is very small. We therefore consider a diagnostic screen downstream from the experimental area. In order to achieve focus and positioning, we can control a set of magnets $Q_1$, $Q_2$, $Q_3$, $C_v$ and $C_h$, where $Q_i$ is a quadrupole magnet, $C_v$ is a steerer magnet along the $y$-axis and $C_h$ is a steerer magnet along the $x$-axis. The inputs to these magnets are defined by the actuator vector $\actuators = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$, where $k_m$ is the strength of quadrupole $m$ measured in $\frac{1}{\text{m}^2}$, and $\alpha_m$ is the angle in $\unit{\radian}$ by which steerer $m$ deflects passing particles.
 
 We define a black box function
 
 \begin{equation}
-    \bm{b} = f(\bm{x})
+    \bm{b} = f(\actuators)
 \end{equation}
 
-mapping an actuator vector $\bm{x}$ to resulting beam parameters $\bm{x}$ by setting the actuator values on the machine and reading the beam parameters from the diagnostic screen inside the machine. This constitutes our optimisation problem as
+mapping an actuator vector $\actuators$ to resulting beam parameters $\actuators$ by setting the actuator values on the machine and reading the beam parameters from the diagnostic screen inside the machine. This constitutes our optimisation problem as
 
 \begin{equation}
-    \argmin_{\bm{x}} \; O(\bm{x}) = \sum_{p \in \bm{b}} \alpha_p |p|
+    \argmin_{\actuators} \; O(\actuators) = \sum_{p \in \bm{b}} \alpha_p |p|
 \end{equation}
 
 where $\alpha_p$ is a hyperparameter weighting for beam parameter $p$.
+
+\section{Our Approach}
 
 We can approach solving this black box optimisation problem using numerical black box optimisation algorithms, such as L-BFGS~\cite{TODO} or Bayesian Optimisation~\cite{TODO}. L-BFGS can find very good solutions most of the time and converge towards these in $300-800$ steps. \Cref{TODO} shows the final screen image of an L-BFGS optimisation as well as the development of actuator and beam parameter values over the steps taken. In some cases the L-BFGS algorithm does not converge toward an global optimum but gets stuck at its initial position instead. This likely occurs when that position is a local optimum. Furthermore, each step of setting the magnets and then reading the sensor values can take up to $10$ seconds on ARES. As a result the optimisation takes somewhere from $50$ minutes up to almost $2.5$ hours. This is about the same it takes a human operator to solve the same task. Yet one has to note that the result achieved by the numerical optimiser is better than that the human operator achieves, if the optimiser does in fact converge. A further disadvantage of black box optimisation is that algorithms like L-BFGS set extreme values for the actuators during optimisation. Such behaviour can be a risk to machine safety, resulting in machine protection intervention and beam loss in the best case, and in serious damage in the worst.
 
@@ -56,22 +58,22 @@ To resolve the aforementioned issues of black box optimisation in particle accel
 To apply \ac{RL} to our optimisation problem, it must first be rephrased as an \ac{RL} problem. We define an action
 
 \begin{equation}
-    \bm{a} = (\Delta k_{Q_1}, \Delta k_{Q_2}, \Delta k_{Q_3}, \Delta \alpha_{C_v}, \Delta \alpha_{C_h})
+    \action = (\Delta k_{Q_1}, \Delta k_{Q_2}, \Delta k_{Q_3}, \Delta \alpha_{C_v}, \Delta \alpha_{C_h})
 \end{equation}
 
-with $\Delta k_{Q_1}$ denoting the change to setting $k_{Q_1} \in \bm{x}$ and all other actuators respectively in this time step. Furthermore, we define an observation as
+with $\Delta k_{Q_1}$ denoting the change to setting $k_{Q_1} \in \actuators$ and all other actuators respectively in this time step. Furthermore, we define an observation as
 
 \begin{equation}
-    \bm{o} = (\mu_x, \mu_y, \sigma_x, \sigma_y, k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})
+    \observation = (\mu_x, \mu_y, \sigma_x, \sigma_y, k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})
 \end{equation}
 
 The problem is partially-observed. In simulation the \ac{RL} problem fulfils the Markov property. The reward is defined as
 
 \begin{equation}
-    r(\bm{s}_t, \bm{a}_t) = O(\bm{x}_{t-1}) - O(\bm{x}_t)
+    r(\bm{s}_t, \action_t) = O(\actuators_{t-1}) - O(\actuators_t)
 \end{equation}
 
-where $\bm{x}_t = \bm{x}_0 + \sum_{i = 0}^t \bm{a}_i$. Intuitively, the reward $r_t$ is the improvement of the objective function at time step $t$ over the objective function at time step $t-1$. Figure \ref{fig:ares_ea_environment} gives an overview over the \ac{RL} problem. Note that the policy is only stochastic during training. It could (should) therefore be denoted as $\policydeterministic_\theta$.
+where $\actuators_t = \actuators_0 + \sum_{i = 0}^t \action_i$. Intuitively, the reward $r_t$ is the improvement of the objective function at time step $t$ over the objective function at time step $t-1$. Figure \ref{fig:ares_ea_environment} gives an overview over the \ac{RL} problem. Note that the policy is only stochastic during training. It could (should) therefore be denoted as $\policydeterministic_\theta$.
 
 \begin{figure}
     \centering
@@ -80,7 +82,7 @@ where $\bm{x}_t = \bm{x}_0 + \sum_{i = 0}^t \bm{a}_i$. Intuitively, the reward $
     \label{fig:ares_ea_environment}
 \end{figure}
 
-To train the policy $\policydeterministic$, we use the TD3 algorithm~\cite{TODO} with the hyperparameters given in \cref{TODOTABLE}. After $15,000$ to $20,000$ steps, the training converges to an agent that can solve the task well, though we observed that training longer for up to $600,000$ steps results in an agent that performs more stably. TODO The resulting beam parameters achieved by the agent are similar to those achieved by numerical optimisers. The \ac{RL} agent however does not get stuck on certain initial conditions. Furthermore, the agent can reach the desired beam in $5$ to $15$ steps, i.e. less than $2.5$ minutes on the real machine. This is superhuman performance and negligible temporal cost.
+To train the policy $\policydeterministic$, we use the TD3 algorithm~\cite{TODO} with the hyperparameters given in \cref{TODOTABLE}.
 
 Training the \ac{RL} agent was not trivial. We identified crucial design decisions that had to be made to make \ac{RL} work well on this problem. First experiments indicate that these design decisions and general design patterns carry over to solving other tasks on particle accelerators using \ac{RL} as well. We list them in descending order of perceived importance.
 
@@ -98,15 +100,15 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
 \end{figure}
  
 \begin{itemize}
-    \item Let $f(\bm{x})$ be named the accelerator function. It describes the particle movement through the beam line and the image they produce on the screen based on the settings $\bm{x}$ to the accelerator section's (considered) magnets. Let $f(\bm{x}) = \mathcal{S}(\mathcal{T}(P, \bm{x}))$.
+    \item Let $f(\actuators)$ be named the accelerator function. It describes the particle movement through the beam line and the image they produce on the screen based on the settings $\actuators$ to the accelerator section's (considered) magnets. Let $f(\actuators) = \mathcal{S}(\mathcal{T}(P, \actuators))$.
     \item We define the screen acquisition function $\mathcal{S}(P) = (\mu_x(P), \mu_y(P), \sigma_x(P), \sigma_y(P))$ that retrieves a $4$-tuple of beam parameters from a set of particles $P$.
-    \item The function $\mathcal{T}(P, \bm{x}) = PR_{\bm{x}}^T$ describes the transformations to particles $P$ when travelling through the beam line with actuator settings $\bm{x}$ applied. $R_{\bm{x}}$ is the transfer map describing the beam line under actuator settings $\bm{x}$ and computed as $R_{\bm{x}} = \prod_{E \in L} R_{\bm{x}}^{E}$ where $R_{\bm{x}}^{E}$ is the transfer map of a particular element such as a quadrupole magnet and $L$ is the lattice, a sequence of elements. One such sequence (not the exact sequence of the experimental area) may be defined as $L = (Q_1, D_1, Q_2, D_2, C_v, D_3, Q_3, D_4, C_h, D_5)$.
-    \item The (true) value function of the optimal policy $V_{\mu_*}$ for the focusing and centring problem can be derived as $V_{\mu_*}(\bm{o}) = O(\bm{x})$ with $\bm{o} = (\bm{b}, \bm{x})$. That is $V_{\mu_*}$ is the expected improvement in the objective function when using the optimal policy. With the policy being optimal and deterministic, this is actually the maximum improvement. We know that the best possible objective function $O(\bm{x}_*) = 0$ and the best possible improvement is $V_{\mu_*}(\bm{o}) = O(\bm{x}) - O(\bm{x}_*) = O(\bm{x})$.
-    \item The transfer maps $R_{\bm{x}}^{E}$ for different elements look as follows:
+    \item The function $\mathcal{T}(P, \actuators) = PR_{\actuators}^T$ describes the transformations to particles $P$ when travelling through the beam line with actuator settings $\actuators$ applied. $R_{\actuators}$ is the transfer map describing the beam line under actuator settings $\actuators$ and computed as $R_{\actuators} = \prod_{E \in L} R_{\actuators}^{E}$ where $R_{\actuators}^{E}$ is the transfer map of a particular element such as a quadrupole magnet and $L$ is the lattice, a sequence of elements. One such sequence (not the exact sequence of the experimental area) may be defined as $L = (Q_1, D_1, Q_2, D_2, C_v, D_3, Q_3, D_4, C_h, D_5)$.
+    \item The (true) value function of the optimal policy $V_{\mu_*}$ for the focusing and centring problem can be derived as $V_{\mu_*}(\observation) = O(\actuators)$ with $\observation = (\bm{b}, \actuators)$. That is $V_{\mu_*}$ is the expected improvement in the objective function when using the optimal policy. With the policy being optimal and deterministic, this is actually the maximum improvement. We know that the best possible objective function $O(\actuators_*) = 0$ and the best possible improvement is $V_{\mu_*}(\observation) = O(\actuators) - O(\actuators_*) = O(\actuators)$.
+    \item The transfer maps $R_{\actuators}^{E}$ for different elements look as follows:
     \begin{itemize}
         \item Drift:
             \begin{equation*}
-                D(l) = R_{\bm{x}}^D(l) = \begin{pmatrix}
+                D(l) = R_{\actuators}^D(l) = \begin{pmatrix}
                                              1 & l & 0 & 0 & 0 & 0 & 0 \\ % x
                                              0 & 1 & 0 & 0 & 0 & 0 & 0 \\ % xp
                                              0 & 0 & 1 & l & 0 & 0 & 0 \\ % y
@@ -118,7 +120,7 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
             \end{equation*}
         \item Focusing Quadrupole:
             \begin{equation*}
-                Q(l,k) = R_{\bm{x}}^Q (l,k) = \begin{pmatrix}
+                Q(l,k) = R_{\actuators}^Q (l,k) = \begin{pmatrix}
                                                   \cos{\sqrt{k} l} & \frac{\sin{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 & 0 & 0 \\ % x
                                                   -\sqrt{k}\sin{\sqrt{k} l} & \cos{\sqrt{k} l} & 0 & 0 & 0 & 0 & 0 \\ % xp
                                                   0 & 0 & \cosh{\sqrt{k} l} & \frac{\sinh{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 \\ % y
@@ -130,7 +132,7 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
             \end{equation*}
         \item Defocusing Quadrupole:
             \begin{equation*}
-                Q(l,k) = R_{\bm{x}}^Q (l,k) = \begin{pmatrix}
+                Q(l,k) = R_{\actuators}^Q (l,k) = \begin{pmatrix}
                                                   \cosh{\sqrt{k} l} & \frac{\sinh{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 & 0 & 0 \\ % x
                                                   \sqrt{k}\sinh{\sqrt{k} l} & \cosh{\sqrt{k} l} & 0 & 0 & 0 & 0 & 0 \\ % xp
                                                   0 & 0 & \cos{\sqrt{k} l} & \frac{\sin{\sqrt{k} l}}{\sqrt{k}} & 0 & 0 & 0 \\ % y
@@ -142,7 +144,7 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
             \end{equation*}
         \item Horizontal Corrector: 
             \begin{equation*}
-                C_h(l,\alpha) = R_{\bm{x}}^{C_h}(l,\alpha) = \begin{pmatrix}
+                C_h(l,\alpha) = R_{\actuators}^{C_h}(l,\alpha) = \begin{pmatrix}
                                                                  1 & l & 0 & 0 & 0 & 0 & 0 \\ % x
                                                                  0 & 1 & 0 & 0 & 0 & 0 & \alpha \\ % xp
                                                                  0 & 0 & 1 & l & 0 & 0 & 0 \\ % y
@@ -154,7 +156,7 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
             \end{equation*}
         \item Vertical Corrector:
             \begin{equation*}
-                C_v(l,\alpha) = R_{\bm{x}}^{C_v}(l,\alpha) = \begin{pmatrix}
+                C_v(l,\alpha) = R_{\actuators}^{C_v}(l,\alpha) = \begin{pmatrix}
                                                                      1 & l & 0 & 0 & 0 & 0 & 0 \\ % x
                                                                      0 & 1 & 0 & 0 & 0 & 0 & 0 \\ % xp
                                                                      0 & 0 & 1 & l & 0 & 0 & 0 \\ % y
@@ -172,14 +174,14 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
         \item $\gamma$: relativistic gamma  
     \end{itemize}
     
-    \item Given the actuator vector $\bm{x} = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$ we have the (simplified but equivalent) lattice
+    \item Given the actuator vector $\actuators = (k_{Q_1}, k_{Q_2}, k_{Q_3}, \alpha_{C_v}, \alpha_{C_h})$ we have the (simplified but equivalent) lattice
     \begin{equation*}
     \begin{aligned}
         L = \langle & D_1(0.175), Q_1(0.122,k_{Q_1}), D_2(0.428), Q_2(0.122,k_{Q_2}), D_3(0.204), C_v(0.02,\alpha_{C_v}), \\ & D_4(0.204), Q_3(0.122,k_{Q_3}), D_5(0.179), C_h(0.02,\alpha_{C_h}), D_6(4.8791) \rangle
     \end{aligned}
     \end{equation*}
     
-    % $$R_{\bm{x}} = Q1(Q1.k).D.Q2(Q2.k).D.Q3(Q3.k)$$
+    % $$R_{\actuators} = Q1(Q1.k).D.Q2(Q2.k).D.Q3(Q3.k)$$
     
     \item Reformulation as ADP
     
@@ -190,8 +192,8 @@ Thirdly, we chose a discount factor $\gamma = 0.55$. While this value is somewha
     \end{align*}
 \end{itemize}
 
-\section{Our Approach}
-
 \section{Experiments}
+
+After $\num{15000}$ to $\num{20000}$ steps, the training of the \ac{RL} agent converges to an agent that can solve the task well, though we observed that training longer for up to $\num{600000}$ steps results in an agent that performs more stably. TODO The resulting beam parameters achieved by the agent are similar to those achieved by numerical optimisers. The \ac{RL} agent however does not get stuck on certain initial conditions. Furthermore, the agent can reach the desired beam in $\num{5}$ to $\num{15}$ steps, i.e. less than $\num{2.5}$ minutes on the real machine. This is superhuman performance and negligible temporal cost.
 
 \section{Conclusion}
