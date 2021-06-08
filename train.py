@@ -29,7 +29,8 @@ wandb.init(project="ares-ea-rl-a-new-hope",
 env = gym.make("ARESEA-JOSS-v1",
                random_actuators=True,
                random_incoming=True,
-               target_translation=True)
+               target_translation=True,
+               simulate_screen=True)
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
@@ -38,7 +39,8 @@ env = ScaleReward(env, unwrap(env).observation_space.high[0])
 eval_env = gym.make("ARESEA-JOSS-v1",
                     random_actuators=True,
                     random_incoming=True,
-                    target_translation=True)
+                    target_translation=True,
+                    simulate_screen=True)
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
