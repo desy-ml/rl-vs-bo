@@ -34,7 +34,7 @@ env = gym.make("ARESEA-JOSS-v1",
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
-env = ScaleReward(env, unwrap(env).observation_space.high[0])
+# env = ScaleReward(env, unwrap(env).observation_space.high[0])
 
 eval_env = gym.make("ARESEA-JOSS-v1",
                     random_actuators=True,
@@ -44,7 +44,7 @@ eval_env = gym.make("ARESEA-JOSS-v1",
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
-eval_env = ScaleReward(eval_env, unwrap(eval_env).observation_space.high[0])
+# eval_env = ScaleReward(eval_env, unwrap(eval_env).observation_space.high[0])
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
