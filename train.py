@@ -27,24 +27,26 @@ wandb.init(project="ares-ea-rl-a-new-hope",
            settings=wandb.Settings(start_method="fork"))
 
 env = gym.make("ARESEA-JOSS-v1",
+               target_translation=True,
                random_actuators=True,
                random_incoming=True,
-               target_translation=True,
-               simulate_screen=False)
+               simulate_screen=False,
+               reward_method="regret")
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
-env = ScaleReward(env, unwrap(env).observation_space.high[0])
+env = ScaleReward(env, unwrap(env).observation_space.high[:4].sum())
 
 eval_env = gym.make("ARESEA-JOSS-v1",
+                    target_translation=True,
                     random_actuators=True,
                     random_incoming=True,
-                    target_translation=True,
-                    simulate_screen=False)
+                    simulate_screen=False,
+                    reward_method="regret")
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
-eval_env = ScaleReward(eval_env, unwrap(eval_env).observation_space.high[0])
+eval_env = ScaleReward(eval_env, unwrap(eval_env).observation_space.high[:4].sum())
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
