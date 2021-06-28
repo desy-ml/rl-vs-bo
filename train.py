@@ -30,7 +30,8 @@ env = gym.make("ARESEA-JOSS-v3",
                target_translation=True,
                random_actuators=True,
                random_incoming=True,
-               simulate_screen=False)
+               simulate_screen=False,
+               objective_method="square")
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
@@ -40,7 +41,8 @@ eval_env = gym.make("ARESEA-JOSS-v3",
                     target_translation=True,
                     random_actuators=True,
                     random_incoming=True,
-                    simulate_screen=False)
+                    simulate_screen=False,
+                    objective_method="square")
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
