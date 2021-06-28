@@ -30,23 +30,21 @@ env = gym.make("ARESEA-JOSS-v3",
                target_translation=True,
                random_actuators=True,
                random_incoming=True,
-               simulate_screen=False,
-               objective_method="square")
+               simulate_screen=False)
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
-env = ScaleReward(env, unwrap(env).observation_space.high[:4].sum() * 1e-3)
+env = ScaleReward(env, unwrap(env).observation_space.high[:4].sum())
 
 eval_env = gym.make("ARESEA-JOSS-v3",
                     target_translation=True,
                     random_actuators=True,
                     random_incoming=True,
-                    simulate_screen=False,
-                    objective_method="square")
+                    simulate_screen=False)
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
-eval_env = ScaleReward(eval_env, unwrap(eval_env).observation_space.high[:4].sum() * 1e-3)
+eval_env = ScaleReward(eval_env, unwrap(eval_env).observation_space.high[:4].sum())
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
