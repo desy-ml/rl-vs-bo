@@ -12,11 +12,11 @@ import wandb
 hyperparameter_defaults = {
     "total_timesteps": 600000,
     "buffer_size": 600000,
-    "learning_rate": 1e-2,
+    "learning_rate": 1e-3,
     "learning_starts": 2000,
     "gamma": 0.55,
     "action_noise_scale": 0.1,
-    "net_arch": [64, 32]
+    "net_arch": [400, 300]
 }
 
 wandb.init(project="ares-ea-rl-a-new-hope",
