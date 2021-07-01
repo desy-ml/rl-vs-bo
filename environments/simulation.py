@@ -174,10 +174,10 @@ class ARESEAJOSS(Env):
     @property
     def objective(self):
         # Weighted sum of absolute beam parameters
-        objective = np.sum([1,1,10,10] * np.abs(self.beam_parameters))
+        objective = np.sum([1,1,2,2] * np.abs(self.beam_parameters))
 
         # Maximum of absolute beam parameters
-        # objective = np.max([1,1,10,10] * np.abs(self.beam_parameters))
+        # objective = np.max([1,1,2,2] * np.abs(self.beam_parameters))
 
         return objective
     
