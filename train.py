@@ -1,12 +1,12 @@
-import accelerator_environments
 from accelerator_environments.utils import unwrap
 from accelerator_environments.wrappers import NormalizeAction, NormalizeObservation, ScaleReward
-import gym
 from gym.wrappers import Monitor, TimeLimit
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
+
+from environments.simulation import ARESEAJOSS
 
 
 hyperparameter_defaults = {
@@ -16,7 +16,7 @@ hyperparameter_defaults = {
     "learning_starts": 2000,
     "gamma": 0.55,
     "action_noise_scale": 0.1,
-    "net_arch": [400, 300]
+    "net_arch": [64, 32]
 }
 
 wandb.init(project="ares-ea-rl-a-new-hope",
@@ -26,21 +26,13 @@ wandb.init(project="ares-ea-rl-a-new-hope",
            monitor_gym=True,
            settings=wandb.Settings(start_method="fork"))
 
-env = gym.make("ARESEA-JOSS-v3",
-               target_translation=True,
-               random_actuators=True,
-               random_incoming=True,
-               simulate_screen=False)
+env = ARESEAJOSS()
 env = TimeLimit(env, max_episode_steps=50)
 env = NormalizeAction(env)
 env = NormalizeObservation(env)
 env = ScaleReward(env, unwrap(env).observation_space.high[:4].sum())
 
-eval_env = gym.make("ARESEA-JOSS-v3",
-                    target_translation=True,
-                    random_actuators=True,
-                    random_incoming=True,
-                    simulate_screen=False)
+eval_env = ARESEAJOSS()
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = NormalizeAction(eval_env)
 eval_env = NormalizeObservation(eval_env)
