@@ -1,6 +1,5 @@
-from accelerator_environments import utils
-from gym import Env
-from gym.spaces import Box
+import gym
+from gym import spaces
 import joss
 from matplotlib import gridspec
 from matplotlib import pyplot as plt
@@ -9,31 +8,45 @@ from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
 
 from . import ARESlatticeStage3v1_9 as lattice
+from . import utils
 
 
-class ARESEAJOSS(Env):
+class ARESEAJOSS(gym.Env):
     """ARESEA version using a JOSS simulation as its backend."""
 
-    metadata = {"render.modes": ["human", "rgb_array"],
-                "video.frames_per_second": 5}
+    metadata = {
+        "render.modes": ["human", "rgb_array"],
+        "video.frames_per_second": 5
+    }
 
-    observation_space = Box(low=np.array([-4e-3, -4e-3,    0,    0,   0, -30, -30, -30, -3e-3, -3e-3], dtype=np.float32),
-                            high=np.array([4e-3,  4e-3, 4e-4, 4e-4, 1e5,  30,  30,  30,  3e-3,  3e-3], dtype=np.float32))
-    action_space = Box(low=observation_space.low[-5:] * 0.1,
-                       high=observation_space.high[-5:] * 0.1)
-    optimization_space = Box(low=observation_space.low[-5:],
-                             high=observation_space.high[-5:])
+    observation_space = spaces.Dict({
+        "observation": spaces.Box(
+            low=np.array([0, -30, -30, -30, -3e-3, -3e-3], dtype=np.float32),
+            high=np.array([1e5, 30, 30, 30, 3e-3, 3e-3], dtype=np.float32)
+        ),
+        "desired_goal": spaces.Box(
+            low=np.array([-3e-3, -15e-4, -1e-3, -1e-3], dtype=np.float32),
+            high=np.array([3e-3, 15e-4, 1e-3, 1e-3], dtype=np.float32)
+        ),
+        "achieved_goal": spaces.Box(
+            low=np.array([-4e-3, -4e-3, 0, 0], dtype=np.float32),
+            high=np.array([4e-3,  4e-3, 4e-4, 4e-4], dtype=np.float32)
+        )
+    })
+    action_space = spaces.Box(
+        low=observation_space["observation"].low[-5:] * 0.1,
+        high=observation_space["observation"].high[-5:] * 0.1
+    )
+    optimization_space = spaces.Box(
+        low=observation_space["observation"].low[-5:],
+        high=observation_space["observation"].high[-5:]
+    )
     
     binning = 4
     screen_resolution = (2448, 2040)
     pixel_size = (3.3198e-6, 2.4469e-6)
 
-    target = np.array([0, 0, 0, 0])
-    goal = np.array([1e-4, 1e-4, 5e-4, 5e-4])
-
     def __init__(self):
-        super().__init__()
-
         cell = utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
         self.segment = joss.Segment.from_ocelot(cell)
         self.segment.AREABSCR1.resolution = self.screen_resolution
@@ -44,73 +57,102 @@ class ARESEAJOSS(Env):
         self.magnets_changed = True
     
     def reset(self):
-        self.actuators = self.initial_actuators
+        self.incoming = joss.Beam.make_random(
+            n=int(1e5),
+            mu_x=np.random.uniform(-5e-4, 5e-4),
+            mu_y=np.random.uniform(-5e-4, 5e-4),
+            mu_xp=np.random.uniform(-1e-4, 1e-4),
+            mu_yp=np.random.uniform(-1e-4, 1e-4),
+            sigma_x=np.random.uniform(0, 5e-4),
+            sigma_y=np.random.uniform(0, 5e-4),
+            sigma_xp=np.random.uniform(0, 1e-4),
+            sigma_yp=np.random.uniform(0, 1e-4),
+            sigma_s=np.random.uniform(0, 1e-4),
+            sigma_p=np.random.uniform(0, 1e-3)
+        )
 
-        self.incoming = joss.Beam.make_random(n=int(1e5),
-                                              mu_x=np.random.uniform(-5e-4, 5e-4),
-                                              mu_y=np.random.uniform(-5e-4, 5e-4),
-                                              mu_xp=np.random.uniform(-1e-4, 1e-4),
-                                              mu_yp=np.random.uniform(-1e-4, 1e-4),
-                                              sigma_x=np.random.uniform(0, 5e-4),
-                                              sigma_y=np.random.uniform(0, 5e-4),
-                                              sigma_xp=np.random.uniform(0, 1e-4),
-                                              sigma_yp=np.random.uniform(0, 1e-4),
-                                              sigma_s=np.random.uniform(0, 1e-4),
-                                              sigma_p=np.random.uniform(0, 1e-3))
+        self.actuators = self.initial_actuators
         
-        self.target = np.array([np.random.uniform(-0.003, 0.003),
-                                np.random.uniform(-0.0015, 0.0015),
-                                np.random.uniform(0, 0.001),
-                                np.random.uniform(0, 0.001)])
+        self.goal = self.observation_space["desired_goal"].sample()
 
         self.finished_steps = 0
-        self.history = [{"objective": self.objective,
-                         "reward": np.nan,
-                         "observation": self.observation,
-                         "action": np.full_like(self.action_space.high, np.nan)}]
+        objective = self.compute_objective(
+            self.observation["achieved_goal"],
+            self.observation["desired_goal"]
+        )
+        self.history = [{
+            "objective": objective,
+            "reward": np.nan,
+            "observation": self.observation,
+            "action": np.full_like(self.action_space.high, np.nan)
+        }]
 
         return self.observation
     
     def step(self, action):
         self.actuators += action
-        reward = self.compute_reward()
+
+        info = {"previous_objective": self.history[-1]["objective"]}
+
+        reward = self.compute_reward(
+            self.observation["achieved_goal"],
+            self.observation["desired_goal"],
+            info
+        )
+        objective = self.compute_objective(
+            self.observation["achieved_goal"],
+            self.observation["desired_goal"]
+        )
 
         self.finished_steps += 1
-        self.history.append({"objective": self.objective,
-                             "reward": reward,
-                             "observation": self.observation,
-                             "action": action})
-        
-        done = all((np.abs(record["observation"][:4]) < self.goal).all() for record in self.history[-5:])
+        self.history.append({
+            "objective": objective,
+            "reward": reward,
+            "observation": self.observation,
+            "action": action
+        })
 
-        return self.observation, reward, done, {}
+        # done = all((np.abs(record["observation"][:4]) < self.goal).all() for record in self.history[-5:])
+        done = False
+
+        return self.observation, reward, done, info
     
     def render(self, mode="human", action_scale=1, observation_scale=1, reward_scale=1):
-        fig = plt.figure("ARESEA-JOSS", figsize=(14,12))
+        if isinstance(observation_scale, (int,float)):
+            observation_scale = {
+                "observation": observation_scale,
+                "desired_goal": observation_scale,
+                "achieved_goal": observation_scale
+            }
+
+        fig = plt.figure("ARESEA-JOSS", figsize=(28,8))
         fig.clear()
 
-        gs = gridspec.GridSpec(3, 2, wspace=0.35, hspace=0.3, figure=fig)
-        sgs0 = gridspec.GridSpecFromSubplotSpec(3, 1, hspace=0, height_ratios=[2,2,1], subplot_spec=gs[0,0])
+        gs = gridspec.GridSpec(2, 4, wspace=0.35, hspace=0.3, figure=fig)
 
-        ax0 = fig.add_subplot(sgs0[0,0])
-        ax1 = fig.add_subplot(sgs0[1,0])
-        ax2 = fig.add_subplot(sgs0[2,0])
-        self.plot_beam_overview(ax0, ax1, ax2)
+        ax_screen = fig.add_subplot(gs[0,0])
+        self.plot_screen(ax_screen)
+        
+        sgs0 = gridspec.GridSpecFromSubplotSpec(3, 1, hspace=0, height_ratios=[2,2,1], subplot_spec=gs[1,0])
+        ax_tracex = fig.add_subplot(sgs0[0,0])
+        ax_tracey = fig.add_subplot(sgs0[1,0])
+        ax_lat = fig.add_subplot(sgs0[2,0])
+        self.plot_beam_overview(ax_tracex, ax_tracey, ax_lat)
 
-        ax3 = fig.add_subplot(gs[0,1])
-        self.plot_screen(ax3)
-        
-        ax4 = fig.add_subplot(gs[1,0])
-        self.plot_actions(ax4, action_scale=action_scale)
-        
-        ax5 = fig.add_subplot(gs[1,1])
-        self.plot_observations(ax5, observation_scale=observation_scale)
+        ax_obs = fig.add_subplot(gs[0,1])
+        self.plot_observations(ax_obs, observation_scale=observation_scale["observation"])
 
-        ax6 = fig.add_subplot(gs[2,0])
-        self.plot_rewards(ax6, reward_scale=reward_scale)
+        ax_goal = fig.add_subplot(gs[1,1])
+        self.plot_goals(ax_goal, goal_scale=observation_scale["achieved_goal"])
         
-        ax7 = fig.add_subplot(gs[2,1])
-        self.plot_objective(ax7)
+        ax_act = fig.add_subplot(gs[0,2])
+        self.plot_actions(ax_act, action_scale=action_scale)
+
+        ax_rew = fig.add_subplot(gs[0,3])
+        self.plot_rewards(ax_rew, reward_scale=reward_scale)
+        
+        ax_obj = fig.add_subplot(gs[1,3])
+        self.plot_objective(ax_obj)
 
         if mode == "rgb_array":
             return mplfig_to_npimage(fig)
@@ -119,6 +161,10 @@ class ARESEAJOSS(Env):
         else:
             raise ValueError(f"Invalid render mode \"{mode}\" (allowed: {self.metadata['render.modes']})")
     
+    @property
+    def initial_actuators(self):
+        return self.optimization_space.sample()
+
     @property
     def actuators(self):
         return np.array([self.segment.AREAMQZM1.k1,
@@ -132,70 +178,58 @@ class ARESEAJOSS(Env):
         self.segment.AREAMQZM1.k1, self.segment.AREAMQZM2.k1, self.segment.AREAMQZM3.k1 = values[:3]
         self.segment.AREAMCVM1.angle, self.segment.AREAMCHM1.angle = values[3:]
         
-        self.magnets_changed = True
-    
-    @property
-    def initial_actuators(self):
-        return self.optimization_space.sample()
-    
-    @property
-    def screen_data(self):
-        if self.magnets_changed:
-            self._screen_data = self.read_screen()
-            self.magnets_changed = False
-        return self._screen_data
+        self.screen_data = self.read_screen()
         
     def read_screen(self):
+        self.run_simulation()
+        return self.segment.AREABSCR1.reading
+    
+    def run_simulation(self):
         _ = self.segment(self.incoming)
-        image = self.segment.AREABSCR1.reading
-
-        return image
     
     @property
     def beam_parameters(self):
-        _ = self.screen_data    # TODO: This is a hack for now
-        parameters = np.array([self.segment.AREABSCR1.read_beam.mu_x,
-                                self.segment.AREABSCR1.read_beam.mu_y,
-                                self.segment.AREABSCR1.read_beam.sigma_x,
-                                self.segment.AREABSCR1.read_beam.sigma_y]) 
-        
-        shifted = parameters - self.target
-
-        return shifted
+        return np.array([
+            self.segment.AREABSCR1.read_beam.mu_x,
+            self.segment.AREABSCR1.read_beam.mu_y,
+            self.segment.AREABSCR1.read_beam.sigma_x,
+            self.segment.AREABSCR1.read_beam.sigma_y
+        ])
 
     @property
     def observation(self):
-        return np.concatenate([self.beam_parameters, [self.beam_intensity], self.actuators])
-    
+        return {
+            "observation": np.concatenate([[self.beam_intensity], self.actuators]),
+            "desired_goal": self.goal,
+            "achieved_goal": self.beam_parameters
+        }
+
     @property
     def beam_intensity(self):
         return self.screen_data.sum()
     
-    @property
-    def objective(self):
+    def compute_objective(self, achieved_goal, desired_goal):
+        offset = achieved_goal - desired_goal
+        weights = np.array([1, 1, 2, 2])
+
         # Weighted sum of absolute beam parameters
-        objective = np.sum([1,1,2,2] * np.abs(self.beam_parameters))
+        return (weights * np.abs(offset)).sum()
 
         # Maximum of absolute beam parameters
-        # objective = np.max([1,1,2,2] * np.abs(self.beam_parameters))
+        # return (weights * np.abs(offset)).max()
 
-        return objective
-    
-    def compute_reward(self):
-        # Differential
-        previous_objective = self.history[-1]["objective"]
-        reward = previous_objective - self.objective
-        
-        # Regret
-        # reward = -self.objective
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        current_objective = self.compute_objective(achieved_goal, desired_goal)
+        previous_objective = info["previous_objective"]
 
-        return reward
+        return previous_objective - current_objective
     
     def evaluate(self, actuators):
         """Evaluates the objective function for given actuator settings."""
         self.actuators = actuators
+        objective = self.compute_objective(self.beam_parameters, self.goal)
 
-        self.history.append({"objective": self.objective,
+        self.history.append({"objective": objective,
                              "reward": np.nan,
                              "observation": self.observation,
                              "action": np.full_like(self.action_space.high, np.nan)})
@@ -215,11 +249,11 @@ class ARESEAJOSS(Env):
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
 
-        target_mu_x, target_mu_y, target_sigma_x, target_sigma_y = self.target
+        target_mu_x, target_mu_y, target_sigma_x, target_sigma_y = self.goal
         target_ellipse = Ellipse((target_mu_x,target_mu_y), target_sigma_x, target_sigma_y, fill=False, color="white")
         ax.add_patch(target_ellipse)
 
-        read_mu_x, read_mu_y, read_sigma_x, read_sigma_y = self.target + self.beam_parameters
+        read_mu_x, read_mu_y, read_sigma_x, read_sigma_y = self.beam_parameters
         read_ellipse = Ellipse((read_mu_x,read_mu_y), read_sigma_x, read_sigma_y, fill=False, color="deepskyblue", linestyle="--")
         ax.add_patch(read_ellipse)
 
@@ -243,13 +277,28 @@ class ARESEAJOSS(Env):
         ax.grid()
     
     def plot_observations(self, ax, observation_scale=1):
-        observations = np.stack([record["observation"] for record in self.history])
+        observations = np.stack([record["observation"]["observation"] for record in self.history])
         observations = observations / observation_scale
 
         ax.set_title("Observations")
-        for i, name in enumerate(["$\mu_x$", "$\mu_y$", "$\sigma_x$", "$\sigma_y$", "Intensity",
-                                  "$Q_1$", "$Q_2$", "$Q_3$", "$C_v$", "$C_h$"]):
+        for i, name in enumerate(["Intensity", "$Q_1$", "$Q_2$", "$Q_3$", "$C_v$", "$C_h$"]):
             ax.plot(observations[:,i], label=name)
+        ax.set_xlabel("Step")
+        ax.set_ylabel("Value (in Agent View)")
+        ax.legend(loc="upper right")
+        ax.grid()
+    
+    def plot_goals(self, ax, goal_scale=1):
+        desired_goals = np.stack([record["observation"]["desired_goal"] for record in self.history])
+        desired_goals = desired_goals / goal_scale
+
+        achieved_goals = np.stack([record["observation"]["achieved_goal"] for record in self.history])
+        achieved_goals = achieved_goals / goal_scale
+
+        ax.set_title("Goals")
+        for i, name in enumerate(["$\mu_x$", "$\mu_y$", "$\sigma_x$", "$\sigma_y$"]):
+            p, = ax.plot(achieved_goals[:,i], label=f"Achieved {name}")
+            ax.plot(desired_goals[:,i], label=f"Desired {name}", color=p.get_color(), ls="--")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value (in Agent View)")
         ax.legend(loc="upper right")
