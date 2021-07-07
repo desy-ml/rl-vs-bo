@@ -25,7 +25,7 @@ class ARESEAJOSS(gym.Env):
             high=np.array([1e5, 30, 30, 30, 3e-3, 3e-3], dtype=np.float32)
         ),
         "desired_goal": spaces.Box(
-            low=np.array([-3e-3, -15e-4, -1e-3, -1e-3], dtype=np.float32),
+            low=np.array([-3e-3, -15e-4, 0, 0], dtype=np.float32),
             high=np.array([3e-3, 15e-4, 1e-3, 1e-3], dtype=np.float32)
         ),
         "achieved_goal": spaces.Box(

@@ -5,7 +5,6 @@ import gym
 from gym import spaces
 import numpy as np
 from PIL import Image
-from numpy.lib.arraysetops import isin
 
 
 class ScaleAction(gym.ActionWrapper):
@@ -21,8 +20,8 @@ class ScaleAction(gym.ActionWrapper):
     def action(self, action):
         return action * self.scale
     
-    def render(self, **kwargs):
-        return self.env.render(action_scale=self.scale, **kwargs)
+    def render(self, *args, **kwargs):
+        return self.env.render(action_scale=self.scale, *args, **kwargs)
 
 
 class NormalizeAction(ScaleAction):
@@ -40,7 +39,9 @@ class ScaleObservation(gym.ObservationWrapper):
 
         self.scale = scale
 
-        if isinstance(env.unwrapped, gym.GoalEnv):
+        if isinstance(env.observation_space, spaces.Dict):
+            assert isinstance(scale, (int,float,dict))
+            
             self.observation_space = spaces.Dict({
                 "observation": spaces.Box(
                     low=env.observation_space["observation"].low / scale["observation"],
@@ -56,30 +57,34 @@ class ScaleObservation(gym.ObservationWrapper):
                 )
             })
         else:
+            assert isinstance(scale, (int,float,np.ndarray))
+
             self.observation_space = spaces.Box(
                 low=env.observation_space.low / scale,
                 high=env.observation_space.high / scale
             )
     
     def observation(self, observation):
-        if isinstance(self.env.unwrapped, gym.GoalEnv):
+        if isinstance(self.env.observation_space, spaces.Dict):
             return {
                 "observation": observation["observation"] / self.scale["observation"],
                 "desired_goal": observation["desired_goal"] / self.scale["desired_goal"],
                 "achieved_goal": observation["achieved_goal"] / self.scale["achieved_goal"]
             }
         else:
+            print("observation", observation)
+            print("self.scale", self.scale)
             return observation / self.scale
     
-    def render(self, **kwargs):
-        return self.env.render(observation_scale=self.scale, **kwargs)
+    def render(self, *args, **kwargs):
+        return self.env.render(observation_scale=self.scale, *args, **kwargs)
 
 
 class NormalizeObservation(ScaleObservation):
     """Normalise a continuous observation."""
 
     def __init__(self, env):
-        if isinstance(env.unwrapped, gym.GoalEnv):
+        if isinstance(env.observation_space, spaces.Dict):
             scale = {k: v.high for k, v in env.observation_space.spaces.items()}
             super().__init__(env, scale=scale)
         else:
@@ -97,7 +102,7 @@ class ScaleReward(gym.RewardWrapper):
     def reward(self, reward):
         return reward / self.scale
     
-    def render(self, **kwargs):
+    def render(self, *args, **kwargs):
         return self.env.render(reward_scale=self.scale, **kwargs)
 
 
@@ -114,7 +119,7 @@ class ScaleActuators(gym.Wrapper):
     def objective_function(self, actuators):
         return self.env.objective_function(actuators * self.scale)
     
-    def render(self, **kwargs):
+    def render(self, *args, **kwargs):
         n_non_action_observables = self.observation_space.shape[0] - self.action_space.shape[0]
         if isinstance(self.scale, np.ndarray):
             render_scale = np.concatenate([np.ones(n_non_action_observables), self.scale])
