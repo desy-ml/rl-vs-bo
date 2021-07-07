@@ -1,11 +1,10 @@
-from gym.wrappers import Monitor, TimeLimit
+from gym.wrappers import Monitor, TimeLimit, FlattenObservation
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
 from environments.simulation import ARESEAJOSS
-from environments.wrappers import NormalizeAction, NormalizeObservation, ScaleReward
 
 
 hyperparameter_defaults = {
@@ -27,15 +26,11 @@ wandb.init(project="ares-ea-rl-a-new-hope",
 
 env = ARESEAJOSS()
 env = TimeLimit(env, max_episode_steps=50)
-env = NormalizeAction(env)
-env = NormalizeObservation(env)
-env = ScaleReward(env, env.unwrapped.observation_space["achieved_goal"].high.sum() * 1e-3)
+env = FlattenObservation(env)
 
 eval_env = ARESEAJOSS()
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
-eval_env = NormalizeAction(eval_env)
-eval_env = NormalizeObservation(eval_env)
-eval_env = ScaleReward(eval_env, eval_env.unwrapped.observation_space["achieved_goal"].high.sum() * 1e-3)
+eval_env = FlattenObservation(eval_env)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
