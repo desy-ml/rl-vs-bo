@@ -19,7 +19,7 @@ class ARESEAJOSS(gym.Env):
         "video.frames_per_second": 5
     }
 
-    observation_space = spaces.Dict({
+    accelerator_observation_space = spaces.Dict({
         "observation": spaces.Box(
             low=np.array([0, -30, -30, -30, -3e-3, -3e-3], dtype=np.float32),
             high=np.array([1e5, 30, 30, 30, 3e-3, 3e-3], dtype=np.float32)
@@ -33,13 +33,17 @@ class ARESEAJOSS(gym.Env):
             high=np.array([4e-3,  4e-3, 4e-4, 4e-4], dtype=np.float32)
         )
     })
-    action_space = spaces.Box(
-        low=observation_space["observation"].low[-5:] * 0.1,
-        high=observation_space["observation"].high[-5:] * 0.1
+    accelerator_action_space = spaces.Box(
+        low=accelerator_observation_space["observation"].low[-5:] * 0.1,
+        high=accelerator_observation_space["observation"].high[-5:] * 0.1
     )
-    optimization_space = spaces.Box(
-        low=observation_space["observation"].low[-5:],
-        high=observation_space["observation"].high[-5:]
+    accelerator_optimization_space = spaces.Box(
+        low=accelerator_observation_space["observation"].low[-5:],
+        high=accelerator_observation_space["observation"].high[-5:]
+    )
+    accelerator_reward_range = (
+        -accelerator_observation_space["achieved_goal"].high.sum() * 1e-3,
+        accelerator_observation_space["achieved_goal"].high.sum() * 1e-3
     )
     
     binning = 4
@@ -73,7 +77,7 @@ class ARESEAJOSS(gym.Env):
 
         self.actuators = self.initial_actuators
         
-        self.goal = self.observation_space["desired_goal"].sample()
+        self.goal = self.accelerator_observation_space["desired_goal"].sample()
 
         self.finished_steps = 0
         objective = self.compute_objective(
@@ -87,9 +91,11 @@ class ARESEAJOSS(gym.Env):
             "action": np.full_like(self.action_space.high, np.nan)
         }]
 
-        return self.observation
+        return self.observation2agent(self.observation)
     
     def step(self, action):
+        action = self.action2accelerator(action)
+
         self.actuators += action
 
         info = {"previous_objective": self.history[-1]["objective"]}
@@ -115,16 +121,9 @@ class ARESEAJOSS(gym.Env):
         # done = all((np.abs(record["observation"][:4]) < self.goal).all() for record in self.history[-5:])
         done = False
 
-        return self.observation, reward, done, info
+        return self.observation2agent(self.observation), self.reward2agent(reward), done, info
     
-    def render(self, mode="human", action_scale=1, observation_scale=1, reward_scale=1):
-        if isinstance(observation_scale, (int,float)):
-            observation_scale = {
-                "observation": observation_scale,
-                "desired_goal": observation_scale,
-                "achieved_goal": observation_scale
-            }
-
+    def render(self, mode="human"):
         fig = plt.figure("ARESEA-JOSS", figsize=(28,8))
         fig.clear()
 
@@ -140,16 +139,16 @@ class ARESEAJOSS(gym.Env):
         self.plot_beam_overview(ax_tracex, ax_tracey, ax_lat)
 
         ax_obs = fig.add_subplot(gs[0,1])
-        self.plot_observations(ax_obs, observation_scale=observation_scale["observation"])
+        self.plot_observations(ax_obs)
 
         ax_goal = fig.add_subplot(gs[1,1])
-        self.plot_goals(ax_goal, goal_scale=observation_scale["achieved_goal"])
+        self.plot_goals(ax_goal)
         
         ax_act = fig.add_subplot(gs[0,2])
-        self.plot_actions(ax_act, action_scale=action_scale)
+        self.plot_actions(ax_act)
 
         ax_rew = fig.add_subplot(gs[0,3])
-        self.plot_rewards(ax_rew, reward_scale=reward_scale)
+        self.plot_rewards(ax_rew)
         
         ax_obj = fig.add_subplot(gs[1,3])
         self.plot_objective(ax_obj)
@@ -163,7 +162,7 @@ class ARESEAJOSS(gym.Env):
     
     @property
     def initial_actuators(self):
-        return self.optimization_space.sample()
+        return self.accelerator_optimization_space.sample()
 
     @property
     def actuators(self):
@@ -236,6 +235,45 @@ class ARESEAJOSS(gym.Env):
 
         return self.objective
     
+    @property
+    def observation_space(self):
+        return spaces.Dict({
+            k: spaces.Box(
+                low=self.accelerator_observation_space[k].low / self.accelerator_observation_space[k].high,
+                high=self.accelerator_observation_space[k].high / self.accelerator_observation_space[k].high
+            ) for k in self.accelerator_observation_space.spaces.keys()
+        })
+    
+    @property
+    def action_space(self):
+        return spaces.Box(
+            low=self.accelerator_action_space.low / self.accelerator_action_space.high,
+            high=self.accelerator_action_space.high / self.accelerator_action_space.high
+        )
+    
+    @property
+    def reward_range(self):
+        return (
+            self.accelerator_reward_range[0] / self.accelerator_reward_range[1],
+            self.accelerator_reward_range[1] / self.accelerator_reward_range[1]
+        )
+    
+    def observation2agent(self, observation):
+        """Convert an observation from accelerator view to agent view."""
+        return {k: observation[k] / self.accelerator_observation_space[k].high for k in observation.keys()}
+    
+    def action2accelerator(self, action):
+        """Convert an action from agent view to accelerator view."""
+        return action * self.accelerator_action_space.high
+    
+    def action2agent(self, action):
+        """Convert an action from accelerator view to agent view."""
+        return action / self.accelerator_action_space.high
+    
+    def reward2agent(self, reward):
+        """Convert a reward from accelerator view to agent view."""
+        return reward / self.accelerator_reward_range[1]
+    
     def plot_beam_overview(self, axx, axy, axl):
         axx.set_title(f"Beam Overview")
         self.segment.plot_reference_particle_traces(axx, axy, beam=self.incoming)
@@ -264,9 +302,8 @@ class ARESEAJOSS(gym.Env):
         true_ellipse = Ellipse((true_mu_x,true_mu_y), true_sigma_x, true_sigma_y, fill=False, color="lime", linestyle="--")
         ax.add_patch(true_ellipse)
     
-    def plot_actions(self, ax, action_scale=1):
-        actions = np.stack([record["action"] for record in self.history])
-        actions = actions / action_scale
+    def plot_actions(self, ax):
+        actions = np.stack([self.action2agent(record["action"]) for record in self.history])
 
         ax.set_title("Actions")
         for i, name in enumerate(["$Q_1$", "$Q_2$", "$Q_3$", "$C_v$", "$C_h$"]):
@@ -276,9 +313,9 @@ class ARESEAJOSS(gym.Env):
         ax.legend(loc="lower right")
         ax.grid()
     
-    def plot_observations(self, ax, observation_scale=1):
-        observations = np.stack([record["observation"]["observation"] for record in self.history])
-        observations = observations / observation_scale
+    def plot_observations(self, ax):
+        observations = np.stack([self.observation2agent(record["observation"])["observation"]
+                                     for record in self.history])
 
         ax.set_title("Observations")
         for i, name in enumerate(["Intensity", "$Q_1$", "$Q_2$", "$Q_3$", "$C_v$", "$C_h$"]):
@@ -288,13 +325,13 @@ class ARESEAJOSS(gym.Env):
         ax.legend(loc="upper right")
         ax.grid()
     
-    def plot_goals(self, ax, goal_scale=1):
-        desired_goals = np.stack([record["observation"]["desired_goal"] for record in self.history])
-        desired_goals = desired_goals / goal_scale
+    def plot_goals(self, ax):
+        desired_goals = np.stack([self.observation2agent(record["observation"])["desired_goal"]
+                                      for record in self.history])
 
-        achieved_goals = np.stack([record["observation"]["achieved_goal"] for record in self.history])
-        achieved_goals = achieved_goals / goal_scale
-
+        achieved_goals = np.stack([self.observation2agent(record["observation"])["achieved_goal"]
+                                       for record in self.history])
+        
         ax.set_title("Goals")
         for i, name in enumerate(["$\mu_x$", "$\mu_y$", "$\sigma_x$", "$\sigma_y$"]):
             p, = ax.plot(achieved_goals[:,i], label=f"Achieved {name}")
@@ -304,9 +341,8 @@ class ARESEAJOSS(gym.Env):
         ax.legend(loc="upper right")
         ax.grid()
     
-    def plot_rewards(self, ax, reward_scale=1):
-        rewards = np.array([record["reward"] for record in self.history])
-        rewards = rewards / reward_scale
+    def plot_rewards(self, ax):
+        rewards = np.array([self.reward2agent(record["reward"]) for record in self.history])
 
         ax.set_title("Reward")
         ax.plot(rewards, label="Reward")
