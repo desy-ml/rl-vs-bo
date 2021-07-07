@@ -132,10 +132,10 @@ class ARESEAJOSS(gym.Env):
         ax_screen = fig.add_subplot(gs[0,0])
         self.plot_screen(ax_screen)
         
-        sgs0 = gridspec.GridSpecFromSubplotSpec(3, 1, hspace=0, height_ratios=[2,2,1], subplot_spec=gs[1,0])
-        ax_tracex = fig.add_subplot(sgs0[0,0])
-        ax_tracey = fig.add_subplot(sgs0[1,0])
-        ax_lat = fig.add_subplot(sgs0[2,0])
+        sgs_trace = gridspec.GridSpecFromSubplotSpec(3, 1, hspace=0, height_ratios=[2,2,1], subplot_spec=gs[1,0])
+        ax_tracex = fig.add_subplot(sgs_trace[0,0])
+        ax_tracey = fig.add_subplot(sgs_trace[1,0])
+        ax_lat = fig.add_subplot(sgs_trace[2,0])
         self.plot_beam_overview(ax_tracex, ax_tracey, ax_lat)
 
         ax_obs = fig.add_subplot(gs[0,1])
@@ -144,7 +144,8 @@ class ARESEAJOSS(gym.Env):
         ax_goal = fig.add_subplot(gs[1,1])
         self.plot_goals(ax_goal)
         
-        ax_act = fig.add_subplot(gs[0,2])
+        sgs_act = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,2,1], subplot_spec=gs[:,2])
+        ax_act = fig.add_subplot(sgs_act[1,0])
         self.plot_actions(ax_act)
 
         ax_rew = fig.add_subplot(gs[0,3])
@@ -306,11 +307,12 @@ class ARESEAJOSS(gym.Env):
         actions = np.stack([self.action2agent(record["action"]) for record in self.history])
 
         ax.set_title("Actions")
-        for i, name in enumerate(["$Q_1$", "$Q_2$", "$Q_3$", "$C_v$", "$C_h$"]):
+        for i, name in enumerate([r"$\Delta k_{Q_1}$", r"$\Delta k_{Q_2}$", r"$\Delta k_{Q_3}$",
+                                  r"$\Delta \alpha_{C_v}$", r"$\Delta \alpha_{C_h}$"]):
             ax.plot(actions[:,i], label=name)
         ax.set_xlabel("Step")
         ax.set_ylabel("Value (in Agent View)")
-        ax.legend(loc="lower right")
+        ax.legend(loc="upper right", bbox_to_anchor=(1,-0.18), ncol=3)
         ax.grid()
     
     def plot_observations(self, ax):
@@ -318,11 +320,12 @@ class ARESEAJOSS(gym.Env):
                                      for record in self.history])
 
         ax.set_title("Observations")
-        for i, name in enumerate(["Intensity", "$Q_1$", "$Q_2$", "$Q_3$", "$C_v$", "$C_h$"]):
+        for i, name in enumerate([r"$i_S$", r"$k_{Q_1}$", r"$k_{Q_2}$", r"$k_{Q_3}$",
+                                  r"$\alpha_{C_v}$", r"$\alpha_{C_h}$"]):
             ax.plot(observations[:,i], label=name)
         ax.set_xlabel("Step")
         ax.set_ylabel("Value (in Agent View)")
-        ax.legend(loc="upper right")
+        ax.legend(loc="upper left", bbox_to_anchor=(1.01,1), ncol=2)
         ax.grid()
     
     def plot_goals(self, ax):
@@ -333,12 +336,12 @@ class ARESEAJOSS(gym.Env):
                                        for record in self.history])
         
         ax.set_title("Goals")
-        for i, name in enumerate(["$\mu_x$", "$\mu_y$", "$\sigma_x$", "$\sigma_y$"]):
-            p, = ax.plot(achieved_goals[:,i], label=f"Achieved {name}")
-            ax.plot(desired_goals[:,i], label=f"Desired {name}", color=p.get_color(), ls="--")
+        for i, name in enumerate([r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$"]):
+            p, = ax.plot(achieved_goals[:,i], label=name)
+            ax.plot(desired_goals[:,i], label=f"{name}'", color=p.get_color(), ls="--")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value (in Agent View)")
-        ax.legend(loc="upper right")
+        ax.legend(loc="lower left", bbox_to_anchor=(1.01,0), ncol=2)
         ax.grid()
     
     def plot_rewards(self, ax):
@@ -356,7 +359,7 @@ class ARESEAJOSS(gym.Env):
                                  for i in range(len(rewards))]
         axt.plot(cumulative, label="Cumulative Reward")
         axt.set_ylabel("Cumulative Reward")
-        axt.legend(loc="upper right")
+        axt.legend(loc="upper right", bbox_to_anchor=(-0.12,1))
     
     def plot_objective(self, ax):
         ax.set_title("Objective Function")
