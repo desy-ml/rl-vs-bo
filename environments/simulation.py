@@ -21,8 +21,8 @@ class ARESEAJOSS(gym.Env):
 
     accelerator_observation_space = spaces.Dict({
         "observation": spaces.Box(
-            low=np.array([0, -30, -30, -30, -3e-3, -3e-3], dtype=np.float32),
-            high=np.array([1e5, 30, 30, 30, 3e-3, 3e-3], dtype=np.float32)
+            low=np.array([0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+            high=np.array([1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
         ),
         "desired_goal": spaces.Box(
             low=np.array([-3e-3, -15e-4, 0, 0], dtype=np.float32),
@@ -42,8 +42,8 @@ class ARESEAJOSS(gym.Env):
         high=accelerator_observation_space["observation"].high[-5:]
     )
     accelerator_reward_range = (
-        -accelerator_observation_space["achieved_goal"].high.sum() * 1e-3,
-        accelerator_observation_space["achieved_goal"].high.sum() * 1e-3
+        -accelerator_observation_space["achieved_goal"].high[0],
+        accelerator_observation_space["achieved_goal"].high[0]
     )
     
     binning = 4
@@ -213,10 +213,10 @@ class ARESEAJOSS(gym.Env):
         weights = np.array([1, 1, 2, 2])
 
         # Weighted sum of absolute beam parameters
-        return (weights * np.abs(offset)).sum()
+        # return (weights * np.abs(offset)).sum()
 
         # Maximum of absolute beam parameters
-        # return (weights * np.abs(offset)).max()
+        return (weights * np.abs(offset)).max()
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         current_objective = self.compute_objective(achieved_goal, desired_goal)
