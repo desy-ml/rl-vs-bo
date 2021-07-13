@@ -1,6 +1,5 @@
 import gym
 from gym import spaces
-from gym.envs.registration import register
 import joss
 from matplotlib import gridspec
 from matplotlib import pyplot as plt
@@ -20,23 +19,19 @@ class ARESEAJOSS(gym.Env):
         "video.frames_per_second": 5
     }
 
-    binning = 4
-    screen_resolution = (2448, 2040)
-    pixel_size = (3.3198e-6, 2.4469e-6)
-
-    accelerator_goal_space = spaces.Box(
-        low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
-        high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
-    )
-    accelerator_observation_component_space = spaces.Box(
-        low=np.array([0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
-        high=np.array([1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
-    )
-    
     accelerator_observation_space = spaces.Dict({
-        "observation": accelerator_observation_component_space,
-        "desired_goal": accelerator_goal_space,
-        "achieved_goal": accelerator_goal_space
+        "observation": spaces.Box(
+            low=np.array([0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+            high=np.array([1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
+        ),
+        "desired_goal": spaces.Box(
+            low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
+            high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
+        ),
+        "achieved_goal": spaces.Box(
+            low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
+            high=np.array([2e-3,  2e-3, 5e-4, 5e-4], dtype=np.float32)
+        )
     })
     accelerator_action_space = spaces.Box(
         low=accelerator_observation_space["observation"].low[-5:] * 0.1,
@@ -46,20 +41,16 @@ class ARESEAJOSS(gym.Env):
         low=accelerator_observation_space["observation"].low[-5:],
         high=accelerator_observation_space["observation"].high[-5:]
     )
+    accelerator_reward_range = (
+        -accelerator_observation_space["achieved_goal"].high[0],
+        accelerator_observation_space["achieved_goal"].high[0]
+    )
+    
+    binning = 4
+    screen_resolution = (2448, 2040)
+    pixel_size = (3.3198e-6, 2.4469e-6)
 
     def __init__(self):
-        self.observation_space = spaces.Dict({
-            k: spaces.Box(
-                low=self.accelerator_observation_space[k].low / self.accelerator_observation_space[k].high,
-                high=self.accelerator_observation_space[k].high / self.accelerator_observation_space[k].high
-            ) for k in self.accelerator_observation_space.spaces.keys()
-        })
-        self.action_space = spaces.Box(
-            low=self.accelerator_action_space.low / self.accelerator_action_space.high,
-            high=self.accelerator_action_space.high / self.accelerator_action_space.high
-        )
-
-
         cell = utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
         self.segment = joss.Segment.from_ocelot(cell)
         self.segment.AREABSCR1.resolution = self.screen_resolution
@@ -84,7 +75,7 @@ class ARESEAJOSS(gym.Env):
             sigma_p=np.random.uniform(0, 1e-3)
         )
 
-        self.actuators = self.sample_actuators()
+        self.actuators = self.initial_actuators
         
         self.goal = self.accelerator_observation_space["desired_goal"].sample()
 
@@ -107,10 +98,12 @@ class ARESEAJOSS(gym.Env):
 
         self.actuators += action
 
+        info = {"previous_objective": self.history[-1]["objective"]}
+
         reward = self.compute_reward(
-            self.goal2agent(self.observation["achieved_goal"]),
-            self.goal2agent(self.observation["desired_goal"]),
-            {}
+            self.observation["achieved_goal"],
+            self.observation["desired_goal"],
+            info
         )
         objective = self.compute_objective(
             self.observation["achieved_goal"],
@@ -125,9 +118,10 @@ class ARESEAJOSS(gym.Env):
             "action": action
         })
 
-        done = all([record["reward"] > -1 for record in self.history[-4:]])
+        # done = all((np.abs(record["observation"][:4]) < self.goal).all() for record in self.history[-5:])
+        done = False
 
-        return self.observation2agent(self.observation), reward, done, {}
+        return self.observation2agent(self.observation), self.reward2agent(reward), done, info
     
     def render(self, mode="human"):
         fig = plt.figure("ARESEA-JOSS", figsize=(28,8))
@@ -167,7 +161,8 @@ class ARESEAJOSS(gym.Env):
         else:
             raise ValueError(f"Invalid render mode \"{mode}\" (allowed: {self.metadata['render.modes']})")
     
-    def sample_actuators(self):
+    @property
+    def initial_actuators(self):
         return self.accelerator_optimization_space.sample()
 
     @property
@@ -224,10 +219,10 @@ class ARESEAJOSS(gym.Env):
         return (weights * np.abs(offset)).max()
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        epsilon = np.array([1e-4, 1e-4, 5e-4, 5e-4])
-        scaled_epsilon = self.goal2agent(epsilon)
+        current_objective = self.compute_objective(achieved_goal, desired_goal)
+        previous_objective = info["previous_objective"]
 
-        return -1 * (np.abs(achieved_goal - desired_goal) > scaled_epsilon).any()
+        return previous_objective - current_objective
     
     def evaluate(self, actuators):
         """Evaluates the objective function for given actuator settings."""
@@ -241,12 +236,32 @@ class ARESEAJOSS(gym.Env):
 
         return self.objective
     
+    @property
+    def observation_space(self):
+        return spaces.Dict({
+            k: spaces.Box(
+                low=self.accelerator_observation_space[k].low / self.accelerator_observation_space[k].high,
+                high=self.accelerator_observation_space[k].high / self.accelerator_observation_space[k].high
+            ) for k in self.accelerator_observation_space.spaces.keys()
+        })
+    
+    @property
+    def action_space(self):
+        return spaces.Box(
+            low=self.accelerator_action_space.low / self.accelerator_action_space.high,
+            high=self.accelerator_action_space.high / self.accelerator_action_space.high
+        )
+    
+    @property
+    def reward_range(self):
+        return (
+            self.accelerator_reward_range[0] / self.accelerator_reward_range[1],
+            self.accelerator_reward_range[1] / self.accelerator_reward_range[1]
+        )
+    
     def observation2agent(self, observation):
         """Convert an observation from accelerator view to agent view."""
         return {k: observation[k] / self.accelerator_observation_space[k].high for k in observation.keys()}
-    
-    def goal2agent(self, goal):
-        return goal / self.accelerator_goal_space.high
     
     def action2accelerator(self, action):
         """Convert an action from agent view to accelerator view."""
@@ -255,6 +270,10 @@ class ARESEAJOSS(gym.Env):
     def action2agent(self, action):
         """Convert an action from accelerator view to agent view."""
         return action / self.accelerator_action_space.high
+    
+    def reward2agent(self, reward):
+        """Convert a reward from accelerator view to agent view."""
+        return reward / self.accelerator_reward_range[1]
     
     def plot_beam_overview(self, axx, axy, axl):
         axx.set_title(f"Beam Overview")
@@ -326,7 +345,7 @@ class ARESEAJOSS(gym.Env):
         ax.grid()
     
     def plot_rewards(self, ax):
-        rewards = np.array([record["reward"] for record in self.history])
+        rewards = np.array([self.reward2agent(record["reward"]) for record in self.history])
 
         ax.set_title("Reward")
         ax.plot(rewards, label="Reward")
@@ -348,6 +367,3 @@ class ARESEAJOSS(gym.Env):
         ax.set_xlabel("Step")
         ax.set_ylabel("Objective Function")
         ax.grid()
-
-
-register(id="ARESEA-JOSS-v42", entry_point="environments.simulation:ARESEAJOSS")
