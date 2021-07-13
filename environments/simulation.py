@@ -12,7 +12,7 @@ from . import ARESlatticeStage3v1_9 as lattice
 from . import utils
 
 
-class ARESEAJOSS(gym.Env):
+class ARESEAJOSS(gym.GoalEnv):
     """ARESEA version using a JOSS simulation as its backend."""
 
     metadata = {

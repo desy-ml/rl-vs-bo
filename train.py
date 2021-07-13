@@ -5,6 +5,8 @@ from stable_baselines3 import TD3, HerReplayBuffer
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
+import environments.simulation
+
 
 hyperparameter_defaults = {
     "total_timesteps": 1200000,
