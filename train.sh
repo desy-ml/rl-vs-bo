@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=maxgpu
-#SBATCH --job-name ares-ea-her
+#SBATCH --job-name ares-ea-her-99
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --constraint=V100|P100
