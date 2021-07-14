@@ -1,7 +1,7 @@
 import gym
 from gym.wrappers import Monitor, TimeLimit
 import numpy as np
-from stable_baselines3 import TD3, HerReplayBuffer
+from stable_baselines3 import SAC, HerReplayBuffer
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
@@ -13,9 +13,9 @@ hyperparameter_defaults = {
     "buffer_size": 600000,
     "learning_rate": 1e-3,
     "learning_starts": 2000,
-    "gamma": 0.99,
-    "action_noise_scale": 0.1,
-    "net_arch": [64, 32]
+    "gamma": 0.98,
+    # "action_noise_scale": 0.1,
+    "net_arch": [64, 64, 64]
 }
 
 wandb.init(
@@ -35,17 +35,17 @@ eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
 n_actions = env.action_space.shape[-1]
-noise = NormalActionNoise(
-    mean=np.zeros(n_actions),
-    sigma=np.full(n_actions, wandb.config["action_noise_scale"])
-)
+# noise = NormalActionNoise(
+#     mean=np.zeros(n_actions),
+#     sigma=np.full(n_actions, wandb.config["action_noise_scale"])
+# )
 
-model = TD3(
+model = SAC(
     "MultiInputPolicy",
     env,
     replay_buffer_class=HerReplayBuffer,
     buffer_size=wandb.config["buffer_size"],
-    action_noise=noise,
+    # action_noise=noise,
     learning_rate=wandb.config["learning_rate"],
     learning_starts=wandb.config["learning_starts"],
     gamma=wandb.config["gamma"],
