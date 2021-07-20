@@ -21,8 +21,8 @@ class ARESEAJOSS(gym.Env):
 
     accelerator_observation_space = spaces.Dict({
         "observation": spaces.Box(
-            low=np.array([-5e-4, -5e-4, 0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
-            high=np.array([5e-4, 5e-4, 1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
+            low=np.array([-5e-4, -5e-4, -1e-4, -1e-4, 0, 0, 0, 0, 0, 0, 0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+            high=np.array([5e-4, 5e-4, 1e-4, 1e-4, 5e-4, 5e-4, 1e-4, 1e-4, 1e-4, 1e-3, 1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
         ),
         "desired_goal": spaces.Box(
             low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
@@ -201,7 +201,18 @@ class ARESEAJOSS(gym.Env):
     def observation(self):
         return {
             "observation": np.concatenate([
-                list(self.segment.ARLIBPMG2.reading),
+                [
+                    self.incoming.mu_x,
+                    self.incoming.mu_y,
+                    self.incoming.mu_xp,
+                    self.incoming.mu_yp,
+                    self.incoming.sigma_x,
+                    self.incoming.sigma_y,
+                    self.incoming.sigma_xp,
+                    self.incoming.sigma_yp,
+                    self.incoming.sigma_s,
+                    self.incoming.sigma_p
+                ],
                 [self.beam_intensity],
                 self.actuators
             ]),
@@ -326,13 +337,16 @@ class ARESEAJOSS(gym.Env):
 
         ax.set_title("Observations")
         for i, name in enumerate([
-            r"$\mu_x^{BPM}$", r"$\mu_y^{BPM}$", r"$i_S$", r"$k_{Q_1}$", r"$k_{Q_2}$",
-            r"$k_{Q_3}$", r"$\alpha_{C_v}$", r"$\alpha_{C_h}$"
+            r"$\mu_x^{incomming}$", r"$\mu_y^{incomming}$", r"$\mu_{xp}^{incomming}$",
+            r"$\mu_{yp}^{incomming}$", r"$\sigma_x^{incomming}$", r"$\sigma_y^{incomming}$",
+            r"$\sigma_{xp}^{incomming}$", r"$\sigma_{yp}^{incomming}$", r"$\sigma_s^{incomming}$",
+            r"$\sigma_p^{incomming}$", r"$i_S$", r"$k_{Q_1}$", r"$k_{Q_2}$", r"$k_{Q_3}$",
+            r"$\alpha_{C_v}$", r"$\alpha_{C_h}$"
         ]):
             ax.plot(observations[:,i], label=name)
         ax.set_xlabel("Step")
         ax.set_ylabel("Value (in Agent View)")
-        ax.legend(loc="upper left", bbox_to_anchor=(1.01,1), ncol=2)
+        ax.legend(loc="upper left", bbox_to_anchor=(1.01,1), ncol=4)
         ax.grid()
     
     def plot_goals(self, ax):
