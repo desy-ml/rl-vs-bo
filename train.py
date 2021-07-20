@@ -8,8 +8,8 @@ from environments.simulation import ARESEAJOSS
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 5000,
-    "buffer_size": 5000,
+    "total_timesteps": 600000,
+    "buffer_size": 600000,
     "learning_rate": 1e-3,
     "learning_starts": 2000,
     "gamma": 0.55,
@@ -51,6 +51,6 @@ model = TD3("MlpPolicy",
 model.learn(total_timesteps=wandb.config["total_timesteps"],
             log_interval=10,
             eval_env=eval_env,
-            eval_freq=100)
+            eval_freq=10000)
 
 model.save(f"models/model-{wandb.run.name}")
