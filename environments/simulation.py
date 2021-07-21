@@ -42,8 +42,8 @@ class ARESEAJOSS(gym.Env):
         high=accelerator_observation_space["observation"].high[-5:]
     )
     accelerator_reward_range = (
-        -accelerator_observation_space["achieved_goal"].high[0],
-        accelerator_observation_space["achieved_goal"].high[0]
+        -accelerator_observation_space["achieved_goal"].high[0] * 250,
+        accelerator_observation_space["achieved_goal"].high[0] * 250
     )
     
     binning = 4
@@ -213,7 +213,7 @@ class ARESEAJOSS(gym.Env):
         weights = np.array([1, 1, 2, 2])
 
         # Weighted sum of absolute beam parameters
-        return (weights * np.abs(offset)).sum()
+        return np.log((weights * np.abs(offset)).sum())
 
         # Maximum of absolute beam parameters
         # return (weights * np.abs(offset)).max()
