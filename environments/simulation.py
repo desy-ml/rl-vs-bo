@@ -213,16 +213,18 @@ class ARESEAJOSS(gym.Env):
         weights = np.array([1, 1, 2, 2])
 
         # Weighted sum of absolute beam parameters
-        # return (weights * np.abs(offset)).sum()
+        return (weights * np.abs(offset)).sum()
 
         # Maximum of absolute beam parameters
-        return (weights * np.abs(offset)).max()
+        # return (weights * np.abs(offset)).max()
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         current_objective = self.compute_objective(achieved_goal, desired_goal)
         previous_objective = info["previous_objective"]
 
-        return previous_objective - current_objective
+        reward = previous_objective - current_objective
+
+        return reward if reward > 0 else 2 * reward
     
     def evaluate(self, actuators):
         """Evaluates the objective function for given actuator settings."""
