@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=maxgpu
-#SBATCH --job-name flattened-goalenv-v3
+#SBATCH --job-name doubled-negatives
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --constraint=V100|P100
