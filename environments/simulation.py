@@ -21,8 +21,8 @@ class ARESEAJOSS(gym.Env):
 
     accelerator_observation_space = spaces.Dict({
         "observation": spaces.Box(
-            low=np.array([-5e-4, -5e-4, 0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
-            high=np.array([5e-4, 5e-4, 1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
+            low=np.array([0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+            high=np.array([1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
         ),
         "desired_goal": spaces.Box(
             low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
@@ -51,9 +51,8 @@ class ARESEAJOSS(gym.Env):
     pixel_size = (3.3198e-6, 2.4469e-6)
 
     def __init__(self):
-        cell = utils.subcell_of(lattice.cell, "ARLIBPMG2", "AREABSCR1")
+        cell = utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
         self.segment = joss.Segment.from_ocelot(cell)
-        self.segment.ARLIBPMG2.is_active = True
         self.segment.AREABSCR1.resolution = self.screen_resolution
         self.segment.AREABSCR1.pixel_size = self.pixel_size
         self.segment.AREABSCR1.binning = self.binning
@@ -200,11 +199,7 @@ class ARESEAJOSS(gym.Env):
     @property
     def observation(self):
         return {
-            "observation": np.concatenate([
-                list(self.segment.ARLIBPMG2.reading),
-                [self.beam_intensity],
-                self.actuators
-            ]),
+            "observation": np.concatenate([[self.beam_intensity], self.actuators]),
             "desired_goal": self.goal,
             "achieved_goal": self.beam_parameters
         }
@@ -325,10 +320,8 @@ class ARESEAJOSS(gym.Env):
                                      for record in self.history])
 
         ax.set_title("Observations")
-        for i, name in enumerate([
-            r"$\mu_x^{BPM}$", r"$\mu_y^{BPM}$", r"$i_S$", r"$k_{Q_1}$", r"$k_{Q_2}$",
-            r"$k_{Q_3}$", r"$\alpha_{C_v}$", r"$\alpha_{C_h}$"
-        ]):
+        for i, name in enumerate([r"$i_S$", r"$k_{Q_1}$", r"$k_{Q_2}$", r"$k_{Q_3}$",
+                                  r"$\alpha_{C_v}$", r"$\alpha_{C_h}$"]):
             ax.plot(observations[:,i], label=name)
         ax.set_xlabel("Step")
         ax.set_ylabel("Value (in Agent View)")
