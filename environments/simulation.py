@@ -118,7 +118,8 @@ class ARESEACheetah(gym.Env):
             "action": action
         })
 
-        done = all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(self.observation["achieved_goal"], self.observation["desired_goal"]))
+        # done = all((np.abs(record["observation"][:4]) < self.goal).all() for record in self.history[-5:])
+        done = False
 
         return self.observation2agent(self.observation), self.reward2agent(reward), done, info
     
@@ -212,11 +213,7 @@ class ARESEACheetah(gym.Env):
         weights = np.array([1, 1, 2, 2])
 
         # Weighted sum of absolute beam parameters
-        shaped = np.log((weights * np.abs(offset)).sum())
-        boni = sum(10 for achieved, desired in zip(achieved_goal, desired_goal) if abs(achieved - desired) < 5e-6)
-        win = 100 * all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(achieved_goal, desired_goal))
-        
-        return shaped + boni + win
+        return np.log((weights * np.abs(offset)).sum())
 
         # Maximum of absolute beam parameters
         # return (weights * np.abs(offset)).max()
