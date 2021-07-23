@@ -1,6 +1,6 @@
 import gym
 from gym import spaces
-import joss
+import cheetah
 from matplotlib import gridspec
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
@@ -11,8 +11,8 @@ from . import ARESlatticeStage3v1_9 as lattice
 from . import utils
 
 
-class ARESEAJOSS(gym.Env):
-    """ARESEA version using a JOSS simulation as its backend."""
+class ARESEACheetah(gym.Env):
+    """ARESEA version using a Cheetah simulation as its backend."""
 
     metadata = {
         "render.modes": ["human", "rgb_array"],
@@ -52,7 +52,7 @@ class ARESEAJOSS(gym.Env):
 
     def __init__(self):
         cell = utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
-        self.segment = joss.Segment.from_ocelot(cell)
+        self.segment = cheetah.Segment.from_ocelot(cell)
         self.segment.AREABSCR1.resolution = self.screen_resolution
         self.segment.AREABSCR1.pixel_size = self.pixel_size
         self.segment.AREABSCR1.binning = self.binning
@@ -61,7 +61,7 @@ class ARESEAJOSS(gym.Env):
         self.magnets_changed = True
     
     def reset(self):
-        self.incoming = joss.Beam.make_random(
+        self.incoming = cheetah.Beam.make_random(
             n=int(1e5),
             mu_x=np.random.uniform(-5e-4, 5e-4),
             mu_y=np.random.uniform(-5e-4, 5e-4),
@@ -123,7 +123,7 @@ class ARESEAJOSS(gym.Env):
         return self.observation2agent(self.observation), self.reward2agent(reward), done, info
     
     def render(self, mode="human"):
-        fig = plt.figure("ARESEA-JOSS", figsize=(28,8))
+        fig = plt.figure("ARESEA-Cheetah", figsize=(28,8))
         fig.clear()
 
         gs = gridspec.GridSpec(2, 4, wspace=0.35, hspace=0.3, figure=fig)

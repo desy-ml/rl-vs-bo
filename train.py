@@ -4,7 +4,7 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
-from environments.simulation import ARESEAJOSS
+from environments.simulation import ARESEACheetah
 
 
 hyperparameter_defaults = {
@@ -24,11 +24,11 @@ wandb.init(project="ares-ea-rl-a-new-hope",
            monitor_gym=True,
            settings=wandb.Settings(start_method="fork"))
 
-env = ARESEAJOSS()
+env = ARESEACheetah()
 env = TimeLimit(env, max_episode_steps=50)
 env = FlattenObservation(env)
 
-eval_env = ARESEAJOSS()
+eval_env = ARESEACheetah()
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = FlattenObservation(eval_env)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
