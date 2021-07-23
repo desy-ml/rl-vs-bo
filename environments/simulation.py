@@ -118,8 +118,7 @@ class ARESEACheetah(gym.Env):
             "action": action
         })
 
-        # done = all((np.abs(record["observation"][:4]) < self.goal).all() for record in self.history[-5:])
-        done = False
+        done = all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(self.observation["achieved_goal"], self.observation["desired_goal"]))
 
         return self.observation2agent(self.observation), self.reward2agent(reward), done, info
     
