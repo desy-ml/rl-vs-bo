@@ -216,7 +216,7 @@ class ARESEACheetah(gym.Env):
         boni = sum(10 for achieved, desired in zip(achieved_goal, desired_goal) if abs(achieved - desired) < 5e-6)
         win = 100 * all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(achieved_goal, desired_goal))
         
-        return shaped - boni - win
+        return shaped + boni + win
 
         # Maximum of absolute beam parameters
         # return (weights * np.abs(offset)).max()
