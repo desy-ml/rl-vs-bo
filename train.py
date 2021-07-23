@@ -27,10 +27,10 @@ wandb.init(
     settings=wandb.Settings(start_method="fork")
 )
 
-env = gym.make("ARESEA-JOSS-v42")
+env = gym.make("ARESEA-Cheetah-v42")
 env = TimeLimit(env, max_episode_steps=50)
 
-eval_env = gym.make("ARESEA-JOSS-v42")
+eval_env = gym.make("ARESEA-Cheetah-v42")
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
 
