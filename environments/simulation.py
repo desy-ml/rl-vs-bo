@@ -74,10 +74,12 @@ class ARESEACheetah(gym.Env):
             sigma_s=np.random.uniform(0, 1e-4),
             sigma_p=np.random.uniform(0, 1e-3)
         )
+        # self.incoming = cheetah.Beam.from_astra("environments/ACHIP_EA1_2021.1351.001")
 
         self.actuators = self.initial_actuators
         
         self.goal = self.accelerator_observation_space["desired_goal"].sample()
+        # self.goal = np.array([-0.000808033, -0.0013411774, 0.0, 0.0])
 
         self.finished_steps = 0
         objective = self.compute_objective(
@@ -163,6 +165,7 @@ class ARESEACheetah(gym.Env):
     @property
     def initial_actuators(self):
         return self.accelerator_optimization_space.sample()
+        # return np.array([0.0, 0.0, 0.0, 0.0, 0.0])
 
     @property
     def actuators(self):
@@ -297,12 +300,12 @@ class ARESEACheetah(gym.Env):
         read_ellipse = Ellipse((read_mu_x,read_mu_y), read_sigma_x, read_sigma_y, fill=False, color="deepskyblue", linestyle="--")
         ax.add_patch(read_ellipse)
 
-        true_mu_x, true_mu_y, true_sigma_x, true_sigma_y = [self.segment.AREABSCR1.read_beam.mu_x,
-                                                            self.segment.AREABSCR1.read_beam.mu_y,
-                                                            self.segment.AREABSCR1.read_beam.sigma_x,
-                                                            self.segment.AREABSCR1.read_beam.sigma_y]
-        true_ellipse = Ellipse((true_mu_x,true_mu_y), true_sigma_x, true_sigma_y, fill=False, color="lime", linestyle="--")
-        ax.add_patch(true_ellipse)
+        # true_mu_x, true_mu_y, true_sigma_x, true_sigma_y = [self.segment.AREABSCR1.read_beam.mu_x,
+        #                                                     self.segment.AREABSCR1.read_beam.mu_y,
+        #                                                     self.segment.AREABSCR1.read_beam.sigma_x,
+        #                                                     self.segment.AREABSCR1.read_beam.sigma_y]
+        # true_ellipse = Ellipse((true_mu_x,true_mu_y), true_sigma_x, true_sigma_y, fill=False, color="lime", linestyle="--")
+        # ax.add_patch(true_ellipse)
     
     def plot_actions(self, ax):
         actions = np.stack([self.action2agent(record["action"]) for record in self.history])
