@@ -9,25 +9,25 @@ import matplotlib.pyplot as plt
 plt.style.use("dark_background")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from matplotlib.patches import Ellipse
 import numpy as np
 import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
 import pydoocs
 
-# from applogic import Agent
+from environments.machine import ARESEAMachine
 
 
-class ScreenView(FigureCanvasQTAgg):
+class LiveScreenView(FigureCanvasQTAgg):
 
     def __init__(self, resolution, pixel_size):
         self.resolution = resolution
         self.pixel_size = pixel_size
 
         self.fig = Figure()
-        self.ax_live = self.fig.add_subplot(121)
-        self.ax_agent = self.fig.add_subplot(122)
-
+        self.ax = self.fig.add_subplot(111)
+        
         super().__init__(self.fig)
 
         self.screen_extent = (-self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
@@ -36,35 +36,98 @@ class ScreenView(FigureCanvasQTAgg):
                               self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
         self.create_plot()
 
-        self.setFixedSize(1300, 400)
+        self.setFixedSize(600, 450)
     
     def create_plot(self):
-        self.ax_live.set_title("Screen View (Live)")
-        self.live_screen_plot = self.ax_live.imshow(
+        self.screen_plot = self.ax.imshow(
             np.zeros(self.resolution), 
             cmap="magma",
             interpolation="None",
             extent=self.screen_extent
         )
-        self.ax_live.set_xlabel("x (mm)")
-        self.ax_live.set_ylabel("y (mm)")
+        self.ax.set_xlabel("x (mm)")
+        self.ax.set_ylabel("y (mm)")
 
-        self.ax_agent.set_title("Screen View (Agent)")
-        self.agent_screen_plot = self.ax_agent.imshow(
-            np.zeros(self.resolution), 
-            cmap="magma",
-            interpolation="None",
-            extent=self.screen_extent
+        self.mu_x, self.mu_y, self.sigma_x, self.sigma_y = [0] * 4
+        self.select_ellipse = Ellipse(
+            (self.mu_x,self.mu_y),
+            self.sigma_x,
+            self.sigma_y,
+            fill=False,
+            color="white"
         )
-        self.ax_agent.set_xlabel("x (mm)")
-        self.ax_agent.set_ylabel("y (mm)")
+        self.ax.add_patch(self.select_ellipse)
 
         self.fig.tight_layout()
     
     @qtc.pyqtSlot(np.ndarray)
-    def update_screen_live(self, screen_data):
-        self.live_screen_plot.set_data(screen_data)
-        self.live_screen_plot.set_clim(vmin=0, vmax=screen_data.max())
+    def update_screen_data(self, screen_data):
+        self.screen_plot.set_data(screen_data)
+        self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
+
+        self.draw()
+    
+    @qtc.pyqtSlot(int)
+    def select_mu_x(self, mu_x):
+        self.mu_x = mu_x / 50 * 2.5e-3 * 1e3
+
+        self.select_ellipse.set_center((self.mu_x,self.mu_y))
+        self.draw()
+    
+    @qtc.pyqtSlot(int)
+    def select_mu_y(self, mu_y):
+        self.mu_y = mu_y / 50 * 2.0e-3 * 1e3
+        self.select_ellipse.set_center((self.mu_x,self.mu_y))
+        self.draw()
+    
+    @qtc.pyqtSlot(int)
+    def select_sigma_x(self, sigma_x):
+        self.sigma_x = sigma_x / 100 * 1.0e-3 * 1e3
+        self.select_ellipse.set_width(2 * self.sigma_x)
+        self.draw()
+    
+    @qtc.pyqtSlot(int)
+    def select_sigma_y(self, sigma_y):
+        self.sigma_y = sigma_y / 100 * 1.0e-3 * 1e3
+        self.select_ellipse.set_height(2 * self.sigma_y)
+        self.draw()
+
+
+class AgentScreenView(FigureCanvasQTAgg):
+
+    def __init__(self, resolution, pixel_size):
+        self.resolution = resolution
+        self.pixel_size = pixel_size
+
+        self.fig = Figure()
+        self.ax = self.fig.add_subplot(111)
+        
+        super().__init__(self.fig)
+
+        self.screen_extent = (-self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
+                              self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
+                              -self.resolution[1] * self.pixel_size[1] / 2 * 1e3,
+                              self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
+        self.create_plot()
+
+        self.setFixedSize(600, 450)
+    
+    def create_plot(self):
+        self.screen_plot = self.ax.imshow(
+            np.zeros(self.resolution), 
+            cmap="magma",
+            interpolation="None",
+            extent=self.screen_extent
+        )
+        self.ax.set_xlabel("x (mm)")
+        self.ax.set_ylabel("y (mm)")
+
+        self.fig.tight_layout()
+    
+    @qtc.pyqtSlot(np.ndarray)
+    def update_screen_data(self, screen_data):
+        self.screen_plot.set_data(screen_data)
+        self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
 
         self.draw()
 
@@ -123,34 +186,46 @@ class App(qtw.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Autonomous Beam Position and Focusing")
+        self.setWindowTitle("Autonomous Beam Position and Focusing at ARES EA")
 
-        self.raw_screen_view = ScreenView((2448,2040), (3.3198e-6,2.4469e-6))
+        self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
+
+        self.start_agent_button = qtw.QPushButton("Start Agent")
+
+        self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
         
         self.read_thread = AcceleratorReadThread()
-        self.read_thread.screen_updated.connect(self.raw_screen_view.update_screen_live)
+        self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
 
-        # self.interface_thread = AcceleratorInterfaceThread()
-        # self.interface_thread.ann_current_updated.connect(self.current_plot.update_ann)
-        # self.interface_thread.nils_current_updated.connect(self.current_plot.update_nils)
+        self.mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.mu_x_slider.setRange(-50, 50)
+        self.mu_x_slider.valueChanged.connect(self.live_screen_view.select_mu_x)
 
-        self.set_position_heading = qtw.QLabel("Choose Position")
-        self.mu_x_slider = qtw.QSlider(qtc.Qt.Vertical)
-        self.mu_x_slider.setMinimum(0)
-        self.mu_x_slider.setMaximum(11)
-        # self.mu_x_slider.valueChanged.connect(self.set_shutter_speed)
+        self.mu_y_slider = qtw.QSlider(qtc.Qt.Vertical)
+        self.mu_y_slider.setRange(-50, 50)
+        self.mu_y_slider.valueChanged.connect(self.live_screen_view.select_mu_y)
 
-        self.grating_dropdown = qtw.QComboBox()
-        self.grating_dropdown.addItems(["low", "high", "both"])
-        # self.grating_dropdown.currentTextChanged.connect(self.interface_thread.change_grating)
+        self.sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.sigma_x_slider.setRange(0, 100)
+        self.sigma_x_slider.valueChanged.connect(self.live_screen_view.select_sigma_x)
+
+        self.sigma_y_slider = qtw.QSlider(qtc.Qt.Vertical)
+        self.sigma_y_slider.setRange(0, 100)
+        self.sigma_y_slider.valueChanged.connect(self.live_screen_view.select_sigma_y)
 
         hbox = qtw.QHBoxLayout()
-        hbox.addWidget(self.raw_screen_view)
         vbox = qtw.QVBoxLayout()
-        vbox.addWidget(self.set_position_heading)
-        vbox.addWidget(self.mu_x_slider)
+        vbox.addWidget(self.agent_screen_view)
+        vbox.addWidget(self.start_agent_button)
         vbox.addStretch()
         hbox.addLayout(vbox)
+        grid = qtw.QGridLayout()
+        grid.addWidget(self.live_screen_view, 0, 0)
+        grid.addWidget(self.mu_x_slider, 1, 0)
+        grid.addWidget(self.sigma_x_slider, 2, 0)
+        grid.addWidget(self.mu_y_slider, 0, 1)
+        grid.addWidget(self.sigma_y_slider, 0, 2)
+        hbox.addLayout(grid)
         self.setLayout(hbox)
 
         self.read_thread.start()
