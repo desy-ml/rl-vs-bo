@@ -27,8 +27,11 @@ class ARESEAMachine(simulation.ARESEACheetah):
 
         self.magnets_changed = True
     
-    def reset(self):
-        self.goal = self.accelerator_observation_space["desired_goal"].sample()
+    def reset(self, goal=None):
+        if goal is not None:
+            self.goal = goal
+        else:
+            self.goal = self.accelerator_observation_space["desired_goal"].sample()
 
         self.screen_data = self.read_screen()
 
