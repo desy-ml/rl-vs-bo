@@ -1,9 +1,8 @@
 import sys
 from time import sleep
 
+from gym.wrappers import FlattenObservation, TimeLimit
 import matplotlib
-from numpy.core.numeric import extend_all
-from scipy.ndimage import interpolation
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 plt.style.use("dark_background")
@@ -15,6 +14,7 @@ import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
 import pydoocs
+from stable_baselines3 import TD3
 
 from environments.machine import ARESEAMachine
 
@@ -159,23 +159,27 @@ class AcceleratorReadThread(qtc.QThread):
 class AgentThread(qtc.QThread):
     
     done = qtc.pyqtSignal(tuple)
+    agent_screen_updated = qtc.pyqtSignal(np.ndarray)
 
-    def __init__(self):
+    def __init__(self, desired_goal):
         super().__init__()
 
-        self.agent = Agent()
+        self.desired_goal = desired_goal
 
     def run(self):
-        while True:
-            self.spectralvd.read_crisp()
-            
-            ann_current = self.spectralvd.ann_reconstruction()
-            self.ann_current_updated.emit(ann_current)
+        env = ARESEAMachine()
+        env = TimeLimit(env, max_episode_steps=50)
+        env = FlattenObservation(env)
 
-            nils_current = self.spectralvd.nils_reconstruction()
-            self.nils_current_updated.emit(nils_current)
+        model = TD3.load("models/pretty-jazz-258")
 
-            sleep(0.1)
+        done = False
+        observation = env.reset(goal=self.desired_goal)
+        self.agent_screen_updated.emit(env.screen_data)
+        while not done:
+            action, _ = model.predict(observation)
+            observation, _, done, _ = env.step(action)
+            self.agent_screen_updated.emit(env.screen_data)
     
     def change_grating(self, grating):
         print(f"Changing grating to {grating}")
@@ -191,6 +195,7 @@ class App(qtw.QWidget):
         self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
 
         self.start_agent_button = qtw.QPushButton("Start Agent")
+        self.start_agent_button.clicked.connect(self.start_agent)
 
         self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
         
@@ -229,6 +234,17 @@ class App(qtw.QWidget):
         self.setLayout(hbox)
 
         self.read_thread.start()
+    
+    def start_agent(self):
+        desired_goal = np.array([
+            self.live_screen_view.mu_x,
+            self.live_screen_view.mu_y,
+            self.live_screen_view.sigma_x,
+            self.live_screen_view.sigma_y
+        ]) * 1e-3
+        self.agent_thread = AgentThread(desired_goal)
+        self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
+        self.agent_thread.start()
     
     def handle_application_exit(self):
         print("Handling application exit")
