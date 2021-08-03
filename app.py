@@ -160,6 +160,7 @@ class AgentThread(qtc.QThread):
     
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
+    took_step = qtc.pyqtSignal(int)
 
     def __init__(self, desired_goal):
         super().__init__()
@@ -167,6 +168,8 @@ class AgentThread(qtc.QThread):
         self.desired_goal = desired_goal
 
     def run(self):
+        self.took_step.emit(0)
+
         env = ARESEAMachine()
         env = TimeLimit(env, max_episode_steps=50)
         env = FlattenObservation(env)
@@ -174,12 +177,15 @@ class AgentThread(qtc.QThread):
         model = TD3.load("models/pretty-jazz-258")
 
         done = False
+        i = 0
         observation = env.reset(goal=self.desired_goal)
         self.agent_screen_updated.emit(env.screen_data)
         while not done:
             action, _ = model.predict(observation)
             observation, _, done, _ = env.step(action)
             self.agent_screen_updated.emit(env.screen_data)
+            i += 1
+            self.took_step.emit(i)
     
     def change_grating(self, grating):
         print(f"Changing grating to {grating}")
@@ -193,6 +199,10 @@ class App(qtw.QWidget):
         self.setWindowTitle("Autonomous Beam Position and Focusing at ARES EA")
 
         self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
+
+        self.progress_bar = qtw.QProgressBar()
+        self.progress_bar.setMaximum(50)
+        self.progress_bar.setValue(50)
 
         self.start_agent_button = qtw.QPushButton("Start Agent")
         self.start_agent_button.clicked.connect(self.start_agent)
@@ -221,6 +231,7 @@ class App(qtw.QWidget):
         hbox = qtw.QHBoxLayout()
         vbox = qtw.QVBoxLayout()
         vbox.addWidget(self.agent_screen_view)
+        vbox.addWidget(self.progress_bar)
         vbox.addWidget(self.start_agent_button)
         vbox.addStretch()
         hbox.addLayout(vbox)
@@ -230,6 +241,7 @@ class App(qtw.QWidget):
         grid.addWidget(self.sigma_x_slider, 2, 0)
         grid.addWidget(self.mu_y_slider, 0, 1)
         grid.addWidget(self.sigma_y_slider, 0, 2)
+        grid.setRowStretch(3, 1)
         hbox.addLayout(grid)
         self.setLayout(hbox)
 
@@ -244,6 +256,7 @@ class App(qtw.QWidget):
         ]) * 1e-3
         self.agent_thread = AgentThread(desired_goal)
         self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
+        self.agent_thread.took_step.connect(self.progress_bar.setValue)
         self.agent_thread.start()
     
     def handle_application_exit(self):
