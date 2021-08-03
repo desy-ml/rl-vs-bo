@@ -122,6 +122,27 @@ class AgentScreenView(FigureCanvasQTAgg):
         self.ax.set_xlabel("x (mm)")
         self.ax.set_ylabel("y (mm)")
 
+        self.achieved_mu_x, self.achieved_mu_y, self.achieved_sigma_x, self.achieved_sigma_y = [0] * 4
+        self.achieved_ellipse = Ellipse(
+            (self.achieved_mu_x,self.achieved_mu_y),
+            self.achieved_sigma_x,
+            self.achieved_sigma_y,
+            fill=False,
+            color="deepskyblue",
+            linestyle="--"
+        )
+        self.ax.add_patch(self.achieved_ellipse)
+
+        self.desired_mu_x, self.desired_mu_y, self.desired_sigma_x, self.desired_sigma_y = [0] * 4
+        self.desired_ellipse = Ellipse(
+            (self.desired_mu_x,self.desired_mu_y),
+            self.desired_sigma_x,
+            self.desired_sigma_y,
+            fill=False,
+            color="white"
+        )
+        self.ax.add_patch(self.desired_ellipse)
+
         self.fig.tight_layout()
     
     @qtc.pyqtSlot(np.ndarray)
@@ -129,6 +150,24 @@ class AgentScreenView(FigureCanvasQTAgg):
         self.screen_plot.set_data(screen_data)
         self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
 
+        self.draw()
+    
+    @qtc.pyqtSlot(np.ndarray)
+    def update_achieved_goal(self, achieved_goal):
+        self.achieved_goal = achieved_goal * 1e3
+
+        self.achieved_ellipse.set_center((self.achieved_goal[0],self.achieved_goal[1]))
+        self.achieved_ellipse.set_width(2 * self.achieved_goal[2])
+        self.achieved_ellipse.set_height(2 * self.achieved_goal[3])
+        self.draw()
+    
+    @qtc.pyqtSlot(np.ndarray)
+    def update_desired_goal(self, desired_goal):
+        self.desired_goal = desired_goal * 1e3
+
+        self.desired_ellipse.set_center((self.desired_goal[0],self.desired_goal[1]))
+        self.desired_ellipse.set_width(2 * self.desired_goal[2])
+        self.desired_ellipse.set_height(2 * self.desired_goal[3])
         self.draw()
 
 
@@ -161,14 +200,18 @@ class AgentThread(qtc.QThread):
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
     took_step = qtc.pyqtSignal(int)
+    desired_goal_updated = qtc.pyqtSignal(np.ndarray)
+    achieved_goal_updated = qtc.pyqtSignal(np.ndarray)
 
     def __init__(self, desired_goal):
         super().__init__()
 
         self.desired_goal = desired_goal
 
+
     def run(self):
         self.took_step.emit(0)
+        self.desired_goal_updated.emit(self.desired_goal)
 
         env = ARESEAMachine()
         env = TimeLimit(env, max_episode_steps=50)
@@ -180,10 +223,12 @@ class AgentThread(qtc.QThread):
         i = 0
         observation = env.reset(goal=self.desired_goal)
         self.agent_screen_updated.emit(env.screen_data)
+        self.achieved_goal_updated.emit(env.unwrapped.observation["achieved_goal"])
         while not done:
             action, _ = model.predict(observation)
             observation, _, done, _ = env.step(action)
-            self.agent_screen_updated.emit(env.screen_data)
+            self.agent_screen_updated.emit(env.unwrapped.screen_data)
+            self.achieved_goal_updated.emit(env.unwrapped.observation["achieved_goal"])
             i += 1
             self.took_step.emit(i)
     
@@ -196,7 +241,7 @@ class App(qtw.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Autonomous Beam Position and Focusing at ARES EA")
+        self.setWindowTitle("Autonomous Beam Positioning and Focusing at ARES EA")
 
         self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
 
@@ -254,9 +299,14 @@ class App(qtw.QWidget):
             self.live_screen_view.sigma_x,
             self.live_screen_view.sigma_y
         ]) * 1e-3
+
         self.agent_thread = AgentThread(desired_goal)
+
         self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
+        self.agent_thread.achieved_goal_updated.connect(self.agent_screen_view.update_achieved_goal)
+        self.agent_thread.desired_goal_updated.connect(self.agent_screen_view.update_desired_goal)
+
         self.agent_thread.start()
     
     def handle_application_exit(self):
