@@ -36,7 +36,7 @@ class LiveScreenView(FigureCanvasQTAgg):
                               self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
         self.create_plot()
 
-        self.setFixedSize(600, 450)
+        self.setFixedSize(600, 420)
     
     def create_plot(self):
         self.screen_plot = self.ax.imshow(
@@ -47,6 +47,7 @@ class LiveScreenView(FigureCanvasQTAgg):
         )
         self.ax.set_xlabel("x (mm)")
         self.ax.set_ylabel("y (mm)")
+        self.ax.set_title("Live View AR.EA.BSC.R.1")
 
         self.mu_x, self.mu_y, self.sigma_x, self.sigma_y = [0] * 4
         self.select_ellipse = Ellipse(
@@ -110,7 +111,7 @@ class AgentScreenView(FigureCanvasQTAgg):
                               self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
         self.create_plot()
 
-        self.setFixedSize(600, 450)
+        self.setFixedSize(600, 420)
     
     def create_plot(self):
         self.screen_plot = self.ax.imshow(
@@ -121,6 +122,7 @@ class AgentScreenView(FigureCanvasQTAgg):
         )
         self.ax.set_xlabel("x (mm)")
         self.ax.set_ylabel("y (mm)")
+        self.ax.set_title("Agent View")
 
         self.achieved_mu_x, self.achieved_mu_y, self.achieved_sigma_x, self.achieved_sigma_y = [0] * 4
         self.achieved_ellipse = Ellipse(
