@@ -1,4 +1,5 @@
 import sys
+from threading import Event
 from time import sleep
 
 from gym.wrappers import FlattenObservation, TimeLimit
@@ -201,41 +202,64 @@ class AgentThread(qtc.QThread):
     
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
+    want_step_permission = qtc.pyqtSignal(np.ndarray, np.ndarray)
     took_step = qtc.pyqtSignal(int)
     desired_goal_updated = qtc.pyqtSignal(np.ndarray)
     achieved_goal_updated = qtc.pyqtSignal(np.ndarray)
+
+    step_permission_event = Event()
 
     def __init__(self, desired_goal):
         super().__init__()
 
         self.desired_goal = desired_goal
 
+        self.step_permission_event.clear()
+        self.step_permission = False
 
     def run(self):
         self.took_step.emit(0)
         self.desired_goal_updated.emit(self.desired_goal)
 
-        env = ARESEAMachine()
-        env = TimeLimit(env, max_episode_steps=50)
-        env = FlattenObservation(env)
+        self.env = ARESEAMachine()
+        self.env = TimeLimit(self.env, max_episode_steps=50)
+        self.env = FlattenObservation(self.env)
 
         model = TD3.load("models/pretty-jazz-258")
 
         done = False
         i = 0
-        observation = env.reset(goal=self.desired_goal)
-        self.agent_screen_updated.emit(env.screen_data)
-        self.achieved_goal_updated.emit(env.unwrapped.observation["achieved_goal"])
+        observation = self.env.reset(goal=self.desired_goal)
+        self.agent_screen_updated.emit(self.env.screen_data)
+        self.achieved_goal_updated.emit(self.env.unwrapped.observation["achieved_goal"])
         while not done:
             action, _ = model.predict(observation)
-            observation, _, done, _ = env.step(action)
-            self.agent_screen_updated.emit(env.unwrapped.screen_data)
-            self.achieved_goal_updated.emit(env.unwrapped.observation["achieved_goal"])
+
+            if not self.ask_step_permission(action, observation):
+                print("Permission denied!")
+                self.took_step.emit(50)
+                break
+            print("Permission granted!")
+
+            observation, _, done, _ = self.env.step(action)
+
+            self.agent_screen_updated.emit(self.env.unwrapped.screen_data)
+            self.achieved_goal_updated.emit(self.env.unwrapped.observation["achieved_goal"])
             i += 1
             self.took_step.emit(i)
     
-    def change_grating(self, grating):
-        print(f"Changing grating to {grating}")
+    def ask_step_permission(self, action, observation):
+        old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
+        new_actuators = old_actuators + action * self.env.accelerator_action_space.high
+
+        self.want_step_permission.emit(old_actuators, new_actuators)
+        self.step_permission_event.wait()
+        self.step_permission_event.clear()
+
+        tmp = self.step_permission
+        self.step_permission = False
+
+        return tmp
 
 
 class App(qtw.QWidget):
@@ -308,11 +332,34 @@ class App(qtw.QWidget):
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
         self.agent_thread.achieved_goal_updated.connect(self.agent_screen_view.update_achieved_goal)
         self.agent_thread.desired_goal_updated.connect(self.agent_screen_view.update_desired_goal)
+        self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
 
         self.agent_thread.start()
     
+    @qtc.pyqtSlot(np.ndarray, np.ndarray)
+    def step_permission_prompt(self, old_actuators, new_actuators):
+        old_actuators *= [1, 1, 1, 1e3, 1e3]
+        new_actuators *= [1, 1, 1, 1e3, 1e3]
+
+        query = f"Do you allow the next step ?\n" + \
+                f"AREAMQZM1: {old_actuators[0]:+6.3f} 1/m^2 -> {new_actuators[0]:+6.3f} 1/m^2\n" + \
+                f"AREAMQZM2: {old_actuators[1]:+6.3f} 1/m^2 -> {new_actuators[1]:+6.3f} 1/m^2\n" + \
+                f"AREAMCVM1: {old_actuators[3]:+6.3f} mrad  -> {new_actuators[3]:+6.3f} mrad\n" + \
+                f"AREAMQZM3: {old_actuators[2]:+6.3f} 1/m^2 -> {new_actuators[2]:+6.3f} 1/m^2\n" + \
+                f"AREAMCHM1: {old_actuators[4]:+6.3f} mrad  -> {new_actuators[4]:+6.3f} mrad"
+
+        answer = qtw.QMessageBox.question(
+            self,
+            "Step Permission",
+            query,
+            qtw.QMessageBox.Yes | qtw.QMessageBox.No
+        )
+
+        self.agent_thread.step_permission = (answer == qtw.QMessageBox.Yes)
+        self.agent_thread.step_permission_event.set()
+        
     def handle_application_exit(self):
-        print("Handling application exit")
+        pass
     
 
 if __name__ == "__main__":
