@@ -264,10 +264,18 @@ class AgentThread(qtc.QThread):
 
 class App(qtw.QWidget):
 
+    achieved_beam_parameters = [0] * 4
+    desired_beam_parameters = [0] * 4
+
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Autonomous Beam Positioning and Focusing at ARES EA")
+
+        self.achieved_mu_x_label = qtw.QLabel()
+        self.achieved_mu_y_label = qtw.QLabel()
+        self.achieved_sigma_x_label = qtw.QLabel()
+        self.achieved_sigma_y_label = qtw.QLabel()
 
         self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
 
@@ -279,6 +287,11 @@ class App(qtw.QWidget):
         self.start_agent_button.clicked.connect(self.start_agent)
 
         self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
+
+        self.desired_mu_x_label = qtw.QLabel()
+        self.desired_mu_y_label = qtw.QLabel()
+        self.desired_sigma_x_label = qtw.QLabel()
+        self.desired_sigma_y_label = qtw.QLabel()
         
         self.read_thread = AcceleratorReadThread()
         self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
@@ -286,37 +299,45 @@ class App(qtw.QWidget):
         self.mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
         self.mu_x_slider.setRange(-50, 50)
         self.mu_x_slider.valueChanged.connect(self.live_screen_view.select_mu_x)
+        self.mu_x_slider.valueChanged.connect(self.update_beam_parameter_labels)
 
         self.mu_y_slider = qtw.QSlider(qtc.Qt.Vertical)
         self.mu_y_slider.setRange(-50, 50)
         self.mu_y_slider.valueChanged.connect(self.live_screen_view.select_mu_y)
+        self.mu_y_slider.valueChanged.connect(self.update_beam_parameter_labels)
 
         self.sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
         self.sigma_x_slider.setRange(0, 100)
         self.sigma_x_slider.valueChanged.connect(self.live_screen_view.select_sigma_x)
+        self.sigma_x_slider.valueChanged.connect(self.update_beam_parameter_labels)
 
         self.sigma_y_slider = qtw.QSlider(qtc.Qt.Vertical)
         self.sigma_y_slider.setRange(0, 100)
         self.sigma_y_slider.valueChanged.connect(self.live_screen_view.select_sigma_y)
+        self.sigma_y_slider.valueChanged.connect(self.update_beam_parameter_labels)
 
-        hbox = qtw.QHBoxLayout()
-        vbox = qtw.QVBoxLayout()
-        vbox.addWidget(self.agent_screen_view)
-        vbox.addWidget(self.progress_bar)
-        vbox.addWidget(self.start_agent_button)
-        vbox.addStretch()
-        hbox.addLayout(vbox)
         grid = qtw.QGridLayout()
-        grid.addWidget(self.live_screen_view, 0, 0)
-        grid.addWidget(self.mu_x_slider, 1, 0)
-        grid.addWidget(self.sigma_x_slider, 2, 0)
-        grid.addWidget(self.mu_y_slider, 0, 1)
-        grid.addWidget(self.sigma_y_slider, 0, 2)
-        grid.setRowStretch(3, 1)
-        hbox.addLayout(grid)
-        self.setLayout(hbox)
+        grid.addWidget(self.achieved_mu_x_label, 0, 0, 1, 1)
+        grid.addWidget(self.achieved_mu_y_label, 0, 1, 1, 1)
+        grid.addWidget(self.achieved_sigma_x_label, 0, 2, 1, 1)
+        grid.addWidget(self.achieved_sigma_y_label, 0, 3, 1, 1)
+        grid.addWidget(self.agent_screen_view, 1, 0, 1, 4)
+        grid.addWidget(self.progress_bar, 2, 0, 1, 4)
+        grid.addWidget(self.start_agent_button, 3, 0, 1, 4)
+        grid.addWidget(self.desired_mu_x_label, 0, 4, 1, 1)
+        grid.addWidget(self.desired_mu_y_label, 0, 5, 1, 1)
+        grid.addWidget(self.desired_sigma_x_label, 0, 6, 1, 1)
+        grid.addWidget(self.desired_sigma_y_label, 0, 7, 1, 1)
+        grid.addWidget(self.live_screen_view, 1, 4, 1, 4)
+        grid.addWidget(self.mu_x_slider, 2, 4, 1, 4)
+        grid.addWidget(self.sigma_x_slider, 3, 4, 1, 4)
+        grid.addWidget(self.mu_y_slider, 1, 8, 1, 1)
+        grid.addWidget(self.sigma_y_slider, 1, 9, 1, 1)
+        grid.setRowStretch(4, 1)
+        self.setLayout(grid)
 
         self.read_thread.start()
+        self.update_beam_parameter_labels()
     
     def start_agent(self):
         desired_goal = np.array([
@@ -330,6 +351,7 @@ class App(qtw.QWidget):
 
         self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
+        self.agent_thread.took_step.connect(self.update_beam_parameter_labels)
         self.agent_thread.achieved_goal_updated.connect(self.agent_screen_view.update_achieved_goal)
         self.agent_thread.desired_goal_updated.connect(self.agent_screen_view.update_desired_goal)
         self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
@@ -342,6 +364,7 @@ class App(qtw.QWidget):
         new_actuators *= [1, 1, 1, 1e3, 1e3]
 
         query = f"Do you allow the next step ?\n" + \
+                f"\n" + \
                 f"AREAMQZM1: {old_actuators[0]:+6.3f} 1/m^2 -> {new_actuators[0]:+6.3f} 1/m^2\n" + \
                 f"AREAMQZM2: {old_actuators[1]:+6.3f} 1/m^2 -> {new_actuators[1]:+6.3f} 1/m^2\n" + \
                 f"AREAMCVM1: {old_actuators[3]:+6.3f} mrad  -> {new_actuators[3]:+6.3f} mrad\n" + \
@@ -357,6 +380,26 @@ class App(qtw.QWidget):
 
         self.agent_thread.step_permission = (answer == qtw.QMessageBox.Yes)
         self.agent_thread.step_permission_event.set()
+    
+    def update_beam_parameter_labels(self):
+        if hasattr(self, "agent_thread") and hasattr(self.agent_thread, "env"):
+            self.achieved_beam_parameters = self.agent_thread.env.unwrapped.observation["achieved_goal"] * 1e3
+        self.desired_beam_parameters = [
+            self.mu_x_slider.value() / 50 * 2.5e-3 * 1e3,
+            self.mu_y_slider.value() / 50 * 2.0e-3 * 1e3,
+            self.sigma_x_slider.value() / 100 * 1.0e-3 * 1e3,
+            self.sigma_y_slider.value() / 100 * 1.0e-3 * 1e3
+        ]
+
+        self.achieved_mu_x_label.setText(f"µ\u2093 = {self.achieved_beam_parameters[0]:4.3f} mm")
+        self.achieved_mu_y_label.setText(f"µ_y = {self.achieved_beam_parameters[1]:4.3f} mm")
+        self.achieved_sigma_x_label.setText(f"σ\u2093 = {self.achieved_beam_parameters[2]:4.3f} mm")
+        self.achieved_sigma_y_label.setText(f"σ_y = {self.achieved_beam_parameters[3]:4.3f} mm")
+
+        self.desired_mu_x_label.setText(f"µ\u2093' = {self.desired_beam_parameters[0]:4.3f} mm")
+        self.desired_mu_y_label.setText(f"µ_y' = {self.desired_beam_parameters[1]:4.3f} mm")
+        self.desired_sigma_x_label.setText(f"σ\u2093' = {self.desired_beam_parameters[2]:4.3f} mm")
+        self.desired_sigma_y_label.setText(f"σ_y' = {self.desired_beam_parameters[3]:4.3f} mm")
         
     def handle_application_exit(self):
         pass
