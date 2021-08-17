@@ -110,12 +110,14 @@ class ARESEAMachine(simulation.ARESEACheetah):
         channel = "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ"
 
         self.switch_cathode_laser(False)
-        background = self.capture(10, channel).mean(axis=0)
+        self.backgrounds = self.capture(10, channel)
+        self.background = self.backgrounds.mean(axis=0)
         
         self.switch_cathode_laser(True)
-        beam = self.capture(10, channel).mean(axis=0)
+        self.beams = self.capture(10, channel)
+        self.beam = self.beams.mean(axis=0)
 
-        image = beam - background
+        image = self.beam - self.background
         
         return image
 

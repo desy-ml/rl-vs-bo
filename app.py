@@ -1,4 +1,5 @@
 from datetime import datetime
+import pickle
 import sys
 from threading import Event
 from time import sleep
@@ -218,6 +219,8 @@ class AgentThread(qtc.QThread):
         self.step_permission_event.clear()
         self.step_permission = False
 
+        self.timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
     def run(self):
         self.took_step.emit(0)
         self.desired_goal_updated.emit(self.desired_goal)
@@ -226,7 +229,7 @@ class AgentThread(qtc.QThread):
         self.env = TimeLimit(self.env, max_episode_steps=50)
         self.env = FlattenObservation(self.env)
         self.env = Monitor(self.env,
-                           f"experiments/{datetime.now().strftime('%m%d%Y%H%M%S')}_recording",
+                           f"experiments/{self.timestamp}_recording",
                            video_callable=lambda i: True)
 
         model = TD3.load("models/pretty-jazz-258")
@@ -234,6 +237,15 @@ class AgentThread(qtc.QThread):
         done = False
         i = 0
         observation = self.env.reset(goal=self.desired_goal)
+        log = {
+            "backgrounds": [self.env.unwrapped.backgrounds],
+            "background": [self.env.unwrapped.background],
+            "beams": [self.env.unwrapped.beams],
+            "beam": [self.env.unwrapped.beam],
+            "screen_data": [self.env.unwrapped.screen_data],
+            "observation": [self.env.unwrapped.observation],
+            "action": []
+        }
         self.agent_screen_updated.emit(self.env.screen_data)
         self.achieved_goal_updated.emit(self.env.unwrapped.observation["achieved_goal"])
         while not done:
@@ -247,12 +259,26 @@ class AgentThread(qtc.QThread):
 
             observation, _, done, _ = self.env.step(action)
 
+            log["backgrounds"].append(self.env.unwrapped.backgrounds)
+            log["background"].append(self.env.unwrapped.background)
+            log["beams"].append(self.env.unwrapped.beams)
+            log["beam"].append(self.env.unwrapped.beam)
+            log["screen_data"].append(self.env.unwrapped.screen_data)
+            log["observation"].append(self.env.unwrapped.observation)
+            log["action"].append(self.env.unwrapped.action2accelerator(action))
+
             self.agent_screen_updated.emit(self.env.unwrapped.screen_data)
             self.achieved_goal_updated.emit(self.env.unwrapped.observation["achieved_goal"])
             i += 1
             self.took_step.emit(i)
         
         self.env.close()
+
+        log["history"] = self.env.history
+        with open(f"experiments/{self.timestamp}_log.pkl", "wb") as f:
+            pickle.dump(log, f)
+            print(f"Log \"experiments/{self.timestamp}_log.pkl\" file saved")
+
     
     def ask_step_permission(self, action, observation):
         old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
