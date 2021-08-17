@@ -45,6 +45,8 @@ class ARESEACheetah(gym.Env):
         -accelerator_observation_space["achieved_goal"].high[0] * 250,
         accelerator_observation_space["achieved_goal"].high[0] * 250
     )
+
+    target_delta = np.array([5e-6] * 4)
     
     binning = 4
     screen_resolution = (2448, 2040)
@@ -120,7 +122,8 @@ class ARESEACheetah(gym.Env):
             "action": action
         })
 
-        done = all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(self.observation["achieved_goal"], self.observation["desired_goal"]))
+        # done = all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(self.observation["achieved_goal"], self.observation["desired_goal"]))
+        done = (abs(self.observation["achieved_goal"] - self.observation["desired_goal"]) < self.target_delta).all()
 
         return self.observation2agent(self.observation), self.reward2agent(reward), done, info
     

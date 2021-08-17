@@ -211,11 +211,12 @@ class AgentThread(qtc.QThread):
 
     step_permission_event = Event()
 
-    def __init__(self, model_name, desired_goal):
+    def __init__(self, model_name, desired_goal, target_delta):
         super().__init__()
 
         self.model_name = model_name
         self.desired_goal = desired_goal
+        self.target_delta = target_delta
 
         self.step_permission_event.clear()
         self.step_permission = False
@@ -232,6 +233,8 @@ class AgentThread(qtc.QThread):
         self.env = Monitor(self.env,
                            f"experiments/{self.timestamp}_recording",
                            video_callable=lambda i: True)
+        
+        self.env.unwrapped.target_delta = self.target_delta
 
         model = TD3.load(f"models/{self.model_name}")
 
@@ -254,7 +257,6 @@ class AgentThread(qtc.QThread):
 
             if not self.ask_step_permission(action, observation):
                 print("Permission denied!")
-                self.took_step.emit(50)
                 break
             print("Permission granted!")
 
@@ -273,6 +275,8 @@ class AgentThread(qtc.QThread):
             i += 1
             self.took_step.emit(i)
         
+        self.took_step.emit(50)
+
         self.env.close()
 
         log["history"] = self.env.history
@@ -281,7 +285,6 @@ class AgentThread(qtc.QThread):
             pickle.dump(log, f)
             print(f"Log \"experiments/{self.timestamp}_log.pkl\" file saved")
 
-    
     def ask_step_permission(self, action, observation):
         old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
         new_actuators = old_actuators + action * self.env.accelerator_action_space.high
@@ -311,6 +314,7 @@ class App(qtw.QWidget):
 
     achieved_beam_parameters = [0] * 4
     desired_beam_parameters = [0] * 4
+    target_delta = np.array([5e-6] * 4)
 
     def __init__(self):
         super().__init__()
@@ -330,6 +334,28 @@ class App(qtw.QWidget):
         self.achieved_sigma_x_label = qtw.QLabel()
         self.achieved_sigma_y_label = qtw.QLabel()
 
+        self.target_delta_mu_x_label = qtw.QLabel()
+        self.target_delta_mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_mu_x_slider.setRange(0, 100)
+        self.target_delta_mu_x_slider.valueChanged.connect(self.update_beam_parameter_labels)
+        self.target_delta_mu_y_label = qtw.QLabel()
+        self.target_delta_mu_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_mu_y_slider.setRange(0, 100)
+        self.target_delta_mu_y_slider.valueChanged.connect(self.update_beam_parameter_labels)
+        self.target_delta_sigma_x_label = qtw.QLabel()
+        self.target_delta_sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_sigma_x_slider.setRange(0, 100)
+        self.target_delta_sigma_x_slider.valueChanged.connect(self.update_beam_parameter_labels)
+        self.target_delta_sigma_y_label = qtw.QLabel()
+        self.target_delta_sigma_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_sigma_y_slider.setRange(0, 100)
+        self.target_delta_sigma_y_slider.valueChanged.connect(self.update_beam_parameter_labels)
+
+        self.desired_mu_x_label = qtw.QLabel()
+        self.desired_mu_y_label = qtw.QLabel()
+        self.desired_sigma_x_label = qtw.QLabel()
+        self.desired_sigma_y_label = qtw.QLabel()
+
         self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
 
         self.progress_bar = qtw.QProgressBar()
@@ -340,11 +366,6 @@ class App(qtw.QWidget):
         self.start_agent_button.clicked.connect(self.start_agent)
 
         self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
-
-        self.desired_mu_x_label = qtw.QLabel()
-        self.desired_mu_y_label = qtw.QLabel()
-        self.desired_sigma_x_label = qtw.QLabel()
-        self.desired_sigma_y_label = qtw.QLabel()
         
         self.read_thread = AcceleratorReadThread()
         self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
@@ -377,19 +398,27 @@ class App(qtw.QWidget):
         grid.addWidget(self.achieved_mu_y_label, 2, 2, 1, 1)
         grid.addWidget(self.achieved_sigma_x_label, 2, 4, 1, 1)
         grid.addWidget(self.achieved_sigma_y_label, 2, 6, 1, 1)
-        grid.addWidget(self.desired_mu_x_label, 3, 0, 1, 1)
-        grid.addWidget(self.desired_mu_y_label, 3, 2, 1, 1)
-        grid.addWidget(self.desired_sigma_x_label, 3, 4, 1, 1)
-        grid.addWidget(self.desired_sigma_y_label, 3, 6, 1, 1)
-        grid.addWidget(self.agent_screen_view, 4, 0, 1, 4)
-        grid.addWidget(self.progress_bar, 5, 0, 1, 4)
-        grid.addWidget(self.start_agent_button, 6, 0, 1, 4)
-        grid.addWidget(self.live_screen_view, 4, 4, 1, 4)
-        grid.addWidget(self.mu_x_slider, 5, 4, 1, 4)
-        grid.addWidget(self.sigma_x_slider, 6, 4, 1, 4)
-        grid.addWidget(self.mu_y_slider, 4, 8, 1, 1)
-        grid.addWidget(self.sigma_y_slider, 4, 9, 1, 1)
-        grid.setRowStretch(7, 1)
+        grid.addWidget(self.target_delta_mu_x_label, 3, 0, 1, 1)
+        grid.addWidget(self.target_delta_mu_x_slider, 3, 1, 1, 1)
+        grid.addWidget(self.target_delta_mu_y_label, 3, 2, 1, 1)
+        grid.addWidget(self.target_delta_mu_y_slider, 3, 3, 1, 1)
+        grid.addWidget(self.target_delta_sigma_x_label, 3, 4, 1, 1)
+        grid.addWidget(self.target_delta_sigma_x_slider, 3, 5, 1, 1)
+        grid.addWidget(self.target_delta_sigma_y_label, 3, 6, 1, 1)
+        grid.addWidget(self.target_delta_sigma_y_slider, 3, 7, 1, 1)
+        grid.addWidget(self.desired_mu_x_label, 4, 0, 1, 1)
+        grid.addWidget(self.desired_mu_y_label, 4, 2, 1, 1)
+        grid.addWidget(self.desired_sigma_x_label, 4, 4, 1, 1)
+        grid.addWidget(self.desired_sigma_y_label, 4, 6, 1, 1)
+        grid.addWidget(self.agent_screen_view, 5, 0, 1, 4)
+        grid.addWidget(self.progress_bar, 6, 0, 1, 4)
+        grid.addWidget(self.start_agent_button, 7, 0, 1, 4)
+        grid.addWidget(self.live_screen_view, 5, 4, 1, 4)
+        grid.addWidget(self.mu_x_slider, 6, 4, 1, 4)
+        grid.addWidget(self.sigma_x_slider, 7, 4, 1, 4)
+        grid.addWidget(self.mu_y_slider, 5, 8, 1, 1)
+        grid.addWidget(self.sigma_y_slider, 5, 9, 1, 1)
+        grid.setRowStretch(8, 1)
         self.setLayout(grid)
 
         self.read_thread.start()
@@ -407,7 +436,7 @@ class App(qtw.QWidget):
             self.live_screen_view.sigma_y
         ]) * 1e-3
 
-        self.agent_thread = AgentThread(self.agent_name, desired_goal)
+        self.agent_thread = AgentThread(self.agent_name, desired_goal, self.target_delta)
 
         self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
@@ -450,6 +479,12 @@ class App(qtw.QWidget):
             self.sigma_x_slider.value() / 100 * 1.0e-3 * 1e3,
             self.sigma_y_slider.value() / 100 * 1.0e-3 * 1e3
         ]
+        self.target_delta = np.array([
+            self.target_delta_mu_x_slider.value() / 100 * 0.5 * 1e-3,
+            self.target_delta_mu_y_slider.value() / 100 * 0.5 * 1e-3,
+            self.target_delta_sigma_x_slider.value() / 100 * 0.5 * 1e-3,
+            self.target_delta_sigma_y_slider.value() / 100 * 0.5 * 1e-3
+        ])
 
         self.achieved_mu_x_label.setText(f"µ\u2093 = {self.achieved_beam_parameters[0]:4.3f} mm")
         self.achieved_mu_y_label.setText(f"µ_y = {self.achieved_beam_parameters[1]:4.3f} mm")
@@ -460,6 +495,11 @@ class App(qtw.QWidget):
         self.desired_mu_y_label.setText(f"µ_y' = {self.desired_beam_parameters[1]:4.3f} mm")
         self.desired_sigma_x_label.setText(f"σ\u2093' = {self.desired_beam_parameters[2]:4.3f} mm")
         self.desired_sigma_y_label.setText(f"σ_y' = {self.desired_beam_parameters[3]:4.3f} mm")
+
+        self.target_delta_mu_x_label.setText(f"Δµ\u2093' = {self.target_delta[0]*1e3:4.3f} mm")
+        self.target_delta_mu_y_label.setText(f"Δµ_y' = {self.target_delta[1]*1e3:4.3f} mm")
+        self.target_delta_sigma_x_label.setText(f"Δσ\u2093' = {self.target_delta[2]*1e3:4.3f} mm")
+        self.target_delta_sigma_y_label.setText(f"Δσ_y' = {self.target_delta[3]*1e3:4.3f} mm")
         
     def handle_application_exit(self):
         pass
