@@ -211,9 +211,10 @@ class AgentThread(qtc.QThread):
 
     step_permission_event = Event()
 
-    def __init__(self, desired_goal):
+    def __init__(self, model_name, desired_goal):
         super().__init__()
 
+        self.model_name = model_name
         self.desired_goal = desired_goal
 
         self.step_permission_event.clear()
@@ -232,7 +233,7 @@ class AgentThread(qtc.QThread):
                            f"experiments/{self.timestamp}_recording",
                            video_callable=lambda i: True)
 
-        model = TD3.load("models/pretty-jazz-258")
+        model = TD3.load(f"models/{self.model_name}")
 
         done = False
         i = 0
@@ -275,6 +276,7 @@ class AgentThread(qtc.QThread):
         self.env.close()
 
         log["history"] = self.env.history
+        log["model_name"] = self.model_name
         with open(f"experiments/{self.timestamp}_log.pkl", "wb") as f:
             pickle.dump(log, f)
             print(f"Log \"experiments/{self.timestamp}_log.pkl\" file saved")
@@ -294,6 +296,17 @@ class AgentThread(qtc.QThread):
         return tmp
 
 
+class HorizontalSeperationLine(qtw.QFrame):
+
+  def __init__(self):
+    super().__init__()
+    self.setMinimumWidth(1)
+    self.setFixedHeight(20)
+    self.setFrameShape(qtw.QFrame.HLine)
+    self.setFrameShadow(qtw.QFrame.Sunken)
+    self.setSizePolicy(qtw.QSizePolicy.Preferred, qtw.QSizePolicy.Minimum)
+
+
 class App(qtw.QWidget):
 
     achieved_beam_parameters = [0] * 4
@@ -303,6 +316,14 @@ class App(qtw.QWidget):
         super().__init__()
 
         self.setWindowTitle("Autonomous Beam Positioning and Focusing at ARES EA")
+
+        self.model_label = qtw.QLabel("Select agent:")
+        self.model_dropdown = qtw.QComboBox()
+        self.model_dropdown.addItems(["pretty-jazz-258", "smart-surf-259", "exalted_rain-260"])
+        self.model_dropdown.currentTextChanged.connect(self.switch_agent)
+        self.agent_name = "pretty-jazz-258"
+
+        self.model_separation_line = HorizontalSeperationLine()
 
         self.achieved_mu_x_label = qtw.QLabel()
         self.achieved_mu_y_label = qtw.QLabel()
@@ -349,27 +370,34 @@ class App(qtw.QWidget):
         self.sigma_y_slider.valueChanged.connect(self.update_beam_parameter_labels)
 
         grid = qtw.QGridLayout()
-        grid.addWidget(self.achieved_mu_x_label, 0, 0, 1, 1)
-        grid.addWidget(self.achieved_mu_y_label, 0, 1, 1, 1)
-        grid.addWidget(self.achieved_sigma_x_label, 0, 2, 1, 1)
-        grid.addWidget(self.achieved_sigma_y_label, 0, 3, 1, 1)
-        grid.addWidget(self.agent_screen_view, 1, 0, 1, 4)
-        grid.addWidget(self.progress_bar, 2, 0, 1, 4)
-        grid.addWidget(self.start_agent_button, 3, 0, 1, 4)
-        grid.addWidget(self.desired_mu_x_label, 0, 4, 1, 1)
-        grid.addWidget(self.desired_mu_y_label, 0, 5, 1, 1)
-        grid.addWidget(self.desired_sigma_x_label, 0, 6, 1, 1)
-        grid.addWidget(self.desired_sigma_y_label, 0, 7, 1, 1)
-        grid.addWidget(self.live_screen_view, 1, 4, 1, 4)
-        grid.addWidget(self.mu_x_slider, 2, 4, 1, 4)
-        grid.addWidget(self.sigma_x_slider, 3, 4, 1, 4)
-        grid.addWidget(self.mu_y_slider, 1, 8, 1, 1)
-        grid.addWidget(self.sigma_y_slider, 1, 9, 1, 1)
-        grid.setRowStretch(4, 1)
+        grid.addWidget(self.model_label, 0, 3, 1, 1)
+        grid.addWidget(self.model_dropdown, 0, 4, 1, 1)
+        grid.addWidget(self.model_separation_line, 1, 0, 1, 10)
+        grid.addWidget(self.achieved_mu_x_label, 2, 0, 1, 1)
+        grid.addWidget(self.achieved_mu_y_label, 2, 1, 1, 1)
+        grid.addWidget(self.achieved_sigma_x_label, 2, 2, 1, 1)
+        grid.addWidget(self.achieved_sigma_y_label, 2, 3, 1, 1)
+        grid.addWidget(self.agent_screen_view, 3, 0, 1, 4)
+        grid.addWidget(self.progress_bar, 4, 0, 1, 4)
+        grid.addWidget(self.start_agent_button, 5, 0, 1, 4)
+        grid.addWidget(self.desired_mu_x_label, 2, 4, 1, 1)
+        grid.addWidget(self.desired_mu_y_label, 2, 5, 1, 1)
+        grid.addWidget(self.desired_sigma_x_label, 2, 6, 1, 1)
+        grid.addWidget(self.desired_sigma_y_label, 2, 7, 1, 1)
+        grid.addWidget(self.live_screen_view, 3, 4, 1, 4)
+        grid.addWidget(self.mu_x_slider, 4, 4, 1, 4)
+        grid.addWidget(self.sigma_x_slider, 5, 4, 1, 4)
+        grid.addWidget(self.mu_y_slider, 3, 8, 1, 1)
+        grid.addWidget(self.sigma_y_slider, 3, 9, 1, 1)
+        grid.setRowStretch(6, 1)
         self.setLayout(grid)
 
         self.read_thread.start()
         self.update_beam_parameter_labels()
+    
+    @qtc.pyqtSlot(str)
+    def switch_agent(self, agent_name):
+        self.agent_name = agent_name
     
     def start_agent(self):
         desired_goal = np.array([
@@ -379,7 +407,7 @@ class App(qtw.QWidget):
             self.live_screen_view.sigma_y
         ]) * 1e-3
 
-        self.agent_thread = AgentThread(desired_goal)
+        self.agent_thread = AgentThread(self.agent_name, desired_goal)
 
         self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
