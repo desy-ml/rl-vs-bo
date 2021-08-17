@@ -5,6 +5,7 @@ __pycache__
 .vscode
 slurm-*.out
 
+experiments
 log
 recordings
 wandb

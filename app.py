@@ -1,8 +1,9 @@
+from datetime import datetime
 import sys
 from threading import Event
 from time import sleep
 
-from gym.wrappers import FlattenObservation, TimeLimit
+from gym.wrappers import FlattenObservation, Monitor, TimeLimit
 import matplotlib
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
@@ -224,6 +225,9 @@ class AgentThread(qtc.QThread):
         self.env = ARESEAMachine()
         self.env = TimeLimit(self.env, max_episode_steps=50)
         self.env = FlattenObservation(self.env)
+        self.env = Monitor(self.env,
+                           f"experiments/{datetime.now().strftime('%m%d%Y%H%M%S')}_recording",
+                           video_callable=lambda i: True)
 
         model = TD3.load("models/pretty-jazz-258")
 
@@ -247,6 +251,8 @@ class AgentThread(qtc.QThread):
             self.achieved_goal_updated.emit(self.env.unwrapped.observation["achieved_goal"])
             i += 1
             self.took_step.emit(i)
+        
+        self.env.close()
     
     def ask_step_permission(self, action, observation):
         old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
