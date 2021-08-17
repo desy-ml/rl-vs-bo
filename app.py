@@ -497,9 +497,13 @@ class App(qtw.QWidget):
         self.desired_sigma_y_label.setText(f"σ_y' = {self.desired_beam_parameters[3]:4.3f} mm")
 
         self.target_delta_mu_x_label.setText(f"Δµ\u2093' = {self.target_delta[0]*1e3:4.3f} mm")
+        self.target_delta_mu_x_label.setStyleSheet("background-color: green" if abs(self.desired_beam_parameters[0] - self.achieved_beam_parameters[0]) <= self.target_delta[0]*1e3 else "background-color: rgba(0,0,0,0%)")
         self.target_delta_mu_y_label.setText(f"Δµ_y' = {self.target_delta[1]*1e3:4.3f} mm")
+        self.target_delta_mu_y_label.setStyleSheet("background-color: green" if abs(self.desired_beam_parameters[1] - self.achieved_beam_parameters[1]) <= self.target_delta[1]*1e3 else "background-color: rgba(0,0,0,0%)")
         self.target_delta_sigma_x_label.setText(f"Δσ\u2093' = {self.target_delta[2]*1e3:4.3f} mm")
+        self.target_delta_sigma_x_label.setStyleSheet("background-color: green" if abs(self.desired_beam_parameters[2] - self.achieved_beam_parameters[2]) <= self.target_delta[2]*1e3 else "background-color: rgba(0,0,0,0%)")
         self.target_delta_sigma_y_label.setText(f"Δσ_y' = {self.target_delta[3]*1e3:4.3f} mm")
+        self.target_delta_sigma_y_label.setStyleSheet("background-color: green" if abs(self.desired_beam_parameters[3] - self.achieved_beam_parameters[3]) <= self.target_delta[3]*1e3 else "background-color: rgba(0,0,0,0%)")
         
     def handle_application_exit(self):
         pass
