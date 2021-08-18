@@ -283,8 +283,9 @@ class AgentThread(qtc.QThread):
 
         self.env.close()
 
-        log["history"] = self.env.history
+        log["history"] = self.env.unwrapped.history
         log["model_name"] = self.model_name
+        log["target_delta"] = self.env.unwrapped.target_delta
         with open(f"experiments/{self.timestamp}_log.pkl", "wb") as f:
             pickle.dump(log, f)
             print(f"Log \"experiments/{self.timestamp}_log.pkl\" file saved")
