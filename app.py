@@ -209,6 +209,7 @@ class AgentThread(qtc.QThread):
     took_step = qtc.pyqtSignal(int)
     desired_goal_updated = qtc.pyqtSignal(np.ndarray)
     achieved_goal_updated = qtc.pyqtSignal(np.ndarray)
+    done = qtc.pyqtSignal(int, np.ndarray)
 
     step_permission_event = Event()
 
@@ -280,6 +281,10 @@ class AgentThread(qtc.QThread):
             self.took_step.emit(i)
         
         self.took_step.emit(50)
+        desired = self.env.unwrapped.observation["desired_goal"]
+        achieved = self.env.unwrapped.observation["achieved_goal"]
+        delta = np.abs(desired - achieved)
+        self.done.emit(i, delta)
 
         self.env.close()
 
@@ -449,6 +454,7 @@ class App(qtw.QWidget):
         self.agent_thread.desired_goal_updated.connect(self.agent_screen_view.update_desired_goal)
         self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
         self.agent_thread.new_beam_parameters_available.connect(self.update_beam_parameter_labels)
+        self.agent_thread.done.connect(self.agent_finished_popup)
 
         self.agent_thread.start()
     
@@ -510,6 +516,23 @@ class App(qtw.QWidget):
         self.target_delta_sigma_x_label.setStyleSheet("background-color: green" if abs(self.desired_beam_parameters[2] - self.achieved_beam_parameters[2]) <= self.target_delta[2]*1e3 else "background-color: rgba(0,0,0,0%)")
         self.target_delta_sigma_y_label.setText(f"Δσ_y' = {self.target_delta[3]*1e3:4.3f} mm")
         self.target_delta_sigma_y_label.setStyleSheet("background-color: green" if abs(self.desired_beam_parameters[3] - self.achieved_beam_parameters[3]) <= self.target_delta[3]*1e3 else "background-color: rgba(0,0,0,0%)")
+
+    @qtc.pyqtSlot(int, np.ndarray)
+    def agent_finished_popup(self, steps, delta):
+        if (delta <= self.target_delta).all():
+            msg = "The desired beam parameters have been achieved successfully! 🎉🎆"
+        else:
+            msg = "The agent timed out, the desired beam parameters cannot be achieved. 🥺"
+
+        msg += f"\n\n" + \
+               f"Report:\n" + \
+               f"Steps = {steps:d}\n" + \
+               f"Δµ\u2093 = {delta[0]*1e3:+6.3f} mm\n" + \
+               f"Δµ_y = {delta[1]*1e3:+6.3f} mm\n" + \
+               f"Δσ\u2093 = {delta[2]*1e3:+6.3f} mm\n" + \
+               f"Δσ_y = {delta[3]*1e3:+6.3f} mm"
+
+        qtw.QMessageBox.information(self, "Agent Finished", msg)
         
     def handle_application_exit(self):
         pass
