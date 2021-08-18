@@ -204,6 +204,7 @@ class AgentThread(qtc.QThread):
     
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
+    new_beam_parameters_available = qtc.pyqtSignal()
     want_step_permission = qtc.pyqtSignal(np.ndarray, np.ndarray)
     took_step = qtc.pyqtSignal(int)
     desired_goal_updated = qtc.pyqtSignal(np.ndarray)
@@ -241,6 +242,7 @@ class AgentThread(qtc.QThread):
         done = False
         i = 0
         observation = self.env.reset(goal=self.desired_goal)
+        self.new_beam_parameters_available.emit()
         log = {
             "backgrounds": [self.env.unwrapped.backgrounds],
             "background": [self.env.unwrapped.background],
@@ -261,6 +263,8 @@ class AgentThread(qtc.QThread):
             print("Permission granted!")
 
             observation, _, done, _ = self.env.step(action)
+
+            self.new_beam_parameters_available.emit()
 
             log["backgrounds"].append(self.env.unwrapped.backgrounds)
             log["background"].append(self.env.unwrapped.background)
@@ -440,10 +444,10 @@ class App(qtw.QWidget):
 
         self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
-        self.agent_thread.took_step.connect(self.update_beam_parameter_labels)
         self.agent_thread.achieved_goal_updated.connect(self.agent_screen_view.update_achieved_goal)
         self.agent_thread.desired_goal_updated.connect(self.agent_screen_view.update_desired_goal)
         self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
+        self.agent_thread.new_beam_parameters_available.connect(self.update_beam_parameter_labels)
 
         self.agent_thread.start()
     
@@ -470,6 +474,7 @@ class App(qtw.QWidget):
         self.agent_thread.step_permission = (answer == qtw.QMessageBox.Yes)
         self.agent_thread.step_permission_event.set()
     
+    @qtc.pyqtSlot()
     def update_beam_parameter_labels(self):
         if hasattr(self, "agent_thread") and hasattr(self.agent_thread, "env"):
             self.achieved_beam_parameters = self.agent_thread.env.unwrapped.observation["achieved_goal"] * 1e3
