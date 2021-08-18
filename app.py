@@ -233,7 +233,7 @@ class AgentThread(qtc.QThread):
         self.env = TimeLimit(self.env, max_episode_steps=50)
         self.env = FlattenObservation(self.env)
         self.env = Monitor(self.env,
-                           f"experiments/{self.timestamp}_recording",
+                           f"experiments/{self.timestamp}/recording",
                            video_callable=lambda i: True)
         
         self.env.unwrapped.target_delta = self.target_delta
@@ -281,19 +281,21 @@ class AgentThread(qtc.QThread):
             self.took_step.emit(i)
         
         self.took_step.emit(50)
-        desired = self.env.unwrapped.observation["desired_goal"]
-        achieved = self.env.unwrapped.observation["achieved_goal"]
-        delta = np.abs(desired - achieved)
-        self.done.emit(i, delta)
 
         self.env.close()
 
         log["history"] = self.env.unwrapped.history
         log["model_name"] = self.model_name
         log["target_delta"] = self.env.unwrapped.target_delta
-        with open(f"experiments/{self.timestamp}_log.pkl", "wb") as f:
+        logpath = f"experiments/{self.timestamp}/log.pkl"
+        with open(logpath, "wb") as f:
             pickle.dump(log, f)
-            print(f"Log \"experiments/{self.timestamp}_log.pkl\" file saved")
+            print(f"Log file saved as \"{logpath}\"")
+        
+        desired = self.env.unwrapped.observation["desired_goal"]
+        achieved = self.env.unwrapped.observation["achieved_goal"]
+        delta = np.abs(desired - achieved)
+        self.done.emit(i, delta)
 
     def ask_step_permission(self, action, observation):
         old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
