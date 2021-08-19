@@ -1,3 +1,5 @@
+from datetime import datetime
+import pickle
 import time
 
 import numpy as np
@@ -68,15 +70,28 @@ def beam_parameters(screen_data, pixel_size, binning):
 
 
 if __name__ == "__main__":
-    screen_resolution = (2448, 2040)
-    pixel_size = (3.3198e-6, 2.4469e-6)
-    binning = 4
+    n = 150
+    log = []
 
-    screen_data = read_screen()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    for i in range(n):
+        screen_resolution = (2448, 2040)
+        pixel_size = (3.3198e-6, 2.4469e-6)
+        binning = 4
+
+        screen_data = read_screen()
+        
+        parameters = beam_parameters(
+            screen_data,
+            pixel_size=pixel_size,
+            binning=binning
+        )
+
+        log.append((parameters, screen_data))
+        print(i, parameters)
+
+        time.sleep(20.0)
     
-    parameters = beam_parameters(
-        screen_data,
-        pixel_size=pixel_size,
-        binning=binning
-    )
-    print(f"Beam Parameters: {parameters}")
+    with open(f"measurements/beamparameters-{timestamp}.pkl", "wb") as f:
+        pickle.dump(log, f)
