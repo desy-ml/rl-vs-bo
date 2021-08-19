@@ -29,8 +29,9 @@ def capture(n, channel):
     images = []
     for _ in range(n):
         response = pydoocs.read(channel)
-        flipped = np.flipud(response["data"])
-        images.append(flipped)
+        flippedud = np.flipud(response["data"])
+        flippedlr = np.fliplr(flippedud)
+        images.append(flippedlr)
         time.sleep(0.1)
     return np.array(images)
 
@@ -70,7 +71,7 @@ def beam_parameters(screen_data, pixel_size, binning):
 
 
 if __name__ == "__main__":
-    n = 150
+    n = 1
     log = []
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")

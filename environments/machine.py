@@ -110,11 +110,11 @@ class ARESEAMachine(simulation.ARESEACheetah):
 
         channel = "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ"
 
-        # self.switch_cathode_laser(False)
+        self.switch_cathode_laser(False)
         self.backgrounds = self.capture(10, channel)
         self.background = self.backgrounds.mean(axis=0)
         
-        # self.switch_cathode_laser(True)
+        self.switch_cathode_laser(True)
         self.beams = self.capture(10, channel)
         self.beam = self.beams.mean(axis=0)
 
@@ -125,17 +125,20 @@ class ARESEAMachine(simulation.ARESEACheetah):
     def capture(self, n, channel):
         images = []
         for _ in range(n):
-            images.append(pydoocs.read(channel)["data"])
+            response = pydoocs.read(channel)
+            flippedud = np.flipud(response["data"])
+            flippedlr = np.fliplr(flippedud)
+            images.append(flippedlr)
             time.sleep(0.1)
         return np.array(images)
     
-    # def switch_cathode_laser(self, setto):
-    #     """Sets the bool switch of the cathode laser event to setto and waits a second."""
-    #     address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-    #     bits = pydoocs.read(address)["data"]
-    #     bits[0] = 1 if setto else 0
-    #     pydoocs.write(address, bits)
-    #     time.sleep(1)
+    def switch_cathode_laser(self, setto):
+        """Sets the bool switch of the cathode laser event to setto and waits a second."""
+        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
+        bits = pydoocs.read(address)["data"]
+        bits[0] = 1 if setto else 0
+        pydoocs.write(address, bits)
+        time.sleep(1)
     
     @property
     def beam_parameters(self):
