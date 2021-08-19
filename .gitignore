@@ -11,6 +11,12 @@ recordings
 wandb
 
 models/*
-!models/pretty-jazz-258.zip
-!models/smart-surf-259.zip
-!models/exalted-rain-260.zip
+!models/chocolate-hill-271.zip
+!modles/rich-firefly-270.zip
+!models/snowy-bee-271.zip
+!models/hardy-sky-269.zip
+!models/rosy-meadow-273.zip
+!models/old/pretty-jazz-258.zip
+!models/old/smart-surf-259.zip
+!models/old/exalted-rain-260.zip
+
