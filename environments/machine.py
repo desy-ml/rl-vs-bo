@@ -99,6 +99,7 @@ class ARESEAMachine(simulation.ARESEACheetah):
         for channel, value in zip(self.actuator_channels[3:], values[3:]):
             pydoocs.write(channel + "KICK_MRAD.SP", value * 1000)
         
+        time.sleep(3.0)
         while any(pydoocs.read(channel + "BUSY")["data"] for channel in self.actuator_channels):
             time.sleep(0.25)
         
@@ -109,11 +110,11 @@ class ARESEAMachine(simulation.ARESEACheetah):
 
         channel = "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ"
 
-        self.switch_cathode_laser(False)
+        # self.switch_cathode_laser(False)
         self.backgrounds = self.capture(10, channel)
         self.background = self.backgrounds.mean(axis=0)
         
-        self.switch_cathode_laser(True)
+        # self.switch_cathode_laser(True)
         self.beams = self.capture(10, channel)
         self.beam = self.beams.mean(axis=0)
 
@@ -128,13 +129,13 @@ class ARESEAMachine(simulation.ARESEACheetah):
             time.sleep(0.1)
         return np.array(images)
     
-    def switch_cathode_laser(self, setto):
-        """Sets the bool switch of the cathode laser event to setto and waits a second."""
-        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-        bits = pydoocs.read(address)["data"]
-        bits[0] = 1 if setto else 0
-        pydoocs.write(address, bits)
-        time.sleep(1)
+    # def switch_cathode_laser(self, setto):
+    #     """Sets the bool switch of the cathode laser event to setto and waits a second."""
+    #     address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
+    #     bits = pydoocs.read(address)["data"]
+    #     bits[0] = 1 if setto else 0
+    #     pydoocs.write(address, bits)
+    #     time.sleep(1)
     
     @property
     def beam_parameters(self):
@@ -146,8 +147,12 @@ class ARESEAMachine(simulation.ARESEACheetah):
 
             half_values, = np.where(filtered >= 0.5 * filtered.max())
 
-            fwhm_pixel = half_values[-1] - half_values[0]
-            center_pixel = half_values[0] + fwhm_pixel / 2
+            if len(half_values) > 0:
+                fwhm_pixel = half_values[-1] - half_values[0]
+                center_pixel = half_values[0] + fwhm_pixel / 2
+            else:
+                fwhm_pixel = 42     # TODO: Figure out what to do with these
+                center_pixel = 42
 
             parameters[axis] = (center_pixel - len(filtered) / 2) * self.pixel_size[axis] * self.binning
             parameters[axis+2] = fwhm_pixel / 2.355 * self.pixel_size[axis] * self.binning
