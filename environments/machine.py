@@ -127,8 +127,8 @@ class ARESEAMachine(simulation.ARESEACheetah):
         for _ in range(n):
             response = pydoocs.read(channel)
             flippedud = np.flipud(response["data"])
-            flippedlr = np.fliplr(flippedud)
-            images.append(flippedlr)
+            # flippedlr = np.fliplr(flippedud)
+            images.append(flippedud)
             time.sleep(0.1)
         return np.array(images)
     
@@ -145,8 +145,9 @@ class ARESEAMachine(simulation.ARESEACheetah):
         parameters = np.empty(4)
         for axis in [0, 1]:
             profile = self.screen_data.sum(axis=axis)
-            minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
-            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
+            # minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
+            filtered = uniform_filter1d(profile, size=5, mode="nearest")
+            filtered = minimum_filter1d(filtered, size=5, mode="nearest")
 
             half_values, = np.where(filtered >= 0.5 * filtered.max())
 

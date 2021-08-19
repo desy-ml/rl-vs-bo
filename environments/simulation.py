@@ -63,20 +63,33 @@ class ARESEACheetah(gym.Env):
         self.magnets_changed = True
     
     def reset(self):
+        # self.incoming = cheetah.Beam.make_random(
+        #     n=int(1e5),
+        #     mu_x=np.random.uniform(-5e-4, 5e-4),
+        #     mu_y=np.random.uniform(-5e-4, 5e-4),
+        #     mu_xp=np.random.uniform(-1e-4, 1e-4),
+        #     mu_yp=np.random.uniform(-1e-4, 1e-4),
+        #     sigma_x=np.random.uniform(0, 5e-4),
+        #     sigma_y=np.random.uniform(0, 5e-4),
+        #     sigma_xp=np.random.uniform(0, 1e-4),
+        #     sigma_yp=np.random.uniform(0, 1e-4),
+        #     sigma_s=np.random.uniform(0, 1e-4),
+        #     sigma_p=np.random.uniform(0, 1e-3)
+        # )
+        # self.incoming = cheetah.Beam.from_astra("environments/ACHIP_EA1_2021.1351.001")
         self.incoming = cheetah.Beam.make_random(
             n=int(1e5),
-            mu_x=np.random.uniform(-5e-4, 5e-4),
-            mu_y=np.random.uniform(-5e-4, 5e-4),
-            mu_xp=np.random.uniform(-1e-4, 1e-4),
-            mu_yp=np.random.uniform(-1e-4, 1e-4),
-            sigma_x=np.random.uniform(0, 5e-4),
-            sigma_y=np.random.uniform(0, 5e-4),
-            sigma_xp=np.random.uniform(0, 1e-4),
-            sigma_yp=np.random.uniform(0, 1e-4),
-            sigma_s=np.random.uniform(0, 1e-4),
-            sigma_p=np.random.uniform(0, 1e-3)
+            mu_x=2e-4,
+            mu_y=2e-4,
+            mu_xp=0.0,
+            mu_yp=0.0,
+            sigma_x=2e-4,
+            sigma_y=2e-4,
+            sigma_xp=2e-4,
+            sigma_yp=2e-4,
+            sigma_s=1e-5,
+            sigma_p=1e-5
         )
-        # self.incoming = cheetah.Beam.from_astra("environments/ACHIP_EA1_2021.1351.001")
 
         self.actuators = self.initial_actuators
         

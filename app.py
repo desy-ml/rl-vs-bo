@@ -196,8 +196,8 @@ class AcceleratorReadThread(qtc.QThread):
     def read_screen(self):
         response = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")
         flippedud = np.flipud(response["data"])
-        flippedlr = np.fliplr(flippedud)
-        screen_data = flippedlr
+        # flippedlr = np.fliplr(flippedud)
+        screen_data = flippedud
         
         self.screen_updated.emit(screen_data)
 
