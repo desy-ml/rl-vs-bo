@@ -125,10 +125,7 @@ class ARESEAMachine(simulation.ARESEACheetah):
     def capture(self, n, channel):
         images = []
         for _ in range(n):
-            response = pydoocs.read(channel)
-            flippedud = np.flipud(response["data"])
-            # flippedlr = np.fliplr(flippedud)
-            images.append(flippedud)
+            images.append(pydoocs.read(channel)["data"])
             time.sleep(0.1)
         return np.array(images)
     
