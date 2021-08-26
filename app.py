@@ -323,14 +323,14 @@ class App(qtw.QWidget):
         self.model_label = qtw.QLabel("Select agent:")
         self.model_dropdown = qtw.QComboBox()
         self.model_dropdown.addItems([
-            "snowy-bee-271", 
-            "chocolate-hill-271", 
-            "rich-firefly-270", 
-            "hardy-sky-269", 
-            "rosy-meadow-273"
+            "mild-puddle-274", 
+            "rural-salad-275", 
+            "sparkling-surf-276", 
+            "warm-wave-276", 
+            "winter-wood-277"
         ])
         self.model_dropdown.currentTextChanged.connect(self.switch_agent)
-        self.agent_name = "snowy-bee-271"
+        self.agent_name = "mild-puddle-274"
 
         self.model_separation_line = HorizontalSeperationLine()
 

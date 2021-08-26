@@ -11,12 +11,9 @@ recordings
 wandb
 
 models/*
-!models/chocolate-hill-271.zip
-!modles/rich-firefly-270.zip
-!models/snowy-bee-271.zip
-!models/hardy-sky-269.zip
-!models/rosy-meadow-273.zip
+!models/mild-puddle-274.zip
+!models/rural-salad-275.zip
+!models/sparkling-surf-276.zip
+!models/warm-wave-276.zip
+!models/winter-wood-277.zip
 !models/old
-!models/old/pretty-jazz-258.zip
-!models/old/smart-surf-259.zip
-!models/old/exalted-rain-260.zip
