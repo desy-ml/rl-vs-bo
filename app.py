@@ -16,69 +16,74 @@ import numpy as np
 import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
+import pyqtgraph as pg
 import pydoocs
 from stable_baselines3 import TD3
 
 from environments.machine import ARESEAMachine
 
 
-class LiveScreenView(FigureCanvasQTAgg):
+class LiveScreenView(pg.ImageView):
 
-    def __init__(self, resolution, pixel_size):
-        self.resolution = resolution
-        self.pixel_size = pixel_size
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-        self.fig = Figure()
-        self.ax = self.fig.add_subplot(111)
+        # self.resolution = resolution
+        # self.pixel_size = pixel_size
+
+        # self.fig = Figure()
+        # self.ax = self.fig.add_subplot(111)
         
-        super().__init__(self.fig)
+        # super().__init__(self.fig)
 
-        self.screen_extent = (-self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
-                              self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
-                              -self.resolution[1] * self.pixel_size[1] / 2 * 1e3,
-                              self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
-        self.create_plot()
+        # self.screen_extent = (-self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
+        #                       self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
+        #                       -self.resolution[1] * self.pixel_size[1] / 2 * 1e3,
+        #                       self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
+        # self.create_plot()
 
-        self.setFixedSize(600, 420)
+        # self.setFixedSize(600, 420)
     
-    def create_plot(self):
-        self.screen_plot = self.ax.imshow(
-            np.zeros(self.resolution), 
-            cmap="magma",
-            interpolation="None",
-            extent=self.screen_extent
-        )
-        self.ax.set_xlabel("x (mm)")
-        self.ax.set_ylabel("y (mm)")
-        self.ax.set_title("Live View AR.EA.BSC.R.1")
+    # def create_plot(self):
+    #     self.screen_plot = self.ax.imshow(
+    #         np.zeros(self.resolution), 
+    #         cmap="magma",
+    #         interpolation="None",
+    #         extent=self.screen_extent
+    #     )
+    #     self.ax.set_xlabel("x (mm)")
+    #     self.ax.set_ylabel("y (mm)")
+    #     self.ax.set_title("Live View AR.EA.BSC.R.1")
 
-        self.mu_x, self.mu_y, self.sigma_x, self.sigma_y = [0] * 4
-        self.select_ellipse = Ellipse(
-            (self.mu_x,self.mu_y),
-            self.sigma_x,
-            self.sigma_y,
-            fill=False,
-            color="white"
-        )
-        self.ax.add_patch(self.select_ellipse)
+    #     self.mu_x, self.mu_y, self.sigma_x, self.sigma_y = [0] * 4
+    #     self.select_ellipse = Ellipse(
+    #         (self.mu_x,self.mu_y),
+    #         self.sigma_x,
+    #         self.sigma_y,
+    #         fill=False,
+    #         color="white"
+    #     )
+    #     self.ax.add_patch(self.select_ellipse)
 
-        self.fig.tight_layout()
+    #     self.fig.tight_layout()
     
     @qtc.pyqtSlot(np.ndarray)
     def update_screen_data(self, screen_data):
-        self.screen_plot.set_data(screen_data)
-        self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
+        self.setImage(screen_data)
+        # self.screen_plot.set_data(screen_data)
+        # self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
 
-        self.draw()
-    
+        # self.draw()
+
     def update_target(self, mu_x, mu_y, sigma_x, sigma_y):
-        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
+        pass
+        # mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
 
-        self.select_ellipse.set_center((mu_x, mu_y))
-        self.select_ellipse.set_width(2 * sigma_x)
-        self.select_ellipse.set_height(2 * sigma_y)
+        # self.select_ellipse.set_center((mu_x, mu_y))
+        # self.select_ellipse.set_width(2 * sigma_x)
+        # self.select_ellipse.set_height(2 * sigma_y)
 
-        self.draw()
+        # self.draw()
 
 
 class AgentScreenView(FigureCanvasQTAgg):
@@ -385,7 +390,7 @@ class App(qtw.QWidget):
         self.start_agent_button = qtw.QPushButton("Start Agent")
         self.start_agent_button.clicked.connect(self.start_agent)
 
-        self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
+        self.live_screen_view = LiveScreenView()
         
         self.read_thread = AcceleratorReadThread()
         self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
