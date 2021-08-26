@@ -21,8 +21,8 @@ class ARESEACheetah(gym.Env):
 
     accelerator_observation_space = spaces.Dict({
         "observation": spaces.Box(
-            low=np.array([0, -30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
-            high=np.array([1e5, 30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
+            low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+            high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
         ),
         "desired_goal": spaces.Box(
             low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
@@ -34,12 +34,12 @@ class ARESEACheetah(gym.Env):
         )
     })
     accelerator_action_space = spaces.Box(
-        low=accelerator_observation_space["observation"].low[-5:] * 0.1,
-        high=accelerator_observation_space["observation"].high[-5:] * 0.1
+        low=accelerator_observation_space["observation"].low * 0.1,
+        high=accelerator_observation_space["observation"].high * 0.1
     )
     accelerator_optimization_space = spaces.Box(
-        low=accelerator_observation_space["observation"].low[-5:],
-        high=accelerator_observation_space["observation"].high[-5:]
+        low=accelerator_observation_space["observation"].low,
+        high=accelerator_observation_space["observation"].high
     )
     accelerator_reward_range = (
         -accelerator_observation_space["achieved_goal"].high[0] * 250,
@@ -63,33 +63,33 @@ class ARESEACheetah(gym.Env):
         self.magnets_changed = True
     
     def reset(self):
-        # self.incoming = cheetah.Beam.make_random(
-        #     n=int(1e5),
-        #     mu_x=np.random.uniform(-5e-4, 5e-4),
-        #     mu_y=np.random.uniform(-5e-4, 5e-4),
-        #     mu_xp=np.random.uniform(-1e-4, 1e-4),
-        #     mu_yp=np.random.uniform(-1e-4, 1e-4),
-        #     sigma_x=np.random.uniform(0, 5e-4),
-        #     sigma_y=np.random.uniform(0, 5e-4),
-        #     sigma_xp=np.random.uniform(0, 1e-4),
-        #     sigma_yp=np.random.uniform(0, 1e-4),
-        #     sigma_s=np.random.uniform(0, 1e-4),
-        #     sigma_p=np.random.uniform(0, 1e-3)
-        # )
-        # self.incoming = cheetah.Beam.from_astra("environments/ACHIP_EA1_2021.1351.001")
         self.incoming = cheetah.Beam.make_random(
             n=int(1e5),
-            mu_x=2e-4,
-            mu_y=2e-4,
-            mu_xp=0.0,
-            mu_yp=0.0,
-            sigma_x=2e-4,
-            sigma_y=2e-4,
-            sigma_xp=2e-4,
-            sigma_yp=2e-4,
-            sigma_s=1e-5,
-            sigma_p=1e-5
+            mu_x=np.random.uniform(-5e-4, 5e-4),
+            mu_y=np.random.uniform(-5e-4, 5e-4),
+            mu_xp=np.random.uniform(-1e-4, 1e-4),
+            mu_yp=np.random.uniform(-1e-4, 1e-4),
+            sigma_x=np.random.uniform(0, 5e-4),
+            sigma_y=np.random.uniform(0, 5e-4),
+            sigma_xp=np.random.uniform(0, 1e-4),
+            sigma_yp=np.random.uniform(0, 1e-4),
+            sigma_s=np.random.uniform(0, 1e-4),
+            sigma_p=np.random.uniform(0, 1e-3)
         )
+        # self.incoming = cheetah.Beam.from_astra("environments/ACHIP_EA1_2021.1351.001")
+        # self.incoming = cheetah.Beam.make_random(
+        #     n=int(1e5),
+        #     mu_x=2e-4,
+        #     mu_y=2e-4,
+        #     mu_xp=0.0,
+        #     mu_yp=0.0,
+        #     sigma_x=2e-4,
+        #     sigma_y=2e-4,
+        #     sigma_xp=2e-4,
+        #     sigma_yp=2e-4,
+        #     sigma_s=1e-5,
+        #     sigma_p=1e-5
+        # )
 
         self.actuators = self.initial_actuators
         
@@ -217,14 +217,10 @@ class ARESEACheetah(gym.Env):
     @property
     def observation(self):
         return {
-            "observation": np.concatenate([[self.beam_intensity], self.actuators]),
+            "observation": self.actuators,
             "desired_goal": self.goal,
             "achieved_goal": self.beam_parameters
         }
-
-    @property
-    def beam_intensity(self):
-        return self.screen_data.sum()
     
     def compute_objective(self, achieved_goal, desired_goal):
         offset = achieved_goal - desired_goal
@@ -340,7 +336,7 @@ class ARESEACheetah(gym.Env):
                                      for record in self.history])
 
         ax.set_title("Observations")
-        for i, name in enumerate([r"$i_S$", r"$k_{Q_1}$", r"$k_{Q_2}$", r"$k_{Q_3}$",
+        for i, name in enumerate([r"$k_{Q_1}$", r"$k_{Q_2}$", r"$k_{Q_3}$",
                                   r"$\alpha_{C_v}$", r"$\alpha_{C_h}$"]):
             ax.plot(observations[:,i], label=name)
         ax.set_xlabel("Step")

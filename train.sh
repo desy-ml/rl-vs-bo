@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=maxgpu
-#SBATCH --job-name cheetah-early-done
+#SBATCH --job-name no-intensity
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --constraint=V100|P100
@@ -9,7 +9,7 @@
 source /etc/profile.d/modules.sh
 
 source ~/.bashrc
-conda activate rl
+conda activate rl37
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
 python3 train.py
