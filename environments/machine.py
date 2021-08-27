@@ -115,7 +115,8 @@ class ARESEAMachine(simulation.ARESEACheetah):
         self.beams = self.capture(10, channel)
         self.beam = self.beams.mean(axis=0)
 
-        image = self.beam - self.background
+        clean = self.beam - self.background
+        image = clean.clip(0, 2**16-1)
 
         self.binning = (
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL")["data"],
@@ -127,7 +128,7 @@ class ARESEAMachine(simulation.ARESEACheetah):
     def capture(self, n, channel):
         images = []
         for _ in range(n):
-            images.append(pydoocs.read(channel)["data"])
+            images.append(pydoocs.read(channel)["data"].astype("float64"))
             time.sleep(0.1)
         return np.array(images)
     
