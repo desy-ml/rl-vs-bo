@@ -48,7 +48,6 @@ class ARESEACheetah(gym.Env):
 
     target_delta = np.array([5e-6] * 4)
     
-    binning = 4
     screen_resolution = (2448, 2040)
     pixel_size = (3.3198e-6, 2.4469e-6)
 
@@ -57,10 +56,9 @@ class ARESEACheetah(gym.Env):
         self.segment = cheetah.Segment.from_ocelot(cell)
         self.segment.AREABSCR1.resolution = self.screen_resolution
         self.segment.AREABSCR1.pixel_size = self.pixel_size
-        self.segment.AREABSCR1.binning = self.binning
         self.segment.AREABSCR1.is_active = True
 
-        self.magnets_changed = True
+        self.segment.AREABSCR1.binning = 4
     
     def reset(self):
         self.incoming = cheetah.Beam.make_random(

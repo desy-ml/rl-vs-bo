@@ -22,10 +22,7 @@ class ARESEAMachine(simulation.ARESEACheetah):
     ]
 
     def __init__(self):
-        pydoocs.write("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL", self.binning)
-        pydoocs.write("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL", self.binning)
-
-        self.magnets_changed = True
+        pass
     
     def reset(self, goal=None):
         if goal is not None:
@@ -119,6 +116,11 @@ class ARESEAMachine(simulation.ARESEACheetah):
         self.beam = self.beams.mean(axis=0)
 
         image = self.beam - self.background
+
+        self.binning = (
+            pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL")["data"],
+            pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL")["data"]
+        )
         
         return image
 
@@ -155,8 +157,8 @@ class ARESEAMachine(simulation.ARESEACheetah):
                 fwhm_pixel = 42     # TODO: Figure out what to do with these
                 center_pixel = 42
 
-            parameters[axis] = (center_pixel - len(filtered) / 2) * self.pixel_size[axis] * self.binning
-            parameters[axis+2] = fwhm_pixel / 2.355 * self.pixel_size[axis] * self.binning
+            parameters[axis] = (center_pixel - len(filtered) / 2) * self.pixel_size[axis] * self.binning[axis]
+            parameters[axis+2] = fwhm_pixel / 2.355 * self.pixel_size[axis] * self.binning[axis]
             
         parameters[1] = -parameters[1]
 

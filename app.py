@@ -164,15 +164,10 @@ class AgentScreenView(FigureCanvasQTAgg):
 
 class AcceleratorReadThread(qtc.QThread):
 
-    screen_binning = 4
-
     screen_updated = qtc.pyqtSignal(np.ndarray)
 
     def __init__(self):
         super().__init__()
-
-        pydoocs.write("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL", self.screen_binning)
-        pydoocs.write("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL", self.screen_binning)
 
     def run(self):
         while True:
