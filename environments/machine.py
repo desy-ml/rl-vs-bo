@@ -5,7 +5,7 @@ from matplotlib import gridspec
 from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
 import pydoocs
-from scipy.ndimage import minimum_filter1d, uniform_filter1d
+from scipy.ndimage import uniform_filter1d
 
 from . import simulation
 
@@ -109,11 +109,11 @@ class ARESEAMachine(simulation.ARESEACheetah):
 
         self.switch_cathode_laser(False)
         self.backgrounds = self.capture(10, channel)
-        self.background = self.backgrounds.mean(axis=0)
+        self.background = np.median(self.backgrounds, axis=0)
         
         self.switch_cathode_laser(True)
         self.beams = self.capture(10, channel)
-        self.beam = self.beams.mean(axis=0)
+        self.beam = np.median(self.beams, axis=0)
 
         clean = self.beam - self.background
         image = clean.clip(0, 2**16-1)
@@ -147,7 +147,6 @@ class ARESEAMachine(simulation.ARESEACheetah):
             profile = self.screen_data.sum(axis=axis)
             # minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
             filtered = uniform_filter1d(profile, size=5, mode="nearest")
-            filtered = minimum_filter1d(filtered, size=5, mode="nearest")
 
             half_values, = np.where(filtered >= 0.5 * filtered.max())
 
