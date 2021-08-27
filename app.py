@@ -310,25 +310,62 @@ class App(qtw.QWidget):
     desired = (0,) * 4
     deltas = (5e-6,) * 4
 
+    agent_name = "mild-puddle-274"
+
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Autonomous Beam Positioning and Focusing at ARES EA")
 
-        self.model_label = qtw.QLabel("Select agent:")
-        self.model_dropdown = qtw.QComboBox()
-        self.model_dropdown.addItems([
+        vbox = qtw.QVBoxLayout()
+        vbox.addWidget(self.make_agent_selection())
+        vbox.addWidget(self.make_magent_setting())
+        vbox.addWidget(self.make_desired_selection())
+        vbox.addWidget(self.make_run_agent())
+        self.setLayout(vbox)
+        
+        self.read_thread = AcceleratorReadThread()
+        self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
+
+        self.desired_updated.connect(self.update_desired_labels)
+        self.desired_updated.connect(self.live_screen_view.update_target)
+        self.desired_updated.connect(self.update_delta_achieved_indicators)
+
+        self.achieved_updated.connect(self.update_achieved_labels)
+        self.achieved_updated.connect(self.update_delta_achieved_indicators)
+
+        self.deltas_updated.connect(self.update_delta_labels)
+        self.deltas_updated.connect(self.update_delta_achieved_indicators)
+
+        self.read_thread.start()
+
+        self.achieved_updated.emit(*self.achieved)
+        self.desired_updated.emit(*self.desired)
+        self.deltas_updated.emit(*self.deltas)
+    
+    def make_agent_selection(self):
+        label = qtw.QLabel("Agent")
+
+        dropdown = qtw.QComboBox()
+        dropdown.addItems([
             "mild-puddle-274", 
             "rural-salad-275", 
             "sparkling-surf-276", 
             "warm-wave-276", 
             "winter-wood-277"
         ])
-        self.model_dropdown.currentTextChanged.connect(self.switch_agent)
-        self.agent_name = "mild-puddle-274"
+        dropdown.currentTextChanged.connect(self.switch_agent)
 
-        self.model_separation_line = HorizontalSeperationLine()
+        hbox = qtw.QHBoxLayout()
+        hbox.addWidget(label)
+        hbox.addWidget(dropdown)
 
+        group_box = qtw.QGroupBox("Select Agent")
+        group_box.setLayout(hbox)
+
+        return group_box
+    
+    def make_magent_setting(self):
         self.magnet_dropdown = qtw.QComboBox()
         self.magnet_dropdown.addItems([
             "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH",
@@ -339,11 +376,22 @@ class App(qtw.QWidget):
         ])
         self.magnet_dropdown.currentTextChanged.connect(self.read_magnet)
 
-        self.q1_value_field = qtw.QLineEdit()
-        self.q1_value_field.editingFinished.connect(self.write_magnet)
+        self.magnet_value_field = qtw.QLineEdit()
 
-        self.magnet_separation_line = HorizontalSeperationLine()
+        magnet_write_button = qtw.QPushButton("write")
+        magnet_write_button.clicked.connect(self.write_magnet)
 
+        hbox = qtw.QHBoxLayout()
+        hbox.addWidget(self.magnet_dropdown)
+        hbox.addWidget(self.magnet_value_field)
+        hbox.addWidget(magnet_write_button)
+
+        group_box = qtw.QGroupBox("Change Magnet Settings")
+        group_box.setLayout(hbox)
+
+        return group_box
+    
+    def make_desired_selection(self):
         self.achieved_mu_x_label = qtw.QLabel()
         self.achieved_mu_y_label = qtw.QLabel()
         self.achieved_sigma_x_label = qtw.QLabel()
@@ -371,6 +419,50 @@ class App(qtw.QWidget):
         self.desired_sigma_x_label = qtw.QLabel()
         self.desired_sigma_y_label = qtw.QLabel()
 
+        self.mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.mu_x_slider.setRange(-50, 50)
+        self.mu_x_slider.valueChanged.connect(self.update_desired)
+
+        self.mu_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.mu_y_slider.setRange(-50, 50)
+        self.mu_y_slider.valueChanged.connect(self.update_desired)
+
+        self.sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.sigma_x_slider.setRange(0, 100)
+        self.sigma_x_slider.valueChanged.connect(self.update_desired)
+
+        self.sigma_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.sigma_y_slider.setRange(0, 100)
+        self.sigma_y_slider.valueChanged.connect(self.update_desired)
+        
+        grid = qtw.QGridLayout()
+        grid.addWidget(self.achieved_mu_x_label, 0, 0, 1, 1)
+        grid.addWidget(self.achieved_mu_y_label, 0, 2, 1, 1)
+        grid.addWidget(self.achieved_sigma_x_label, 0, 4, 1, 1)
+        grid.addWidget(self.achieved_sigma_y_label, 0, 6, 1, 1)
+        grid.addWidget(self.target_delta_mu_x_label, 1, 0, 1, 1)
+        grid.addWidget(self.target_delta_mu_x_slider, 1, 1, 1, 1)
+        grid.addWidget(self.target_delta_mu_y_label, 1, 2, 1, 1)
+        grid.addWidget(self.target_delta_mu_y_slider, 1, 3, 1, 1)
+        grid.addWidget(self.target_delta_sigma_x_label, 1, 4, 1, 1)
+        grid.addWidget(self.target_delta_sigma_x_slider, 1, 5, 1, 1)
+        grid.addWidget(self.target_delta_sigma_y_label, 1, 6, 1, 1)
+        grid.addWidget(self.target_delta_sigma_y_slider, 1, 7, 1, 1)
+        grid.addWidget(self.desired_mu_x_label, 2, 0, 1, 1)
+        grid.addWidget(self.mu_x_slider, 2, 1, 1, 1)
+        grid.addWidget(self.desired_mu_y_label, 2, 2, 1, 1)
+        grid.addWidget(self.mu_y_slider, 2, 3, 1, 1)
+        grid.addWidget(self.desired_sigma_x_label, 2, 4, 1, 1)
+        grid.addWidget(self.sigma_x_slider, 2, 5, 1, 1)
+        grid.addWidget(self.desired_sigma_y_label, 2, 6, 1, 1)
+        grid.addWidget(self.sigma_y_slider, 2, 7, 1, 1)
+
+        group_box = qtw.QGroupBox("Choose Desired Beam Parameters")
+        group_box.setLayout(grid)
+
+        return group_box
+    
+    def make_run_agent(self):
         self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
 
         self.progress_bar = qtw.QProgressBar()
@@ -381,75 +473,17 @@ class App(qtw.QWidget):
         self.start_agent_button.clicked.connect(self.start_agent)
 
         self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
-        
-        self.read_thread = AcceleratorReadThread()
-        self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
-
-        self.mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
-        self.mu_x_slider.setRange(-50, 50)
-        self.mu_x_slider.valueChanged.connect(self.update_desired)
-
-        self.mu_y_slider = qtw.QSlider(qtc.Qt.Vertical)
-        self.mu_y_slider.setRange(-50, 50)
-        self.mu_y_slider.valueChanged.connect(self.update_desired)
-
-        self.sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
-        self.sigma_x_slider.setRange(0, 100)
-        self.sigma_x_slider.valueChanged.connect(self.update_desired)
-
-        self.sigma_y_slider = qtw.QSlider(qtc.Qt.Vertical)
-        self.sigma_y_slider.setRange(0, 100)
-        self.sigma_y_slider.valueChanged.connect(self.update_desired)
-
-        self.desired_updated.connect(self.update_desired_labels)
-        self.desired_updated.connect(self.live_screen_view.update_target)
-        self.desired_updated.connect(self.update_delta_achieved_indicators)
-
-        self.achieved_updated.connect(self.update_achieved_labels)
-        self.achieved_updated.connect(self.update_delta_achieved_indicators)
-
-        self.deltas_updated.connect(self.update_delta_labels)
-        self.deltas_updated.connect(self.update_delta_achieved_indicators)
 
         grid = qtw.QGridLayout()
-        grid.addWidget(self.model_label, 0, 3, 1, 1)
-        grid.addWidget(self.model_dropdown, 0, 4, 1, 1)
-        grid.addWidget(self.model_separation_line, 1, 0, 1, 10)
-        grid.addWidget(self.magnet_dropdown, 2, 0, 1, 4)
-        grid.addWidget(self.q1_value_field, 2, 4, 1, 1)
-        grid.addWidget(self.magnet_separation_line, 3, 0, 1, 10)
-        grid.addWidget(self.achieved_mu_x_label, 4, 0, 1, 1)
-        grid.addWidget(self.achieved_mu_y_label, 4, 2, 1, 1)
-        grid.addWidget(self.achieved_sigma_x_label, 4, 4, 1, 1)
-        grid.addWidget(self.achieved_sigma_y_label, 4, 6, 1, 1)
-        grid.addWidget(self.target_delta_mu_x_label, 5, 0, 1, 1)
-        grid.addWidget(self.target_delta_mu_x_slider, 5, 1, 1, 1)
-        grid.addWidget(self.target_delta_mu_y_label, 5, 2, 1, 1)
-        grid.addWidget(self.target_delta_mu_y_slider, 5, 3, 1, 1)
-        grid.addWidget(self.target_delta_sigma_x_label, 5, 4, 1, 1)
-        grid.addWidget(self.target_delta_sigma_x_slider, 5, 5, 1, 1)
-        grid.addWidget(self.target_delta_sigma_y_label, 5, 6, 1, 1)
-        grid.addWidget(self.target_delta_sigma_y_slider, 5, 7, 1, 1)
-        grid.addWidget(self.desired_mu_x_label, 6, 0, 1, 1)
-        grid.addWidget(self.desired_mu_y_label, 6, 2, 1, 1)
-        grid.addWidget(self.desired_sigma_x_label, 6, 4, 1, 1)
-        grid.addWidget(self.desired_sigma_y_label, 6, 6, 1, 1)
-        grid.addWidget(self.agent_screen_view, 7, 0, 1, 4)
-        grid.addWidget(self.progress_bar, 8, 0, 1, 4)
-        grid.addWidget(self.start_agent_button, 9, 0, 1, 4)
-        grid.addWidget(self.live_screen_view, 7, 4, 1, 4)
-        grid.addWidget(self.mu_x_slider, 8, 4, 1, 4)
-        grid.addWidget(self.sigma_x_slider, 9, 4, 1, 4)
-        grid.addWidget(self.mu_y_slider, 7, 8, 1, 1)
-        grid.addWidget(self.sigma_y_slider, 7, 9, 1, 1)
-        grid.setRowStretch(10, 1)
-        self.setLayout(grid)
+        grid.addWidget(self.agent_screen_view, 0, 0, 1, 1)
+        grid.addWidget(self.live_screen_view, 0, 1, 1, 1)
+        grid.addWidget(self.progress_bar, 1, 0, 1, 2)
+        grid.addWidget(self.start_agent_button, 2, 0, 1, 2)
 
-        self.read_thread.start()
+        group_box = qtw.QGroupBox("Watch Magic Happen")
+        group_box.setLayout(grid)
 
-        self.achieved_updated.emit(*self.achieved)
-        self.desired_updated.emit(*self.desired)
-        self.deltas_updated.emit(*self.deltas)
+        return group_box
     
     @qtc.pyqtSlot(str)
     def switch_agent(self, agent_name):
@@ -586,12 +620,12 @@ class App(qtw.QWidget):
     def read_magnet(self, channel):
         response = pydoocs.read(channel + ".RBV")
         value = response["data"]
-        self.q1_value_field.setText(str(value))
+        self.magnet_value_field.setText(str(value))
     
     @qtc.pyqtSlot()
     def write_magnet(self):
         channel = self.magnet_dropdown.currentText()
-        value = float(self.q1_value_field.text())
+        value = float(self.magnet_value_field.text())
         pydoocs.write(channel + ".SP", value)
         
     def handle_application_exit(self):
