@@ -289,9 +289,9 @@ class App(qtw.QWidget):
         self.setWindowTitle("Autonomous Beam Positioning and Focusing at ARES EA")
 
         vbox = qtw.QVBoxLayout()
-        vbox.addWidget(self.make_agent_selection())
-        vbox.addWidget(self.make_magent_setting())
+        vbox.addWidget(self.make_magnet_setting())
         vbox.addWidget(self.make_desired_selection())
+        vbox.addWidget(self.make_rl_setup())
         vbox.addWidget(self.make_run_agent())
         self.setLayout(vbox)
 
@@ -310,29 +310,7 @@ class App(qtw.QWidget):
         self.desired_updated.emit(*self.desired)
         self.deltas_updated.emit(*self.deltas)
     
-    def make_agent_selection(self):
-        label = qtw.QLabel("Agent")
-
-        dropdown = qtw.QComboBox()
-        dropdown.addItems([
-            "mild-puddle-274", 
-            "rural-salad-275", 
-            "sparkling-surf-276", 
-            "warm-wave-276", 
-            "winter-wood-277"
-        ])
-        dropdown.currentTextChanged.connect(self.switch_agent)
-
-        hbox = qtw.QHBoxLayout()
-        hbox.addWidget(label)
-        hbox.addWidget(dropdown)
-
-        group_box = qtw.QGroupBox("Select Agent")
-        group_box.setLayout(hbox)
-
-        return group_box
-    
-    def make_magent_setting(self):
+    def make_magnet_setting(self):
         self.magnet_dropdown = qtw.QComboBox()
         self.magnet_dropdown.addItems([
             "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH",
@@ -353,7 +331,7 @@ class App(qtw.QWidget):
         hbox.addWidget(self.magnet_value_field)
         hbox.addWidget(magnet_write_button)
 
-        group_box = qtw.QGroupBox("Change Magnet Settings")
+        group_box = qtw.QGroupBox("1. Change magnet settings (optional)")
         group_box.setLayout(hbox)
 
         return group_box
@@ -424,8 +402,30 @@ class App(qtw.QWidget):
         grid.addWidget(self.desired_sigma_y_label, 2, 6, 1, 1)
         grid.addWidget(self.sigma_y_slider, 2, 7, 1, 1)
 
-        group_box = qtw.QGroupBox("Choose Desired Beam Parameters")
+        group_box = qtw.QGroupBox("2. Choose desired beam parameters")
         group_box.setLayout(grid)
+
+        return group_box
+    
+    def make_rl_setup(self):
+        label = qtw.QLabel("Agent")
+
+        dropdown = qtw.QComboBox()
+        dropdown.addItems([
+            "mild-puddle-274", 
+            "rural-salad-275", 
+            "sparkling-surf-276", 
+            "warm-wave-276", 
+            "winter-wood-277"
+        ])
+        dropdown.currentTextChanged.connect(self.switch_agent)
+
+        hbox = qtw.QHBoxLayout()
+        hbox.addWidget(label)
+        hbox.addWidget(dropdown)
+
+        group_box = qtw.QGroupBox("3. Setup the RL run")
+        group_box.setLayout(hbox)
 
         return group_box
     
@@ -445,7 +445,7 @@ class App(qtw.QWidget):
         grid.addWidget(self.progress_bar, 1, 0, 1, 2)
         grid.addWidget(self.start_agent_button, 2, 0, 1, 2)
 
-        group_box = qtw.QGroupBox("Watch Magic Happen")
+        group_box = qtw.QGroupBox("4. Run beam parameter optimisation")
         group_box.setLayout(grid)
 
         return group_box
