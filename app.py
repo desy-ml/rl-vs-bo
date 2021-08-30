@@ -1,4 +1,5 @@
 from datetime import datetime
+import math
 import pickle
 import sys
 from threading import Event
@@ -128,6 +129,9 @@ class ScreenView(pg.GraphicsLayoutWidget):
     
     @qtc.pyqtSlot(float, float, float, float)
     def move_achieved_ellipse(self, mu_x, mu_y, sigma_x, sigma_y):
+        if math.isnan(mu_x):
+            return
+
         mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
 
         x, y = mu_x - sigma_x, mu_y - sigma_y
@@ -161,6 +165,19 @@ class ScreenView(pg.GraphicsLayoutWidget):
 
     #         self.user_moved_desired_ellipse.emit(mu_x, mu_y, sigma_x, sigma_y)
     #     self.was_desired_set_programmatically = False
+
+
+class MeasureBeamThread(qtc.QThread):
+
+    agent_screen_updated = qtc.pyqtSignal(np.ndarray)
+    achieved_updated = qtc.pyqtSignal(float, float, float, float)
+
+    def run(self):
+        env = ARESEAMachine()
+
+        env.screen_data = env.read_screen()
+        self.agent_screen_updated.emit(env.screen_data)
+        self.achieved_updated.emit(*env.beam_parameters)
 
 
 class AgentThread(qtc.QThread):
@@ -277,7 +294,7 @@ class App(qtw.QWidget):
     deltas_updated = qtc.pyqtSignal(float, float, float, float)
     magnet_read = qtc.pyqtBoundSignal(float)
 
-    achieved = (0,) * 4
+    achieved = (float("nan"),) * 4
     desired = [0, 0, 1e-5, 1e-5]
     deltas = (5e-6,) * 4
 
@@ -322,14 +339,21 @@ class App(qtw.QWidget):
         self.magnet_dropdown.currentTextChanged.connect(self.read_magnet)
 
         self.magnet_value_field = qtw.QLineEdit()
+        self.magnet_value_field.setMaximumWidth(100)
 
         magnet_write_button = qtw.QPushButton("write")
         magnet_write_button.clicked.connect(self.write_magnet)
+
+        measure_beam_button = qtw.QPushButton("measure beam")
+        measure_beam_button.setMinimumWidth(135)
+        measure_beam_button.clicked.connect(self.measure_beam)
 
         hbox = qtw.QHBoxLayout()
         hbox.addWidget(self.magnet_dropdown)
         hbox.addWidget(self.magnet_value_field)
         hbox.addWidget(magnet_write_button)
+        hbox.addStretch()
+        hbox.addWidget(measure_beam_button)
 
         group_box = qtw.QGroupBox("1. Change magnet settings (optional)")
         group_box.setLayout(hbox)
@@ -474,6 +498,13 @@ class App(qtw.QWidget):
         self.desired_sigma_x_label.setText(f"σ\u2093' = {sigma_x:4.3f} mm")
         self.desired_sigma_y_label.setText(f"σ_y' = {sigma_y:4.3f} mm")
     
+    @qtc.pyqtSlot()
+    def measure_beam(self):
+        self.measure_beam_thread = MeasureBeamThread()
+        self.measure_beam_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
+        self.measure_beam_thread.achieved_updated.connect(self.update_achieved)
+        self.measure_beam_thread.run()
+    
     def start_agent(self):
         self.agent_thread = AgentThread(self.agent_name,
                                         np.array(self.desired),
@@ -517,12 +548,18 @@ class App(qtw.QWidget):
     
     @qtc.pyqtSlot(float, float, float, float)
     def update_achieved_labels(self, mu_x, mu_y, sigma_x, sigma_y):
-        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
+        if not math.isnan(mu_x):
+            mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
 
-        self.achieved_mu_x_label.setText(f"µ\u2093 = {mu_x:4.3f} mm")
-        self.achieved_mu_y_label.setText(f"µ_y = {mu_y:4.3f} mm")
-        self.achieved_sigma_x_label.setText(f"σ\u2093 = {sigma_x:4.3f} mm")
-        self.achieved_sigma_y_label.setText(f"σ_y = {sigma_y:4.3f} mm")
+            self.achieved_mu_x_label.setText(f"µ\u2093 = {mu_x:4.3f} mm")
+            self.achieved_mu_y_label.setText(f"µ_y = {mu_y:4.3f} mm")
+            self.achieved_sigma_x_label.setText(f"σ\u2093 = {sigma_x:4.3f} mm")
+            self.achieved_sigma_y_label.setText(f"σ_y = {sigma_y:4.3f} mm")
+        else:
+            self.achieved_mu_x_label.setText(f"µ\u2093 = -")
+            self.achieved_mu_y_label.setText(f"µ_y = -")
+            self.achieved_sigma_x_label.setText(f"σ\u2093 = -")
+            self.achieved_sigma_y_label.setText(f"σ_y = -")
     
     @qtc.pyqtSlot()
     def update_deltas(self):
@@ -549,16 +586,18 @@ class App(qtw.QWidget):
         green = "background-color: green"
         transparent = "background-color: rgba(0,0,0,0%)"
 
-        mu_x_success = abs(self.desired[0] - self.achieved[0]) <= self.deltas[0]
+        known = not math.isnan(self.achieved[0])
+
+        mu_x_success = known and abs(self.desired[0] - self.achieved[0]) <= self.deltas[0]
         self.target_delta_mu_x_label.setStyleSheet(green if mu_x_success else transparent)
 
-        mu_y_success = abs(self.desired[1] - self.achieved[1]) <= self.deltas[1]
+        mu_y_success = known and abs(self.desired[1] - self.achieved[1]) <= self.deltas[1]
         self.target_delta_mu_y_label.setStyleSheet(green if mu_y_success else transparent)
 
-        sigma_x_success = abs(self.desired[2] - self.achieved[2]) <= self.deltas[2]
+        sigma_x_success = known and abs(self.desired[2] - self.achieved[2]) <= self.deltas[2]
         self.target_delta_sigma_x_label.setStyleSheet(green if sigma_x_success else transparent)
 
-        sigma_y_success = abs(self.desired[3] - self.achieved[3]) <= self.deltas[3]
+        sigma_y_success = known and abs(self.desired[3] - self.achieved[3]) <= self.deltas[3]
         self.target_delta_sigma_y_label.setStyleSheet(green if sigma_y_success else transparent)
 
     @qtc.pyqtSlot(int, np.ndarray)
