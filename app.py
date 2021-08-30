@@ -277,7 +277,7 @@ class AgentThread(qtc.QThread):
         logfilename = logpath + "log.pkl"
         with open(logfilename, "wb") as f:
             pickle.dump(log, f)
-            print(f"Log file saved as \"{logpath}\"")
+            print(f"Log file saved as \"{logfilename}\"")
         
         desired = self.env.unwrapped.observation["desired_goal"]
         achieved = self.env.unwrapped.observation["achieved_goal"]
