@@ -1,5 +1,6 @@
 from datetime import datetime
 import math
+import os
 import pickle
 import sys
 from threading import Event
@@ -182,6 +183,7 @@ class MeasureBeamThread(qtc.QThread):
 
 class AgentThread(qtc.QThread):
     
+    started = qtc.pyqtSignal()
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
     want_step_permission = qtc.pyqtSignal(np.ndarray, np.ndarray)
@@ -192,12 +194,13 @@ class AgentThread(qtc.QThread):
 
     step_permission_event = Event()
 
-    def __init__(self, model_name, desired_goal, target_delta):
+    def __init__(self, model_name, desired_goal, target_delta, experiment_name):
         super().__init__()
 
         self.model_name = model_name
         self.desired_goal = desired_goal
         self.target_delta = target_delta
+        self.experiment_name = experiment_name
 
         self.step_permission_event.clear()
         self.step_permission = False
@@ -205,6 +208,7 @@ class AgentThread(qtc.QThread):
         self.timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
     def run(self):
+        self.started.emit()
         self.took_step.emit(0)
         self.desired_updated.emit(*self.desired_goal)
 
@@ -263,8 +267,12 @@ class AgentThread(qtc.QThread):
         log["history"] = self.env.unwrapped.history
         log["model_name"] = self.model_name
         log["target_delta"] = self.env.unwrapped.target_delta
-        logpath = f"experiments/{self.timestamp}/log.pkl"
-        with open(logpath, "wb") as f:
+
+        logpath = f"experiments/{self.timestamp}_{self.experiment_name}/"
+        os.mkdir(logpath)
+
+        logfilename = logpath + "log.pkl"
+        with open(logfilename, "wb") as f:
             pickle.dump(log, f)
             print(f"Log file saved as \"{logpath}\"")
         
@@ -341,19 +349,19 @@ class App(qtw.QWidget):
         self.magnet_value_field = qtw.QLineEdit()
         self.magnet_value_field.setMaximumWidth(100)
 
-        magnet_write_button = qtw.QPushButton("write")
-        magnet_write_button.clicked.connect(self.write_magnet)
+        self.magnet_write_button = qtw.QPushButton("write")
+        self.magnet_write_button.clicked.connect(self.write_magnet)
 
-        measure_beam_button = qtw.QPushButton("measure beam")
-        measure_beam_button.setMinimumWidth(135)
-        measure_beam_button.clicked.connect(self.measure_beam)
+        self.measure_beam_button = qtw.QPushButton("measure beam")
+        self.measure_beam_button.setMinimumWidth(135)
+        self.measure_beam_button.clicked.connect(self.measure_beam)
 
         hbox = qtw.QHBoxLayout()
         hbox.addWidget(self.magnet_dropdown)
         hbox.addWidget(self.magnet_value_field)
-        hbox.addWidget(magnet_write_button)
+        hbox.addWidget(self.magnet_write_button)
         hbox.addStretch()
-        hbox.addWidget(measure_beam_button)
+        hbox.addWidget(self.measure_beam_button)
 
         group_box = qtw.QGroupBox("1. Change magnet settings (optional)")
         group_box.setLayout(hbox)
@@ -432,21 +440,29 @@ class App(qtw.QWidget):
         return group_box
     
     def make_rl_setup(self):
-        label = qtw.QLabel("Agent")
+        label1 = qtw.QLabel("Agent")
 
-        dropdown = qtw.QComboBox()
-        dropdown.addItems([
+        self.model_dropdown = qtw.QComboBox()
+        self.model_dropdown.addItems([
             "mild-puddle-274", 
             "rural-salad-275", 
             "sparkling-surf-276", 
             "warm-wave-276", 
             "winter-wood-277"
         ])
-        dropdown.currentTextChanged.connect(self.switch_agent)
+        self.model_dropdown.currentTextChanged.connect(self.switch_agent)
+
+        label2 = qtw.QLabel("Experiment name")
+
+        self.experiment_name_field = qtw.QLineEdit()
 
         hbox = qtw.QHBoxLayout()
-        hbox.addWidget(label)
-        hbox.addWidget(dropdown)
+        hbox.addWidget(label1)
+        hbox.addWidget(self.model_dropdown)
+        hbox.addStretch()
+        hbox.addWidget(label2)
+        hbox.addWidget(self.experiment_name_field)
+        hbox.addStretch()
 
         group_box = qtw.QGroupBox("3. Setup the RL run")
         group_box.setLayout(hbox)
@@ -463,6 +479,8 @@ class App(qtw.QWidget):
 
         self.start_agent_button = qtw.QPushButton("Start Agent")
         self.start_agent_button.clicked.connect(self.start_agent)
+        self.experiment_name_field.textChanged.connect(self.check_is_start_agent_allowed)
+        self.check_is_start_agent_allowed(self.experiment_name_field.text())
 
         grid = qtw.QGridLayout()
         grid.addWidget(self.screen_view, 0, 0, 1, 2)
@@ -508,15 +526,48 @@ class App(qtw.QWidget):
     def start_agent(self):
         self.agent_thread = AgentThread(self.agent_name,
                                         np.array(self.desired),
-                                        np.array(self.deltas))
+                                        np.array(self.deltas),
+                                        self.experiment_name_field.text())
 
         self.agent_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
         self.agent_thread.achieved_updated.connect(self.update_achieved)
         self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
         self.agent_thread.done.connect(self.agent_finished_popup)
+        self.agent_thread.started.connect(self.stop_user_interaction)
+        self.agent_thread.done.connect(self.start_user_interaction)
 
         self.agent_thread.start()
+    
+    def set_user_interaction_allowed(self, is_allowed):
+        self.magnet_dropdown.setEnabled(is_allowed)
+        self.magnet_value_field.setEnabled(is_allowed)
+        self.magnet_write_button.setEnabled(is_allowed)
+        self.measure_beam_button.setEnabled(is_allowed)
+
+        self.target_delta_mu_x_slider.setEnabled(is_allowed)
+        self.target_delta_mu_y_slider.setEnabled(is_allowed)
+        self.target_delta_sigma_x_slider.setEnabled(is_allowed)
+        self.target_delta_sigma_y_slider.setEnabled(is_allowed)
+        self.mu_x_slider.setEnabled(is_allowed)
+        self.mu_y_slider.setEnabled(is_allowed)
+        self.sigma_x_slider.setEnabled(is_allowed)
+        self.sigma_y_slider.setEnabled(is_allowed)
+
+        self.model_dropdown.setEnabled(is_allowed)
+        self.experiment_name_field.setEnabled(is_allowed)
+
+        self.start_agent_button.setEnabled(is_allowed)
+    
+    def stop_user_interaction(self):
+        self.set_user_interaction_allowed(False)
+    
+    def start_user_interaction(self):
+        self.set_user_interaction_allowed(True)
+    
+    @qtc.pyqtSlot(str)
+    def check_is_start_agent_allowed(self, experiment_name):
+        self.start_agent_button.setEnabled(len(experiment_name) > 0)
     
     @qtc.pyqtSlot(np.ndarray, np.ndarray)
     def step_permission_prompt(self, old_actuators, new_actuators):
