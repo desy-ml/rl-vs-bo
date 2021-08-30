@@ -1,4 +1,5 @@
 from datetime import datetime
+import glob
 import math
 import os
 import pickle
@@ -442,16 +443,13 @@ class App(qtw.QWidget):
         return group_box
     
     def make_rl_setup(self):
+        model_files = glob.glob("models/*-*-*.zip")
+        models = sorted(filename[7:-4] for filename in model_files)
+
         label1 = qtw.QLabel("Agent")
 
         self.model_dropdown = qtw.QComboBox()
-        self.model_dropdown.addItems([
-            "mild-puddle-274", 
-            "rural-salad-275", 
-            "sparkling-surf-276", 
-            "warm-wave-276", 
-            "winter-wood-277"
-        ])
+        self.model_dropdown.addItems(models)
         self.model_dropdown.currentTextChanged.connect(self.switch_agent)
 
         label2 = qtw.QLabel("Experiment name")
