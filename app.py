@@ -55,9 +55,6 @@ class ScreenView(pg.GraphicsLayoutWidget):
 
         self.desired_ellipse = pg.EllipseROI((0,0), (0,0), pen=pg.mkPen("w",width=2),
                                              rotatable=False, movable=False, resizable=False)
-        # for handle in self.desired_ellipse.getHandles():
-        #     print(handle)
-        #     self.desired_ellipse.removeHandle(handle)
         # self.desired_ellipse.sigRegionChanged.connect(self.desired_ellipse_interaction)
         self.was_desired_set_programmatically = False
 
@@ -74,6 +71,9 @@ class ScreenView(pg.GraphicsLayoutWidget):
         self.p1.getAxis("left").setLabel("y (mm)")
         self.p1.hideButtons()
         self.p1.setAspectLocked()
+
+        for handle in self.desired_ellipse.getHandles():
+            self.desired_ellipse.removeHandle(handle)
 
         self.i2 = pg.ImageItem()
         self.update_live_view(np.zeros((resolution[1], resolution[0])))
@@ -148,6 +148,8 @@ class ScreenView(pg.GraphicsLayoutWidget):
                 resizable=False
             )
             self.p1.addItem(self.achieved_ellipse)
+            for handle in self.achieved_ellipse.getHandles():
+                self.achieved_ellipse.removeHandle(handle)
         else:
             self.achieved_ellipse.setPos((x, y))
             self.achieved_ellipse.setSize((w, h))
