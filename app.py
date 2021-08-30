@@ -5,169 +5,20 @@ from threading import Event
 from time import sleep
 
 from gym.wrappers import FlattenObservation, Monitor, TimeLimit
-import matplotlib
-matplotlib.use("Qt5Agg")
-import matplotlib.pyplot as plt
-plt.style.use("dark_background")
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
-from matplotlib.patches import Ellipse
 import numpy as np
 import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
+import pyqtgraph as pg
 import pydoocs
 from stable_baselines3 import TD3
 
 from environments.machine import ARESEAMachine
 
 
-class LiveScreenView(FigureCanvasQTAgg):
-
-    def __init__(self, resolution, pixel_size):
-        self.resolution = resolution
-        self.pixel_size = pixel_size
-
-        self.fig = Figure()
-        self.ax = self.fig.add_subplot(111)
-        
-        super().__init__(self.fig)
-
-        self.screen_extent = (-self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
-                              self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
-                              -self.resolution[1] * self.pixel_size[1] / 2 * 1e3,
-                              self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
-        self.create_plot()
-
-        self.setFixedSize(600, 420)
-    
-    def create_plot(self):
-        self.screen_plot = self.ax.imshow(
-            np.zeros(self.resolution), 
-            cmap="magma",
-            interpolation="None",
-            extent=self.screen_extent
-        )
-        self.ax.set_xlabel("x (mm)")
-        self.ax.set_ylabel("y (mm)")
-        self.ax.set_title("Live View AR.EA.BSC.R.1")
-
-        self.mu_x, self.mu_y, self.sigma_x, self.sigma_y = [0] * 4
-        self.select_ellipse = Ellipse(
-            (self.mu_x,self.mu_y),
-            self.sigma_x,
-            self.sigma_y,
-            fill=False,
-            color="white"
-        )
-        self.ax.add_patch(self.select_ellipse)
-
-        self.fig.tight_layout()
-    
-    @qtc.pyqtSlot(np.ndarray)
-    def update_screen_data(self, screen_data):
-        self.screen_plot.set_data(screen_data)
-        self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
-
-        self.draw()
-    
-    def update_target(self, mu_x, mu_y, sigma_x, sigma_y):
-        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
-
-        self.select_ellipse.set_center((mu_x, mu_y))
-        self.select_ellipse.set_width(2 * sigma_x)
-        self.select_ellipse.set_height(2 * sigma_y)
-
-        self.draw()
-
-
-class AgentScreenView(FigureCanvasQTAgg):
-
-    def __init__(self, resolution, pixel_size):
-        self.resolution = resolution
-        self.pixel_size = pixel_size
-
-        self.fig = Figure()
-        self.ax = self.fig.add_subplot(111)
-        
-        super().__init__(self.fig)
-
-        self.screen_extent = (-self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
-                              self.resolution[0] * self.pixel_size[0] / 2 * 1e3,
-                              -self.resolution[1] * self.pixel_size[1] / 2 * 1e3,
-                              self.resolution[1] * self.pixel_size[1] / 2 * 1e3)
-        self.create_plot()
-
-        self.setFixedSize(600, 420)
-    
-    def create_plot(self):
-        self.screen_plot = self.ax.imshow(
-            np.zeros(self.resolution), 
-            cmap="magma",
-            interpolation="None",
-            extent=self.screen_extent
-        )
-        self.ax.set_xlabel("x (mm)")
-        self.ax.set_ylabel("y (mm)")
-        self.ax.set_title("Agent View")
-
-        self.achieved_mu_x, self.achieved_mu_y, self.achieved_sigma_x, self.achieved_sigma_y = [0] * 4
-        self.achieved_ellipse = Ellipse(
-            (self.achieved_mu_x,self.achieved_mu_y),
-            self.achieved_sigma_x,
-            self.achieved_sigma_y,
-            fill=False,
-            color="deepskyblue",
-            linestyle="--"
-        )
-        self.ax.add_patch(self.achieved_ellipse)
-
-        self.desired_mu_x, self.desired_mu_y, self.desired_sigma_x, self.desired_sigma_y = [0] * 4
-        self.desired_ellipse = Ellipse(
-            (self.desired_mu_x,self.desired_mu_y),
-            self.desired_sigma_x,
-            self.desired_sigma_y,
-            fill=False,
-            color="white"
-        )
-        self.ax.add_patch(self.desired_ellipse)
-
-        self.fig.tight_layout()
-    
-    @qtc.pyqtSlot(np.ndarray)
-    def update_screen_data(self, screen_data):
-        self.screen_plot.set_data(screen_data)
-        self.screen_plot.set_clim(vmin=0, vmax=screen_data.max())
-
-        self.draw()
-    
-    @qtc.pyqtSlot(float, float, float, float)
-    def update_achieved(self, mu_x, mu_y, sigma_x, sigma_y):
-        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
-
-        self.achieved_ellipse.set_center((mu_x, mu_y))
-        self.achieved_ellipse.set_width(2 * sigma_x)
-        self.achieved_ellipse.set_height(2 * sigma_y)
-
-        self.draw()
-    
-    @qtc.pyqtSlot(float, float, float, float)
-    def update_desired(self, mu_x, mu_y, sigma_x, sigma_y):
-        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
-
-        self.desired_ellipse.set_center((mu_x, mu_y))
-        self.desired_ellipse.set_width(2 * sigma_x)
-        self.desired_ellipse.set_height(2 * sigma_y)
-        
-        self.draw()
-
-
-class AcceleratorReadThread(qtc.QThread):
+class LiveViewReadThread(qtc.QThread):
 
     screen_updated = qtc.pyqtSignal(np.ndarray)
-
-    def __init__(self):
-        super().__init__()
 
     def run(self):
         while True:
@@ -179,6 +30,137 @@ class AcceleratorReadThread(qtc.QThread):
         screen_data = response["data"]
         
         self.screen_updated.emit(screen_data)
+
+
+class ScreenView(pg.GraphicsLayoutWidget):
+
+    user_moved_desired_ellipse = qtc.pyqtSignal(float, float, float, float)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        resolution = (2448, 2040)
+        pixel_size = (3.3198e-6, 2.4469e-6)
+        self.screen_rect = (
+            -resolution[0] * pixel_size[0] / 2 * 1e3,
+            -resolution[1] * pixel_size[1] / 2 * 1e3,
+            resolution[0] * pixel_size[0] * 1e3,
+            resolution[1] * pixel_size[1] * 1e3
+        )
+
+        self.i1 = pg.ImageItem()
+        self.update_agent_view(np.zeros((resolution[1], resolution[0])))
+
+        self.desired_ellipse = pg.EllipseROI((0,0), (0,0), pen=pg.mkPen("w",width=2),
+                                             rotatable=False, movable=False, resizable=False)
+        # for handle in self.desired_ellipse.getHandles():
+        #     print(handle)
+        #     self.desired_ellipse.removeHandle(handle)
+        # self.desired_ellipse.sigRegionChanged.connect(self.desired_ellipse_interaction)
+        self.was_desired_set_programmatically = False
+
+        self.p1 = self.addPlot(row=0, col=0, colspan=1, title="Agent View")
+        self.p1.addItem(self.i1)
+        self.p1.addItem(self.desired_ellipse)
+        self.p1.setMouseEnabled(x=False, y=False)
+        self.p1.setRange(
+            xRange=(self.screen_rect[0],self.screen_rect[0]+self.screen_rect[2]),
+            yRange=(self.screen_rect[1],self.screen_rect[1]+self.screen_rect[3]),
+            padding=0
+        )
+        self.p1.getAxis("bottom").setLabel("x (mm)")
+        self.p1.getAxis("left").setLabel("y (mm)")
+        self.p1.hideButtons()
+        self.p1.setAspectLocked()
+
+        self.i2 = pg.ImageItem()
+        self.update_live_view(np.zeros((resolution[1], resolution[0])))
+
+        self.p2 = self.addPlot(row=0, col=1, colspan=1, title="Live View AR.EA.BSC.R.1")
+        self.p2.addItem(self.i2)
+        self.p2.setMouseEnabled(x=False, y=False)
+        self.p2.setRange(
+            xRange=(self.screen_rect[0],self.screen_rect[0]+self.screen_rect[2]),
+            yRange=(self.screen_rect[1],self.screen_rect[1]+self.screen_rect[3]),
+            padding=0
+        )
+        self.p2.getAxis("bottom").setLabel("x (mm)")
+        self.p2.getAxis("left").setLabel("y (mm)")
+        self.p2.hideButtons()
+        self.p2.setAspectLocked()
+
+        cmap = pg.colormap.get("CET-L9")
+        bar = pg.ColorBarItem(cmap=cmap, width=10)
+        max_level = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"].max()
+        bar.setLevels(low=0, high=max_level)
+        bar.setImageItem([self.i1,self.i2], insert_in=self.p2)
+
+        self.read_thread = LiveViewReadThread()
+        self.read_thread.screen_updated.connect(self.update_live_view)
+        self.read_thread.start()
+    
+    @qtc.pyqtSlot(np.ndarray)
+    def update_agent_view(self, screen_data):
+        self.i1.setImage(
+            np.flipud(screen_data),
+            axisOrder="row-major",
+            rect=self.screen_rect,
+            autoLevels=False
+        )
+    
+    @qtc.pyqtSlot(np.ndarray)
+    def update_live_view(self, screen_data):
+        self.i2.setImage(
+            np.flipud(screen_data),
+            axisOrder="row-major",
+            rect=self.screen_rect,
+            autoLevels=False
+        )
+    
+    @qtc.pyqtSlot(float, float, float, float)
+    def move_desired_ellipse(self, mu_x, mu_y, sigma_x, sigma_y):
+        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
+
+        self.desired_ellipse.setPos((mu_x-sigma_x, mu_y-sigma_y))
+        self.desired_ellipse.setSize((2*sigma_x, 2*sigma_y))
+
+        self.was_desired_set_programmatically = True
+    
+    @qtc.pyqtSlot(float, float, float, float)
+    def move_achieved_ellipse(self, mu_x, mu_y, sigma_x, sigma_y):
+        mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
+
+        x, y = mu_x - sigma_x, mu_y - sigma_y
+        w, h = 2 * sigma_x, 2 * sigma_y
+
+        if not hasattr(self, "achieved_ellipse"):
+            self.achieved_ellipse = pg.EllipseROI(
+                (x, y),
+                (w, h),
+                pen=pg.mkPen("r", width=2),
+                rotatable=False,
+                movable=False,
+                resizable=False
+            )
+            self.p1.addItem(self.achieved_ellipse)
+        else:
+            self.achieved_ellipse.setPos((x, y))
+            self.achieved_ellipse.setSize((w, h))
+
+    # def desired_ellipse_interaction(self, roi):
+    #     if not self.was_desired_set_programmatically:
+    #         x = self.desired_ellipse.pos().x()
+    #         y = self.desired_ellipse.pos().y()
+    #         w = self.desired_ellipse.size().x()
+    #         h = self.desired_ellipse.size().y()
+
+    #         sigma_x = w / 2 * 1e3
+    #         sigma_y = h / 2 * 1e3
+    #         mu_x = x * 1e3 + sigma_x
+    #         mu_y = y * 1e3 + sigma_y
+
+    #         self.user_moved_desired_ellipse.emit(mu_x, mu_y, sigma_x, sigma_y)
+    #     self.was_desired_set_programmatically = False
 
 
 class AgentThread(qtc.QThread):
@@ -212,9 +194,9 @@ class AgentThread(qtc.QThread):
         self.env = ARESEAMachine()
         self.env = TimeLimit(self.env, max_episode_steps=50)
         self.env = FlattenObservation(self.env)
-        self.env = Monitor(self.env,
-                           f"experiments/{self.timestamp}/recording",
-                           video_callable=lambda i: True)
+        # self.env = Monitor(self.env,
+        #                    f"experiments/{self.timestamp}/recording",
+        #                    video_callable=lambda i: True)
         
         self.env.unwrapped.target_delta = self.target_delta
 
@@ -288,17 +270,6 @@ class AgentThread(qtc.QThread):
         return tmp
 
 
-class HorizontalSeperationLine(qtw.QFrame):
-
-  def __init__(self):
-    super().__init__()
-    self.setMinimumWidth(1)
-    self.setFixedHeight(20)
-    self.setFrameShape(qtw.QFrame.HLine)
-    self.setFrameShadow(qtw.QFrame.Sunken)
-    self.setSizePolicy(qtw.QSizePolicy.Preferred, qtw.QSizePolicy.Minimum)
-
-
 class App(qtw.QWidget):
 
     achieved_updated = qtc.pyqtSignal(float, float, float, float)
@@ -307,7 +278,7 @@ class App(qtw.QWidget):
     magnet_read = qtc.pyqtBoundSignal(float)
 
     achieved = (0,) * 4
-    desired = (0,) * 4
+    desired = [0, 0, 1e-5, 1e-5]
     deltas = (5e-6,) * 4
 
     agent_name = "mild-puddle-274"
@@ -323,21 +294,17 @@ class App(qtw.QWidget):
         vbox.addWidget(self.make_desired_selection())
         vbox.addWidget(self.make_run_agent())
         self.setLayout(vbox)
-        
-        self.read_thread = AcceleratorReadThread()
-        self.read_thread.screen_updated.connect(self.live_screen_view.update_screen_data)
 
         self.desired_updated.connect(self.update_desired_labels)
-        self.desired_updated.connect(self.live_screen_view.update_target)
+        self.desired_updated.connect(self.screen_view.move_desired_ellipse)
         self.desired_updated.connect(self.update_delta_achieved_indicators)
 
         self.achieved_updated.connect(self.update_achieved_labels)
+        self.achieved_updated.connect(self.screen_view.move_achieved_ellipse)
         self.achieved_updated.connect(self.update_delta_achieved_indicators)
 
         self.deltas_updated.connect(self.update_delta_labels)
         self.deltas_updated.connect(self.update_delta_achieved_indicators)
-
-        self.read_thread.start()
 
         self.achieved_updated.emit(*self.achieved)
         self.desired_updated.emit(*self.desired)
@@ -428,11 +395,11 @@ class App(qtw.QWidget):
         self.mu_y_slider.valueChanged.connect(self.update_desired)
 
         self.sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
-        self.sigma_x_slider.setRange(0, 100)
+        self.sigma_x_slider.setRange(1, 100)
         self.sigma_x_slider.valueChanged.connect(self.update_desired)
 
         self.sigma_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
-        self.sigma_y_slider.setRange(0, 100)
+        self.sigma_y_slider.setRange(1, 100)
         self.sigma_y_slider.valueChanged.connect(self.update_desired)
         
         grid = qtw.QGridLayout()
@@ -463,7 +430,8 @@ class App(qtw.QWidget):
         return group_box
     
     def make_run_agent(self):
-        self.agent_screen_view = AgentScreenView((2448,2040), (3.3198e-6,2.4469e-6))
+        self.screen_view = ScreenView()
+        # self.screen_view.user_moved_desired_ellipse.connect(self.update_desired)
 
         self.progress_bar = qtw.QProgressBar()
         self.progress_bar.setMaximum(50)
@@ -472,11 +440,8 @@ class App(qtw.QWidget):
         self.start_agent_button = qtw.QPushButton("Start Agent")
         self.start_agent_button.clicked.connect(self.start_agent)
 
-        self.live_screen_view = LiveScreenView((2448,2040), (3.3198e-6,2.4469e-6))
-
         grid = qtw.QGridLayout()
-        grid.addWidget(self.agent_screen_view, 0, 0, 1, 1)
-        grid.addWidget(self.live_screen_view, 0, 1, 1, 1)
+        grid.addWidget(self.screen_view, 0, 0, 1, 2)
         grid.addWidget(self.progress_bar, 1, 0, 1, 2)
         grid.addWidget(self.start_agent_button, 2, 0, 1, 2)
 
@@ -514,11 +479,9 @@ class App(qtw.QWidget):
                                         np.array(self.desired),
                                         np.array(self.deltas))
 
-        self.agent_thread.agent_screen_updated.connect(self.agent_screen_view.update_screen_data)
+        self.agent_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
         self.agent_thread.took_step.connect(self.progress_bar.setValue)
         self.agent_thread.achieved_updated.connect(self.update_achieved)
-        self.agent_thread.achieved_updated.connect(self.agent_screen_view.update_achieved)
-        self.agent_thread.desired_updated.connect(self.agent_screen_view.update_desired)
         self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
         self.agent_thread.done.connect(self.agent_finished_popup)
 
