@@ -1,0 +1,42 @@
+name: Working Hyperparametertuning
+project: ares-ea-rl-a-new-hope
+entity: msk-ipc
+program: hypertuning_train.py
+command:
+  - ${env}
+  - python3
+  - ${program}
+  - ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: eval/mean_reward
+parameters:
+  total_timesteps:
+    value: 600000
+  noise_type:
+    values: ['none', 'normal']
+  noise_std:
+    values: [0.001, 0.01, 0.1, 0.5, 1.0, 2.0, 10.0]
+  learning_rate:
+    values: [0.1, 0.01, 0.001, 0.0001, 0.00001]
+  buffer_size:
+    values: [1000, 10000, 50000, 100000, 300000, 600000]
+  learning_starts:
+    values: [20, 200, 2000, 20000, 100000]
+  batch_size:
+    values: [10, 25, 50, 100, 200, 400, 800, 1600, 3200]
+  tau:
+    values: [0.5, 0.05, 0.005, 0.0005]
+  gamma:
+    values: [0.2, 0.55, 0.8, 0.9, 0.98, 0.99,  0.999]
+  gradient_steps:
+    values: [-1, 10, 100]
+  policy_delay:
+    values: [1, 2, 4, 8, 100]
+  target_policy_noise:
+    values: [0.001, 0.05, 0.2, 1.0, 2.0]
+  target_noise_clip:
+    values: [0.01, 0.1, 0.5, 2.0, 10.0]
+  net_arch:
+    values: [[16,8], [16,16], [32,16], [32,32], [64,32], [64,64], [128,128], [400,300], [800,400]]

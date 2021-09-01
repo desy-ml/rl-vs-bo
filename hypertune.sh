@@ -7,10 +7,11 @@
 #SBATCH --mail-type ALL
 
 source /etc/profile.d/modules.sh
-module load anaconda3
-module load cuda
+
+source ~/.bashrc
+conda activate rl37
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
-wandb agent --count 100 msk-ipc/ares-ea-rl/6z82s34s
+wandb agent --count 1 msk-ipc/ares-ea-rl-a-new-hope/oub1596a
 
 exit
