@@ -12,6 +12,6 @@ source ~/.bashrc
 conda activate rl37
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
-wandb agent --count 1 msk-ipc/ares-ea-rl-a-new-hope/jv1tn1gi
+wandb agent --count 1 msk-ipc/ares-ea-rl-a-new-hope/2zh2ml8p
 
 exit
