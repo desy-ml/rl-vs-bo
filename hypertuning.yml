@@ -1,7 +1,7 @@
 name: Working Hyperparametertuning
 project: ares-ea-rl-a-new-hope
 entity: msk-ipc
-program: hypertuning_train.py
+program: train.py
 command:
   - ${env}
   - python3
