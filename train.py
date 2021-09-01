@@ -10,7 +10,7 @@ from environments.simulation import ARESEACheetah
 hyperparameter_defaults = {
     "total_timesteps": 600000,
     "noise_type": "normal",
-    "normal_std": 0.1,
+    "noise_std": 0.1,
     "learning_rate": 1e-3,
     "buffer_size": 600000,
     "learning_starts": 2000,
