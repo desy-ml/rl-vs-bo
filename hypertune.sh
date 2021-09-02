@@ -11,7 +11,7 @@ source /etc/profile.d/modules.sh
 source ~/.bashrc
 conda activate /beegfs/desy/user/kaiserja/anaconda3/envs/rl37
 
-cd /beegfs/desy/user/kaiserja/ares-ea-rl
+cd /beegfs/desy/user/$USER/ares-ea-rl
 wandb agent --count 1 msk-ipc/ares-ea-rl-a-new-hope/2zh2ml8p
 
 exit
