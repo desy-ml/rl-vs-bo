@@ -63,8 +63,8 @@ class ARESEACheetah(gym.Env):
     def reset(self):
         self.incoming = cheetah.Beam.make_random(
             n=int(1e5),
-            mu_x=np.random.uniform(-3e-3, 3e-3),    # Assume a few millimeters (according to Willi)
-            mu_y=np.random.uniform(-3e-4, 3e-4),    # You may say ... Willimeters ... höhö :D
+            mu_x=np.random.uniform(-3e-3, 3e-3),
+            mu_y=np.random.uniform(-3e-4, 3e-4),
             mu_xp=np.random.uniform(-1e-4, 1e-4),
             mu_yp=np.random.uniform(-1e-4, 1e-4),
             sigma_x=np.random.uniform(0, 2e-3),
