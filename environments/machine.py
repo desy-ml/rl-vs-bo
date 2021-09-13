@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
-import pydoocs
+import dummypydoocs as pydoocs
 from scipy.ndimage import uniform_filter1d
 
 from . import simulation

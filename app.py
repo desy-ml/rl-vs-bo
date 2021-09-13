@@ -13,7 +13,7 @@ import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
 import pyqtgraph as pg
-import pydoocs
+import dummypydoocs as pydoocs
 from stable_baselines3 import TD3
 
 from environments.machine import ARESEAMachine
