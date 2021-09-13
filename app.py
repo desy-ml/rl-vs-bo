@@ -309,8 +309,6 @@ class App(qtw.QWidget):
     desired = [0, 0, 1e-5, 1e-5]
     deltas = (5e-6,) * 4
 
-    agent_name = "mild-puddle-274"
-
     def __init__(self):
         super().__init__()
 
@@ -445,6 +443,8 @@ class App(qtw.QWidget):
     def make_rl_setup(self):
         model_files = glob.glob("models/*-*-*.zip")
         models = sorted(filename[7:-4] for filename in model_files)
+
+        self.agent_name = models[0]
 
         label1 = qtw.QLabel("Agent")
 
