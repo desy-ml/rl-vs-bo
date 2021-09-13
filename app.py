@@ -335,6 +335,8 @@ class App(qtw.QWidget):
         self.achieved_updated.emit(*self.achieved)
         self.desired_updated.emit(*self.desired)
         self.deltas_updated.emit(*self.deltas)
+
+        self.resize(1200, 800)
     
     def make_magnet_setting(self):
         self.magnet_dropdown = qtw.QComboBox()
