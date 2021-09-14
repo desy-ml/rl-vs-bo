@@ -35,7 +35,15 @@ and to write to the machine you run
 pydoocs.write(channel, value)
 ```
 
-These are the channels relevant to us:
+We actually created a package `dummy-pydoocs` that allows us to test the interface with PyDoocs without using the real machine.
+
+The package is imported as follows and then used in the code just like PyDoocs itself.
+
+```python
+import dummypydoocs as pydoocs
+```
+
+These are the DOOCS channels relevant to us:
 
  - Read screen image: `SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ``
  - Write magnets settings:
