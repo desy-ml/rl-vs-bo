@@ -59,12 +59,15 @@ class ARESEAOneStep(gym.Env):
         return observation
     
     def step(self, action):
-        achieved = self._track(action)
+        actuators = self._denormalize_action(action)
+
+        achieved = self._track(actuators)
         objective = self._objective_fn(achieved, self.desired)
 
         observation = np.concatenate([action, self.desired, achieved])
+        normalized_observation = self._normalize_observation(observation)
 
-        return observation, -objective, True, {}
+        return normalized_observation, -objective, True, {}
     
     def _track(self, actuators):
         self.segment.AREAMQZM1.k1, self.segment.AREAMQZM2.k1, self.segment.AREAMQZM3.k1 = actuators[:3]
@@ -84,3 +87,14 @@ class ARESEAOneStep(gym.Env):
         weights = np.array([1, 1, 2, 2])
 
         return np.log((weights * np.abs(offset)).sum())
+    
+    def _denormalize_action(self, normalized):
+        return normalized * self.actuator_space.high
+    
+    def _normalize_observation(self, raw):
+        scaler = np.concatenate([
+            self.actuator_space.high,
+            self.goal_space.high,
+            self.goal_space.high
+        ])
+        return raw / scaler
