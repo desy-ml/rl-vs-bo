@@ -18,7 +18,8 @@ wandb.init(
     settings=wandb.Settings(start_method="fork")
 )
 
-env = make_vec_env(ARESEAOneStep, n_envs=4)
+# env = make_vec_env(ARESEAOneStep, n_envs=4)
+env = ARESEAOneStep()
 
 model = PPO(
     "MlpPolicy",
