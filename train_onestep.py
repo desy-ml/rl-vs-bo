@@ -13,7 +13,8 @@ wandb.init(
     project="ares-ea-rl-one-step-at-a-time",
     entity="msk-ipc",
     config=hyperparameter_defaults,
-    sync_tensorboard=True
+    sync_tensorboard=True,
+    settings=wandb.Settings(start_method="fork")
 )
 
 env = make_vec_env(ARESEAOneStep, n_envs=4)
