@@ -6,7 +6,8 @@ from environments.onestep import ARESEAOneStep
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 600000
+    "total_timesteps": 600000,
+    "net_arch": [64, 32]
 }
 
 wandb.init(
@@ -22,6 +23,7 @@ env = make_vec_env(ARESEAOneStep, n_envs=4)
 model = PPO(
     "MlpPolicy",
     env,
+    policy_kwargs={"net_arch": wandb.config["net_arch"]},
     tensorboard_log=f"log/{wandb.run.name}",
     verbose=2
 )
