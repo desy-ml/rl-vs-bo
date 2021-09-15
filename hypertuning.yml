@@ -1,7 +1,7 @@
 name: Tune Network Architecture (+ learning rate)
 project: ares-ea-rl-a-new-hope
 entity: msk-ipc
-program: train.py
+program: train_sequential.py
 command:
   - ${env}
   - python3

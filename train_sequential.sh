@@ -12,6 +12,6 @@ source ~/.bashrc
 conda activate rl37
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
-python3 train.py
+python3 train_sequential.py
 
 exit
