@@ -106,6 +106,8 @@ class GaussianActor(nn.Module):
 
 
 if __name__ == "__main__":
+    print("Main started")
+
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
     n_batches = 9375
@@ -117,6 +119,8 @@ if __name__ == "__main__":
     optimizer = optim.Adam(policy.parameters())
 
     history = []
+    
+    print("Setup done, starting training.")
 
     for i in range(n_batches):
         # Rollout
