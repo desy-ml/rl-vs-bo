@@ -41,23 +41,32 @@ class Simulation:
             high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
         )
     
-    def reset(self):
-        self.incoming = cheetah.Beam.make_random(
-            n=int(1e5),
-            mu_x=np.random.uniform(-3e-3, 3e-3),
-            mu_y=np.random.uniform(-3e-4, 3e-4),
-            mu_xp=np.random.uniform(-1e-4, 1e-4),
-            mu_yp=np.random.uniform(-1e-4, 1e-4),
-            sigma_x=np.random.uniform(0, 2e-3),
-            sigma_y=np.random.uniform(0, 2e-3),
-            sigma_xp=np.random.uniform(0, 1e-4),
-            sigma_yp=np.random.uniform(0, 1e-4),
-            sigma_s=np.random.uniform(0, 2e-3),
-            sigma_p=np.random.uniform(0, 5e-3),
-            energy=np.random.uniform(80e6, 160e6)
-        )
-        initial_actuators = self.actuator_space.sample()
-        self.desired = self.goal_space.sample()
+    def reset(self, incoming=None, initial_actuators=None, desired=None):
+        if incoming is None:
+            self.incoming = cheetah.Beam.make_random(
+                n=int(1e5),
+                mu_x=np.random.uniform(-3e-3, 3e-3),
+                mu_y=np.random.uniform(-3e-4, 3e-4),
+                mu_xp=np.random.uniform(-1e-4, 1e-4),
+                mu_yp=np.random.uniform(-1e-4, 1e-4),
+                sigma_x=np.random.uniform(0, 2e-3),
+                sigma_y=np.random.uniform(0, 2e-3),
+                sigma_xp=np.random.uniform(0, 1e-4),
+                sigma_yp=np.random.uniform(0, 1e-4),
+                sigma_s=np.random.uniform(0, 2e-3),
+                sigma_p=np.random.uniform(0, 5e-3),
+                energy=np.random.uniform(80e6, 160e6)
+            )
+        else:
+            self.incoming = incoming
+            
+        if initial_actuators is None:
+            initial_actuators = self.actuator_space.sample()
+        
+        if desired is None:
+            self.desired = self.goal_space.sample()
+        else:
+            self.desired = desired
 
         achieved = self.track(initial_actuators)
 
