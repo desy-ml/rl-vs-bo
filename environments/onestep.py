@@ -49,14 +49,15 @@ class ARESEAOneStep(gym.Env):
             sigma_p=np.random.uniform(0, 5e-3),
             energy=np.random.uniform(80e6, 160e6)
         )
-        initial_actuators = self.actuator_space.sample()
+        self.initial_actuators = self.actuator_space.sample()
         self.desired = self.goal_space.sample()
 
-        achieved = self._track(initial_actuators)
+        achieved = self._track(self.initial_actuators)
 
-        observation = np.concatenate([initial_actuators, self.desired, achieved])
+        observation = np.concatenate([self.initial_actuators, self.desired, achieved])
+        normalized_observation = self._normalize_observation(observation)
         
-        return observation
+        return normalized_observation
     
     def step(self, action):
         actuators = self._denormalize_action(action)
