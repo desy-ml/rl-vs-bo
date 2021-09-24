@@ -55,8 +55,9 @@ class ARESEAOneStep(gym.Env):
         achieved = self._track(self.initial_actuators)
 
         observation = np.concatenate([self.initial_actuators, self.desired, achieved])
+        normalized_observation = self._normalize_observation(observation)
         
-        return observation
+        return normalized_observation
     
     def step(self, action):
         actuators = self._denormalize_action(action)

@@ -1,7 +1,7 @@
 #!/bin/sh
 # #SBATCH --partition=maxgpu
 #SBATCH --partition=maxwell
-#SBATCH --job-name sb3-ppo
+#SBATCH --job-name sb3-ppo-bugfix
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 # #SBATCH --constraint=V100|P100
