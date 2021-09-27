@@ -7,8 +7,7 @@ from matplotlib.patches import Ellipse
 from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
 
-from . import ARESlatticeStage3v1_9 as lattice
-from . import utils
+from .ares import ARESlatticeStage3v1_9 as lattice
 
 
 class ARESEACheetah(gym.Env):
@@ -52,7 +51,7 @@ class ARESEACheetah(gym.Env):
     pixel_size = (3.3198e-6, 2.4469e-6)
 
     def __init__(self):
-        cell = utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
+        cell = cheetah.utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
         self.segment = cheetah.Segment.from_ocelot(cell)
         self.segment.AREABSCR1.resolution = self.screen_resolution
         self.segment.AREABSCR1.pixel_size = self.pixel_size

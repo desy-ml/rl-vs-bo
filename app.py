@@ -14,7 +14,7 @@ import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
 import pyqtgraph as pg
 import dummypydoocs as pydoocs
-from stable_baselines3 import TD3
+from stable_baselines3 import PPO, TD3
 
 from environments.machine import ARESEAMachine
 
@@ -443,7 +443,7 @@ class App(qtw.QWidget):
         return group_box
     
     def make_rl_setup(self):
-        model_files = glob.glob("models/*-*-*.zip")
+        model_files = glob.glob("models/sequential/*-*-*.zip")
         models = sorted(filename[7:-4] for filename in model_files)
 
         self.agent_name = models[0]

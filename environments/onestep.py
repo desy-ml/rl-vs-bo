@@ -3,7 +3,7 @@ import gym
 from gym import spaces
 import numpy as np
 
-from . import ARESlatticeStage3v1_9 as lattice
+from .ares import ARESlatticeStage3v1_9 as lattice
 
 
 class ARESEAOneStep(gym.Env):

@@ -11,9 +11,7 @@ recordings
 wandb
 
 models/*
-!models/mild-puddle-274.zip
-!models/rural-salad-275.zip
-!models/sparkling-surf-276.zip
-!models/warm-wave-276.zip
-!models/winter-wood-277.zip
 !models/old
+!models/onestep_ppo
+!models/onestep_vpg
+!models/sequential
