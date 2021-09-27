@@ -61,16 +61,18 @@ class Simulation:
             self.incoming = incoming
             
         if initial_actuators is None:
-            initial_actuators = self.actuator_space.sample()
+            self.initial_actuators = self.actuator_space.sample()
+        else:
+            self.initial_actuators = initial_actuators
         
         if desired is None:
             self.desired = self.goal_space.sample()
         else:
             self.desired = desired
 
-        achieved = self.track(initial_actuators)
+        achieved = self.track(self.initial_actuators)
 
-        observation = np.concatenate([initial_actuators, self.desired, achieved])
+        observation = np.concatenate([self.initial_actuators, self.desired, achieved])
 
         return observation
     
