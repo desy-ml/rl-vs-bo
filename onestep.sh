@@ -12,6 +12,6 @@ source ~/.bashrc
 conda activate rl37
 
 cd /beegfs/desy/user/kaiserja/ares-ea-rl
-python3 oneshot0script.py
+python3 onestep.py
 
 exit
