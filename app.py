@@ -15,9 +15,12 @@ import PyQt5.QtWidgets as qtw
 import pyqtgraph as pg
 import dummypydoocs as pydoocs
 from stable_baselines3 import PPO, TD3
+import torch
 
 from environments.machine import ARESEAMachine
 from environments.onestep_machine import ARESEAOneStepMachine
+from onestep import GaussianActor
+from onestepmachine import Machine
 
 
 class LiveViewReadThread(qtc.QThread):
@@ -215,6 +218,8 @@ class AgentThread(qtc.QThread):
         model_type = self.model_name.split("/")[0]
         if model_type == "sequential":
             self.run_sequential()
+        elif model_type == "onestep_vpg":
+            self.run_onestep_vpg()
         elif model_type == "onestep_ppo":
             self.run_onestep_ppo()
         else:
@@ -293,6 +298,78 @@ class AgentThread(qtc.QThread):
         achieved = self.env.unwrapped.observation["achieved_goal"]
         delta = np.abs(desired - achieved)
         self.done.emit(i, delta)
+    
+    def run_onestep_vpg(self):
+        self.started.emit()
+        self.took_step.emit(0)
+        self.desired_updated.emit(*self.desired_goal)
+
+        self.env = Machine()
+
+        model = torch.load(f"models/{self.model_name}.pkl")
+
+        observation = self.env.reset(desired=self.desired_goal)
+
+        log = {
+            "model_name": self.model_name,
+            "desired": self.desired_goal,
+            "target_delta": self.target_delta,
+            "initial_backgrounds": self.env.backgrounds,
+            "initial_background": self.env.background,
+            "initial_beams": self.env.beams,
+            "initial_beam": self.env.beam,
+            "initial_screen_data": self.env._screen_data,
+            "initial_achieved": self.env.achieved,
+            "initial_actuators": self.env.actuators
+        }
+
+        self.agent_screen_updated.emit(self.env._screen_data)
+        self.achieved_updated.emit(*self.env.achieved)
+
+        observation_factor = np.concatenate([
+            self.env.actuator_space.high,
+            self.env.goal_space.high,
+            self.env.goal_space.high
+        ])
+
+        normalized_observation = observation / observation_factor
+        normalized_observation = torch.tensor(normalized_observation, dtype=torch.float32)
+        unsqueezed_observation = normalized_observation.unsqueeze(0)
+
+        unsqueezed_actuators = model(unsqueezed_observation).sample()
+
+        normalized_actuators = unsqueezed_actuators.squeeze()
+        actuators = normalized_actuators.detach().numpy() * self.env.actuator_space.high
+
+        # if not self.ask_step_permission(action, observation):
+        #     print("Permission denied!")
+        print("Permission granted!")
+
+        _ = self.env.track(actuators)
+
+        log["final_backgrounds"] = self.env.backgrounds
+        log["final_background"] = self.env.background
+        log["final_beams"] = self.env.beams
+        log["final_beam"] = self.env.beam
+        log["final_screen_data"] = self.env._screen_data
+        log["final_achieved"] = self.env.achieved
+        log["final_actuators"] = self.env.actuators
+
+        self.agent_screen_updated.emit(self.env._screen_data)
+        self.achieved_updated.emit(*self.env.achieved)
+        
+        self.took_step.emit(50)
+
+        logpath = f"experiments/{self.timestamp}_{self.experiment_name}/"
+        os.mkdir(logpath)
+
+        logfilename = logpath + "log.pkl"
+        with open(logfilename, "wb") as f:
+            pickle.dump(log, f)
+            print(f"Log file saved as \"{logfilename}\"")
+        
+        delta = np.abs(self.env.desired - self.env.achieved)
+        self.done.emit(50, delta)
     
     def run_onestep_ppo(self):
         self.started.emit()
@@ -513,7 +590,7 @@ class App(qtw.QWidget):
         return group_box
     
     def make_rl_setup(self):
-        model_files = glob.glob("models/*/*-*-*.zip")
+        model_files = glob.glob("models/*/*-*-*.zip") + glob.glob("models/onestep_vpg/onestep-model-*.pkl")
         models = sorted(filename[7:-4] for filename in model_files)
 
         self.agent_name = models[0]

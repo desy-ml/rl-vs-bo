@@ -3,15 +3,13 @@ import pickle
 
 import cheetah
 from gym import spaces
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch import distributions
 from torch import nn
 from torch import optim
 
-from environments import ARESlatticeStage3v1_9 as lattice
-from environments import utils
+from environments.ares import ARESlatticeStage3v1_9 as lattice
 
 
 class Simulation:
@@ -23,7 +21,7 @@ class Simulation:
         screen_resolution = (2448, 2040)
         pixel_size = (3.3198e-6, 2.4469e-6)
 
-        cell = utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
+        cell = cheetah.utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
 
         self.segment = cheetah.Segment.from_ocelot(cell)
         self.segment.AREABSCR1.resolution = screen_resolution
