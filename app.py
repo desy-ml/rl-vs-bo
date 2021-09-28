@@ -13,7 +13,8 @@ import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
 import pyqtgraph as pg
-import dummypydoocs as pydoocs
+import pydoocs
+# import dummypydoocs as pydoocs
 from stable_baselines3 import PPO, TD3
 import torch
 
@@ -35,6 +36,8 @@ class LiveViewReadThread(qtc.QThread):
     def read_screen(self):
         response = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")
         screen_data = response["data"]
+
+        screen_data = np.flipud(screen_data)    # TODO: Add to agent data read as well
         
         self.screen_updated.emit(screen_data)
 
