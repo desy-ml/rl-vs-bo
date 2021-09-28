@@ -5,7 +5,8 @@ from matplotlib import gridspec
 from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
 import pydoocs
-from scipy.ndimage import uniform_filter1d
+# import dummypydoocs as pydoocs
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
 from . import simulation
 
@@ -147,8 +148,8 @@ class ARESEAMachine(simulation.ARESEACheetah):
         parameters = np.empty(4)
         for axis in [0, 1]:
             profile = self.screen_data.sum(axis=axis)
-            # minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
-            filtered = uniform_filter1d(profile, size=5, mode="nearest")
+            minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
+            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
 
             half_values, = np.where(filtered >= 0.5 * filtered.max())
 
