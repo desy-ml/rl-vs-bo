@@ -118,12 +118,14 @@ class ARESEAMachine(simulation.ARESEACheetah):
         clean = self.beam - self.background
         image = clean.clip(0, 2**16-1)
 
+        flipped = np.flipud(image)
+
         self.binning = (
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL")["data"],
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL")["data"]
         )
         
-        return image
+        return flipped
 
     def capture(self, n, channel):
         images = []
