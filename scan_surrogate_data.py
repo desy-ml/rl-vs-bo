@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 import logging
 import os
@@ -16,9 +17,8 @@ logging.basicConfig(
     datefmt="%d-%b-%y %H:%M:%S"
 )
 
-directory = "./surrogate_data"
+general_directory = "./surrogate_data"
 
-n = 5
 actuator_space = spaces.Box(
     low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
     high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
@@ -104,7 +104,7 @@ def switch_cathode_laser(setto):
     time.sleep(1)
 
 
-def write_data(**kwargs):
+def write_sample(directory, **kwargs):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     filename = os.path.join(directory, f"{timestamp}.pkl")
 
@@ -115,10 +115,23 @@ def write_data(**kwargs):
         pickle.dump(kwargs, f)
 
 
-def main():
-    logging.info(f"Starting data collection for {n} samples")
+def parse_config_args():
+    parser = argparse.ArgumentParser(description="Scan experimental area screen over actuators.")
+    parser.add_argument("experiment", type=str, help="name of the experiment (directory)")
+    parser.add_argument("n", type=int, help="number of samples to collect")
 
+    args = parser.parse_args()
+
+    return args.experiment, args.n
+
+
+def main():
+    experiment, n = parse_config_args()
+
+    directory = os.path.join(general_directory, experiment)
     Path(directory).mkdir(parents=True, exist_ok=True)
+
+    logging.info(f"Starting data collection for {n} samples to {directory}")
 
     for i in range(n):
         logging.info(f"Collecting sample {i}")
@@ -130,7 +143,8 @@ def main():
 
         image, backgrounds, background, beams, beam, binning = read_screen(return_intermediate=True)
 
-        write_data(
+        write_sample(
+            directory,
             actuators=actuators,
             readbacks=readbacks,
             image=image,
