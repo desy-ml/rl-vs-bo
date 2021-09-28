@@ -1,6 +1,7 @@
 import time
 
-import dummypydoocs as pydoocs
+import pydoocs
+# import dummypydoocs as pydoocs
 from gym import spaces
 import numpy as np
 from scipy.ndimage import uniform_filter1d
@@ -90,12 +91,14 @@ class Machine(Simulation):
         clean = self.beam - self.background
         image = clean.clip(0, 2**16-1)
 
+        flipped = np.flipud(image)
+
         self.binning = (
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL")["data"],
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL")["data"]
         )
         
-        return image
+        return flipped
 
     def capture(self, n, channel):
         images = []
