@@ -6,7 +6,7 @@ import os
 import pickle
 import sys
 from threading import Event
-from time import sleep
+import time
 
 from gym.wrappers import FlattenObservation, Monitor, TimeLimit
 import numpy as np
@@ -19,6 +19,7 @@ import torch
 
 from environments.machine import ARESEAMachine
 from environments.onestep_machine import ARESEAOneStepMachine
+from onestep import GaussianActor
 from onestepmachine import Machine
 
 
@@ -32,7 +33,7 @@ class LiveViewReadThread(qtc.QThread):
     def run(self):
         while True:
             self.read_screen()
-            sleep(0.1)
+            time.sleep(0.1)
     
     def read_screen(self):
         response = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")
@@ -326,7 +327,8 @@ class AgentThread(qtc.QThread):
             "beam": [self.env.unwrapped.beam],
             "screen_data": [self.env.unwrapped.screen_data],
             "observation": [self.env.unwrapped.observation],
-            "action": []
+            "action": [],
+            "time": [time.time()]
         }
         self.log_channels(log, self.auxiliary_channels)
         self.agent_screen_updated.emit(self.env.screen_data)
@@ -349,6 +351,7 @@ class AgentThread(qtc.QThread):
             log["observation"].append(self.env.unwrapped.observation)
             log["action"].append(self.env.unwrapped.action2accelerator(action))
             self.log_channels(log, self.auxiliary_channels)
+            log["time"].append(time.time())
 
             self.agent_screen_updated.emit(self.env.unwrapped.screen_data)
             self.achieved_updated.emit(*self.env.unwrapped.observation["achieved_goal"])
@@ -397,7 +400,8 @@ class AgentThread(qtc.QThread):
             "initial_beam": self.env.beam,
             "initial_screen_data": self.env._screen_data,
             "initial_achieved": self.env.achieved,
-            "initial_actuators": self.env.actuators
+            "initial_actuators": self.env.actuators,
+            "time": [time.time()]
         }
         self.log_channels(log, self.auxiliary_channels)
 
@@ -433,6 +437,7 @@ class AgentThread(qtc.QThread):
         log["final_achieved"] = self.env.achieved
         log["final_actuators"] = self.env.actuators
         self.log_channels(log, self.auxiliary_channels)
+        log["time"].append(time.time())
 
         self.agent_screen_updated.emit(self.env._screen_data)
         self.achieved_updated.emit(*self.env.achieved)
@@ -470,7 +475,8 @@ class AgentThread(qtc.QThread):
             "initial_beam": self.env.beam,
             "initial_screen_data": self.env._screen_data,
             "initial_achieved": self.env.achieved,
-            "initial_actuators": self.env.actuators
+            "initial_actuators": self.env.actuators,
+            "time": [time.time()]
         }
         self.log_channels(log, self.auxiliary_channels)
 
@@ -493,6 +499,7 @@ class AgentThread(qtc.QThread):
         log["final_achieved"] = self.env.achieved
         log["final_actuators"] = self.env.actuators
         self.log_channels(log, self.auxiliary_channels)
+        log["time"].append(time.time())
 
         self.agent_screen_updated.emit(self.env._screen_data)
         self.achieved_updated.emit(*self.env.achieved)
