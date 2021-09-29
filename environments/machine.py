@@ -1,14 +1,17 @@
+import importlib
+import os
 import time
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
-import pydoocs
-# import dummypydoocs as pydoocs
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
 from . import simulation
+
+
+pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
 
 
 class ARESEAMachine(simulation.ARESEACheetah):

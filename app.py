@@ -1,5 +1,6 @@
 from datetime import datetime
 import glob
+import importlib
 import math
 import os
 import pickle
@@ -13,15 +14,15 @@ import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
 import PyQt5.QtWidgets as qtw
 import pyqtgraph as pg
-import pydoocs
-# import dummypydoocs as pydoocs
 from stable_baselines3 import PPO, TD3
 import torch
 
 from environments.machine import ARESEAMachine
 from environments.onestep_machine import ARESEAOneStepMachine
-from onestep import GaussianActor
 from onestepmachine import Machine
+
+
+pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
 
 
 class LiveViewReadThread(qtc.QThread):

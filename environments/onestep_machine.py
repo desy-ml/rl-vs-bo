@@ -1,10 +1,14 @@
+import importlib
+import os
 import time
 
-import dummypydoocs as pydoocs
 import numpy as np
 from scipy.ndimage import uniform_filter1d
 
 from .onestep import ARESEAOneStep
+
+
+pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
 
 
 class ARESEAOneStepMachine(ARESEAOneStep):
