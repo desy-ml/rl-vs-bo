@@ -340,7 +340,7 @@ class AgentThread(qtc.QThread):
         while not done:
             action, _ = model.predict(observation)
 
-            if not self.ask_step_permission(action, observation):
+            if not self.ask_delta_permission(action, observation):
                 print("Permission denied!")
                 break
             print("Permission granted!")
@@ -427,24 +427,25 @@ class AgentThread(qtc.QThread):
         normalized_actuators = unsqueezed_actuators.squeeze()
         actuators = normalized_actuators.detach().numpy() * self.env.actuator_space.high
 
-        # if not self.ask_step_permission(action, observation):
-        #     print("Permission denied!")
-        print("Permission granted!")
+        if self.ask_magnet_permission(self.env.actuators, actuators):
+            print("Permission granted!")
 
-        _ = self.env.track(actuators)
+            _ = self.env.track(actuators)
 
-        log["final_backgrounds"] = self.env.backgrounds
-        log["final_background"] = self.env.background
-        log["final_beams"] = self.env.beams
-        log["final_beam"] = self.env.beam
-        log["final_screen_data"] = self.env._screen_data
-        log["final_achieved"] = self.env.achieved
-        log["final_actuators"] = self.env.actuators
-        self.log_channels(log, self.auxiliary_channels)
-        log["time"].append(time.time())
+            log["final_backgrounds"] = self.env.backgrounds
+            log["final_background"] = self.env.background
+            log["final_beams"] = self.env.beams
+            log["final_beam"] = self.env.beam
+            log["final_screen_data"] = self.env._screen_data
+            log["final_achieved"] = self.env.achieved
+            log["final_actuators"] = self.env.actuators
+            self.log_channels(log, self.auxiliary_channels)
+            log["time"].append(time.time())
 
-        self.agent_screen_updated.emit(self.env._screen_data)
-        self.achieved_updated.emit(*self.env.achieved)
+            self.agent_screen_updated.emit(self.env._screen_data)
+            self.achieved_updated.emit(*self.env.achieved)
+        else:
+            print("Permission denied!")
         
         self.took_step.emit(50)
 
@@ -489,24 +490,25 @@ class AgentThread(qtc.QThread):
 
         action, _ = model.predict(observation)
 
-        # if not self.ask_step_permission(action, observation):
-        #     print("Permission denied!")
-        print("Permission granted!")
+        if self.ask_magnet_permission(self.env.actuators, action):
+            print("Permission granted!")
 
-        _ = self.env.step(action)
+            _ = self.env.step(action)
 
-        log["final_backgrounds"] = self.env.backgrounds
-        log["final_background"] = self.env.background
-        log["final_beams"] = self.env.beams
-        log["final_beam"] = self.env.beam
-        log["final_screen_data"] = self.env._screen_data
-        log["final_achieved"] = self.env.achieved
-        log["final_actuators"] = self.env.actuators
-        self.log_channels(log, self.auxiliary_channels)
-        log["time"].append(time.time())
+            log["final_backgrounds"] = self.env.backgrounds
+            log["final_background"] = self.env.background
+            log["final_beams"] = self.env.beams
+            log["final_beam"] = self.env.beam
+            log["final_screen_data"] = self.env._screen_data
+            log["final_achieved"] = self.env.achieved
+            log["final_actuators"] = self.env.actuators
+            self.log_channels(log, self.auxiliary_channels)
+            log["time"].append(time.time())
 
-        self.agent_screen_updated.emit(self.env._screen_data)
-        self.achieved_updated.emit(*self.env.achieved)
+            self.agent_screen_updated.emit(self.env._screen_data)
+            self.achieved_updated.emit(*self.env.achieved)
+        else:
+            print("Permission denied!")
         
         self.took_step.emit(50)
 
@@ -552,12 +554,16 @@ class AgentThread(qtc.QThread):
 
         self.i = 0
 
+        class StopBayesException(Exception):
+            pass
+
         def target_fn(q1, q2, q3, cv, ch):
             normalized_actuators = np.array([q1, q2, q3, cv, ch])
             actuators = normalized_actuators * self.env.actuator_space.high
 
-            # if not self.ask_step_permission(action, observation):
-            #     print("Permission denied!")
+            if not self.ask_magnet_permission(self.env.actuators, actuators):
+                print("Permission denied!")
+                raise StopBayesException
             print("Permission granted!")
             
             achieved = self.env.track(actuators)
@@ -592,24 +598,30 @@ class AgentThread(qtc.QThread):
             pbounds=pbounds,
             verbose=0
         )
-        optimizer.maximize(init_points=3, n_iter=50-3)
+        try:
+            optimizer.maximize(init_points=3, n_iter=50-3)
+        except StopBayesException:
+            pass
 
         # Set best result
-        _ = target_fn(**optimizer.max["params"])
+        try:
+            _ = target_fn(**optimizer.max["params"])
 
-        log["final_backgrounds"] = self.env.backgrounds
-        log["final_background"] = self.env.background
-        log["final_beams"] = self.env.beams
-        log["final_beam"] = self.env.beam
-        log["final_screen_data"] = self.env._screen_data
-        log["final_achieved"] = self.env.achieved
-        log["final_actuators"] = self.env.actuators
-        self.log_channels(log, self.auxiliary_channels)
-        log["time"].append(time.time())
-        log["optimizer.space"] = optimizer.space
+            log["final_backgrounds"] = self.env.backgrounds
+            log["final_background"] = self.env.background
+            log["final_beams"] = self.env.beams
+            log["final_beam"] = self.env.beam
+            log["final_screen_data"] = self.env._screen_data
+            log["final_achieved"] = self.env.achieved
+            log["final_actuators"] = self.env.actuators
+            self.log_channels(log, self.auxiliary_channels)
+            log["time"].append(time.time())
+            log["optimizer.space"] = optimizer.space
 
-        self.agent_screen_updated.emit(self.env._screen_data)
-        self.achieved_updated.emit(*self.env.achieved)
+            self.agent_screen_updated.emit(self.env._screen_data)
+            self.achieved_updated.emit(*self.env.achieved)
+        except StopBayesException:
+            pass
         
         self.took_step.emit(50)
 
@@ -624,11 +636,14 @@ class AgentThread(qtc.QThread):
         delta = np.abs(self.env.desired - self.env.achieved)
         self.done.emit(50, delta)
 
-    def ask_step_permission(self, action, observation):
+    def ask_delta_permission(self, action, observation):
         old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
         new_actuators = old_actuators + action * self.env.accelerator_action_space.high
 
-        self.want_step_permission.emit(old_actuators, new_actuators)
+        return self.ask_magnet_permission(old_actuators, new_actuators)
+    
+    def ask_magnet_permission(self, old, new):
+        self.want_step_permission.emit(old, new)
         self.step_permission_event.wait()
         self.step_permission_event.clear()
 
