@@ -8,6 +8,7 @@ import sys
 from threading import Event
 import time
 
+from bayes_opt import BayesianOptimization
 from gym.wrappers import FlattenObservation, Monitor, TimeLimit
 import numpy as np
 import PyQt5.QtCore as qtc
@@ -291,15 +292,18 @@ class AgentThread(qtc.QThread):
         self.timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
     def run(self):
-        model_type = self.model_name.split("/")[0]
-        if model_type == "sequential":
-            self.run_sequential()
-        elif model_type == "onestep_vpg":
-            self.run_onestep_vpg()
-        elif model_type == "onestep_ppo":
-            self.run_onestep_ppo()
+        if self.model_name == "Bayesian Optimisation":
+            self.run_bayes()
         else:
-            raise Exception(f"Invalid model type {model_type}")
+            model_type = self.model_name.split("/")[0]
+            if model_type == "sequential":
+                self.run_sequential()
+            elif model_type == "onestep_vpg":
+                self.run_onestep_vpg()
+            elif model_type == "onestep_ppo":
+                self.run_onestep_ppo()
+            else:
+                raise Exception(f"Invalid model type {model_type}")
     
     def run_sequential(self):
         self.started.emit()
@@ -518,6 +522,107 @@ class AgentThread(qtc.QThread):
         
         delta = np.abs(self.env.desired - self.env.achieved)
         self.done.emit(50, delta)
+    
+    def run_bayes(self):
+        self.started.emit()
+        self.took_step.emit(0)
+        self.desired_updated.emit(*self.desired_goal)
+
+        self.env = Machine()
+
+        _ = self.env.reset(desired=self.desired_goal)
+
+        log = {
+            "model_name": self.model_name,
+            "desired": self.desired_goal,
+            "target_delta": self.target_delta,
+            "backgrounds": [self.env.backgrounds],
+            "background": [self.env.background],
+            "beams": [self.env.beams],
+            "beam": [self.env.beam],
+            "screen_data": [self.env._screen_data],
+            "achieved": [self.env.achieved],
+            "actuators": [self.env.actuators],
+            "time": [time.time()]
+        }
+        self.log_channels(log, self.auxiliary_channels)
+
+        self.agent_screen_updated.emit(self.env._screen_data)
+        self.achieved_updated.emit(*self.env.achieved)
+
+        self.i = 0
+
+        def target_fn(q1, q2, q3, cv, ch):
+            normalized_actuators = np.array([q1, q2, q3, cv, ch])
+            actuators = normalized_actuators * self.env.actuator_space.high
+
+            # if not self.ask_step_permission(action, observation):
+            #     print("Permission denied!")
+            print("Permission granted!")
+            
+            achieved = self.env.track(actuators)
+
+            log["backgrounds"].append(self.env.backgrounds)
+            log["background"].append(self.env.background)
+            log["beams"].append(self.env.beams)
+            log["beam"].append(self.env.beam)
+            log["screen_data"].append(self.env._screen_data)
+            log["achieved"].append(self.env.achieved)
+            log["actuators"].append(self.env.actuators)
+            self.log_channels(log, self.auxiliary_channels)
+            log["time"].append(time.time())
+
+            self.agent_screen_updated.emit(self.env._screen_data)
+            self.achieved_updated.emit(*self.env.achieved)
+            self.i += 1
+            self.took_step.emit(self.i)
+            
+            def objective_fn(achieved, desired):
+                offset = achieved - desired
+                weights = np.array([1, 1, 2, 2])
+
+                return -np.log((weights * np.abs(offset)).sum())
+            
+            return objective_fn(achieved, self.env.desired)
+        
+        pbounds = {"q1": (-1,1), "q2": (-1,1), "q3": (-1,1), "cv": (-1,1), "ch": (-1,1)}
+
+        optimizer = BayesianOptimization(
+            f=target_fn,
+            pbounds=pbounds,
+            verbose=0
+        )
+        optimizer.maximize(init_points=3, n_iter=50-3)
+
+        # Set best result
+        _ = target_fn(**optimizer.max["params"])
+
+        log["final_backgrounds"] = self.env.backgrounds
+        log["final_background"] = self.env.background
+        log["final_beams"] = self.env.beams
+        log["final_beam"] = self.env.beam
+        log["final_screen_data"] = self.env._screen_data
+        log["final_achieved"] = self.env.achieved
+        log["final_actuators"] = self.env.actuators
+        self.log_channels(log, self.auxiliary_channels)
+        log["time"].append(time.time())
+        log["optimizer.space"] = optimizer.space
+
+        self.agent_screen_updated.emit(self.env._screen_data)
+        self.achieved_updated.emit(*self.env.achieved)
+        
+        self.took_step.emit(50)
+
+        logpath = f"experiments/{self.timestamp}_{self.experiment_name}/"
+        os.mkdir(logpath)
+
+        logfilename = logpath + "log.pkl"
+        with open(logfilename, "wb") as f:
+            pickle.dump(log, f)
+            print(f"Log file saved as \"{logfilename}\"")
+        
+        delta = np.abs(self.env.desired - self.env.achieved)
+        self.done.emit(50, delta)
 
     def ask_step_permission(self, action, observation):
         old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
@@ -689,7 +794,9 @@ class App(qtw.QWidget):
     
     def make_rl_setup(self):
         model_files = glob.glob("models/*/*-*-*.zip") + glob.glob("models/onestep_vpg/onestep-model-*.pkl")
-        models = sorted(filename[7:-4] for filename in model_files)
+        models = [filename[7:-4] for filename in model_files]
+        models.append("Bayesian Optimisation")
+        models = sorted(models)
 
         self.agent_name = models[0]
 
