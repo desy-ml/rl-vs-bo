@@ -8,7 +8,7 @@ import sys
 from threading import Event
 import time
 
-from bayes_opt import BayesianOptimization
+from bayes_opt import BayesianOptimization, SequentialDomainReductionTransformer
 from gym.wrappers import FlattenObservation, Monitor, TimeLimit
 import numpy as np
 import PyQt5.QtCore as qtc
@@ -596,7 +596,8 @@ class AgentThread(qtc.QThread):
         optimizer = BayesianOptimization(
             f=target_fn,
             pbounds=pbounds,
-            verbose=0
+            verbose=0,
+            bounds_transformer=SequentialDomainReductionTransformer()
         )
         try:
             optimizer.maximize(init_points=3, n_iter=50-3)
@@ -1063,21 +1064,21 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
 
     # Now use a palette to switch to dark colors
-    palette = qtg.QPalette()
-    palette.setColor(qtg.QPalette.Window, qtg.QColor(53, 53, 53))
-    palette.setColor(qtg.QPalette.WindowText, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.Base, qtg.QColor(25, 25, 25))
-    palette.setColor(qtg.QPalette.AlternateBase, qtg.QColor(53, 53, 53))
-    palette.setColor(qtg.QPalette.ToolTipBase, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.ToolTipText, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.Text, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.Button, qtg.QColor(53, 53, 53))
-    palette.setColor(qtg.QPalette.ButtonText, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.BrightText, qtc.Qt.red)
-    palette.setColor(qtg.QPalette.Link, qtg.QColor(42, 130, 218))
-    palette.setColor(qtg.QPalette.Highlight, qtg.QColor(42, 130, 218))
-    palette.setColor(qtg.QPalette.HighlightedText, qtc.Qt.black)
-    app.setPalette(palette)
+    # palette = qtg.QPalette()
+    # palette.setColor(qtg.QPalette.Window, qtg.QColor(53, 53, 53))
+    # palette.setColor(qtg.QPalette.WindowText, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.Base, qtg.QColor(25, 25, 25))
+    # palette.setColor(qtg.QPalette.AlternateBase, qtg.QColor(53, 53, 53))
+    # palette.setColor(qtg.QPalette.ToolTipBase, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.ToolTipText, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.Text, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.Button, qtg.QColor(53, 53, 53))
+    # palette.setColor(qtg.QPalette.ButtonText, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.BrightText, qtc.Qt.red)
+    # palette.setColor(qtg.QPalette.Link, qtg.QColor(42, 130, 218))
+    # palette.setColor(qtg.QPalette.Highlight, qtg.QColor(42, 130, 218))
+    # palette.setColor(qtg.QPalette.HighlightedText, qtc.Qt.black)
+    # app.setPalette(palette)
 
     window = App()
     window.show()
