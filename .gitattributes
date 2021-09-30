@@ -3,3 +3,4 @@
 environments/ares/ACHIP_EA1_2021.1351.001 filter=lfs diff=lfs merge=lfs -text
 environments/ares/ARES_AOcomp_run.1351.026 filter=lfs diff=lfs merge=lfs -text
 environments/ares/ARES_Linac.1351.010 filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text

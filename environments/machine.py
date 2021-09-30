@@ -101,7 +101,7 @@ class ARESEAMachine(simulation.ARESEACheetah):
             pydoocs.write(channel + "KICK_MRAD.SP", value * 1000)
         
         time.sleep(3.0)
-        while any(pydoocs.read(channel + "BUSY")["data"] for channel in self.actuator_channels):
+        while any(pydoocs.read(channel + "BUSY")["data"] or not pydoocs.read(channel + "PS_ON")["data"] for channel in self.actuator_channels):
             time.sleep(0.25)
         
         self.screen_data = self.read_screen()
