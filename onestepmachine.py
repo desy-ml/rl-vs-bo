@@ -34,6 +34,9 @@ class Machine(Simulation):
         "SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/"
     ]
 
+    def __init__(self):
+        pass
+
     def reset(self, desired=None):
         if desired is None:
             self.desired = self.goal_space.sample()

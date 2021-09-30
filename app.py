@@ -616,11 +616,13 @@ class AgentThread(qtc.QThread):
             log["final_actuators"] = self.env.actuators
             self.log_channels(log, self.auxiliary_channels)
             log["time"].append(time.time())
-            log["optimizer.space"] = optimizer.space
+            # log["optimizer.space"] = optimizer.space
 
             self.agent_screen_updated.emit(self.env._screen_data)
             self.achieved_updated.emit(*self.env.achieved)
         except StopBayesException:
+            pass
+        except KeyError:
             pass
         
         self.took_step.emit(50)
@@ -940,16 +942,16 @@ class App(qtw.QWidget):
     
     @qtc.pyqtSlot(np.ndarray, np.ndarray)
     def step_permission_prompt(self, old_actuators, new_actuators):
-        old_actuators *= [1, 1, 1, 1e3, 1e3]
-        new_actuators *= [1, 1, 1, 1e3, 1e3]
+        old_scaled = old_actuators * [1, 1, 1, 1e3, 1e3]
+        new_scaled = new_actuators * [1, 1, 1, 1e3, 1e3]
 
         query = f"Do you allow the next step ?\n" + \
                 f"\n" + \
-                f"AREAMQZM1: {old_actuators[0]:+6.3f} 1/m^2 -> {new_actuators[0]:+6.3f} 1/m^2\n" + \
-                f"AREAMQZM2: {old_actuators[1]:+6.3f} 1/m^2 -> {new_actuators[1]:+6.3f} 1/m^2\n" + \
-                f"AREAMCVM1: {old_actuators[3]:+6.3f} mrad  -> {new_actuators[3]:+6.3f} mrad\n" + \
-                f"AREAMQZM3: {old_actuators[2]:+6.3f} 1/m^2 -> {new_actuators[2]:+6.3f} 1/m^2\n" + \
-                f"AREAMCHM1: {old_actuators[4]:+6.3f} mrad  -> {new_actuators[4]:+6.3f} mrad"
+                f"AREAMQZM1: {old_scaled[0]:+6.3f} 1/m^2 -> {new_scaled[0]:+6.3f} 1/m^2\n" + \
+                f"AREAMQZM2: {old_scaled[1]:+6.3f} 1/m^2 -> {new_scaled[1]:+6.3f} 1/m^2\n" + \
+                f"AREAMCVM1: {old_scaled[3]:+6.3f} mrad  -> {new_scaled[3]:+6.3f} mrad\n" + \
+                f"AREAMQZM3: {old_scaled[2]:+6.3f} 1/m^2 -> {new_scaled[2]:+6.3f} 1/m^2\n" + \
+                f"AREAMCHM1: {old_scaled[4]:+6.3f} mrad  -> {new_scaled[4]:+6.3f} mrad"
 
         answer = qtw.QMessageBox.question(
             self,
