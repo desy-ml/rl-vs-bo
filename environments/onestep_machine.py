@@ -44,7 +44,7 @@ class ARESEAOneStepMachine(ARESEAOneStep):
         self.achieved = self.beam_parameters
         objective = self._objective_fn(self.achieved, self.desired)
 
-        observation = np.concatenate([action, self.desired, self.achieved])
+        observation = np.concatenate([self.actuators, self.desired, self.achieved])
         normalized_observation = self._normalize_observation(observation)
 
         return normalized_observation, -objective, True, {}

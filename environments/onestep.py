@@ -79,7 +79,7 @@ class ARESEAOneStep(gym.Env):
         achieved = self._track(actuators)
         objective = self._objective_fn(achieved, self.desired)
 
-        observation = np.concatenate([action, self.desired, achieved])
+        observation = np.concatenate([actuators, self.desired, achieved])
         normalized_observation = self._normalize_observation(observation)
 
         return normalized_observation, -objective, True, {}
