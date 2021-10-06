@@ -4,7 +4,7 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
-from environments.simulation import ARESEACheetah
+from environments.sequential import ARESEATransverseBeamSequential
 
 
 hyperparameter_defaults = {
@@ -33,11 +33,21 @@ wandb.init(
     settings=wandb.Settings(start_method="fork")
 )
 
-env = ARESEACheetah()
+env = ARESEATransverseBeamSequential(
+    backend="simulation",
+    random_incoming=True,
+    random_initial=True,
+    beam_parameter_method="direct"
+)
 env = TimeLimit(env, max_episode_steps=50)
 env = FlattenObservation(env)
 
-eval_env = ARESEACheetah()
+eval_env = ARESEATransverseBeamSequential(
+    backend="simulation",
+    random_incoming=True,
+    random_initial=True,
+    beam_parameter_method="direct"
+)
 eval_env = TimeLimit(eval_env, max_episode_steps=50)
 eval_env = FlattenObservation(eval_env)
 eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)

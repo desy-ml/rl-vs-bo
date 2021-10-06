@@ -18,7 +18,7 @@ import pyqtgraph as pg
 from stable_baselines3 import PPO, TD3
 import torch
 
-from environments.machine import ARESEAMachine
+from environments.sequential import ARESEATransverseBeamSequential
 from environments.onestep_machine import ARESEAOneStepMachine
 from onestep import GaussianActor
 from onestepmachine import Machine
@@ -310,7 +310,7 @@ class AgentThread(qtc.QThread):
         self.took_step.emit(0)
         self.desired_updated.emit(*self.desired_goal)
 
-        self.env = ARESEAMachine()
+        self.env = ARESEATransverseBeamSequential(backend="machine")
         self.env = TimeLimit(self.env, max_episode_steps=50)
         self.env = FlattenObservation(self.env)
         # self.env = Monitor(self.env,
@@ -325,10 +325,8 @@ class AgentThread(qtc.QThread):
         i = 0
         observation = self.env.reset(goal=self.desired_goal)
         log = {
-            "backgrounds": [self.env.unwrapped.backgrounds],
-            "background": [self.env.unwrapped.background],
-            "beams": [self.env.unwrapped.beams],
-            "beam": [self.env.unwrapped.beam],
+            # "background": [self.env.unwrapped.background],    # TODO: Reintroduce
+            # "beam": [self.env.unwrapped.beam],    # TODO: Reintroduce
             "screen_data": [self.env.unwrapped.screen_data],
             "observation": [self.env.unwrapped.observation],
             "action": [],
@@ -347,10 +345,8 @@ class AgentThread(qtc.QThread):
 
             observation, _, done, _ = self.env.step(action)
 
-            log["backgrounds"].append(self.env.unwrapped.backgrounds)
-            log["background"].append(self.env.unwrapped.background)
-            log["beams"].append(self.env.unwrapped.beams)
-            log["beam"].append(self.env.unwrapped.beam)
+            # log["background"].append(self.env.unwrapped.background)   # TODO: Reintroduce
+            # log["beam"].append(self.env.unwrapped.beam)   # TODO: Reintroduce
             log["screen_data"].append(self.env.unwrapped.screen_data)
             log["observation"].append(self.env.unwrapped.observation)
             log["action"].append(self.env.unwrapped.action2accelerator(action))
