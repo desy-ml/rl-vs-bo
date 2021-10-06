@@ -18,8 +18,8 @@ import pyqtgraph as pg
 from stable_baselines3 import PPO, TD3
 import torch
 
+from environments.onestep_ppo import ARESEAOneStep
 from environments.sequential import ARESEATransverseBeamSequential
-from environments.onestep_machine import ARESEAOneStepMachine
 from onestep import GaussianActor
 from onestepmachine import Machine
 
@@ -461,7 +461,7 @@ class AgentThread(qtc.QThread):
         self.took_step.emit(0)
         self.desired_updated.emit(*self.desired_goal)
 
-        self.env = ARESEAOneStepMachine()
+        self.env = ARESEAOneStep(backend="machine")
 
         model = PPO.load(f"models/{self.model_name}")
 
@@ -470,13 +470,11 @@ class AgentThread(qtc.QThread):
             "model_name": self.model_name,
             "desired": self.desired_goal,
             "target_delta": self.target_delta,
-            "initial_backgrounds": self.env.backgrounds,
-            "initial_background": self.env.background,
-            "initial_beams": self.env.beams,
-            "initial_beam": self.env.beam,
+            # "initial_background": self.env.background,    # TODO: Reinstate
+            # "initial_beam": self.env.beam,                # TODO: Reinstate
             "initial_screen_data": self.env._screen_data,
             "initial_achieved": self.env.achieved,
-            "initial_actuators": self.env.actuators,
+            "initial_actuators": self.env.accelerator.actuators,
             "time": [time.time()]
         }
         self.log_channels(log, self.auxiliary_channels)
@@ -486,18 +484,16 @@ class AgentThread(qtc.QThread):
 
         action, _ = model.predict(observation)
 
-        if self.ask_magnet_permission(self.env.actuators, action):
+        if self.ask_magnet_permission(self.env.accelerator.actuators, action):
             print("Permission granted!")
 
             _ = self.env.step(action)
 
-            log["final_backgrounds"] = self.env.backgrounds
-            log["final_background"] = self.env.background
-            log["final_beams"] = self.env.beams
-            log["final_beam"] = self.env.beam
+            # log["final_background"] = self.env.background     TODO: Reinstate
+            # log["final_beam"] = self.env.beam                 TODO: Reinstate
             log["final_screen_data"] = self.env._screen_data
             log["final_achieved"] = self.env.achieved
-            log["final_actuators"] = self.env.actuators
+            log["final_actuators"] = self.env.accelerator.actuators
             self.log_channels(log, self.auxiliary_channels)
             log["time"].append(time.time())
 

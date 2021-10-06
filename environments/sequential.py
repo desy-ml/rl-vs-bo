@@ -5,9 +5,8 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 from moviepy.video.io.bindings import mplfig_to_npimage
 import numpy as np
-from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
-from . import simulation, machine
+from . import simulation, machine, utils
 
 
 class ARESEATransverseBeamSequential(gym.Env):
@@ -63,6 +62,7 @@ class ARESEATransverseBeamSequential(gym.Env):
     def reset(self, goal=None):
         if self.random_incoming:
             self.accelerator.randomize_incoming()
+        
         if self.random_initial:
             self.accelerator.actuators = self.accelerator_optimization_space.sample()
                 
@@ -162,12 +162,11 @@ class ARESEATransverseBeamSequential(gym.Env):
     def beam_parameters(self):
         if self.beam_parameter_method == "direct":
             return self._read_beam_parameters_from_simulation()
-        elif self.beam_parameter_method == "us":
-            return self._compute_beam_parameters_via_fwhm()
-        elif self.beam_parameter_method == "willi":
-            raise NotImplementedError()
         else:
-            raise ValueError(f"There exists no beam parameter method \"{self.beam_parameter_method}\"!")
+            return utils.compute_beam_parameters(
+                self.screen_data,
+                self.accelerator.pixel_size*self.accelerator.binning,
+                method=self.beam_parameter_method)
     
     def _read_beam_parameters_from_simulation(self):
         return np.array([
@@ -176,29 +175,6 @@ class ARESEATransverseBeamSequential(gym.Env):
             self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
             self.accelerator.segment.AREABSCR1.read_beam.sigma_y
         ])
-    
-    def _compute_beam_parameters_via_fwhm(self):
-        parameters = np.empty(4)
-        for axis in [0, 1]:
-            profile = self.screen_data.sum(axis=axis)
-            minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
-            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
-
-            half_values, = np.where(filtered >= 0.5 * filtered.max())
-
-            if len(half_values) > 0:
-                fwhm_pixel = half_values[-1] - half_values[0]
-                center_pixel = half_values[0] + fwhm_pixel / 2
-            else:
-                fwhm_pixel = 42     # TODO: Figure out what to do with these
-                center_pixel = 42
-
-            parameters[axis] = (center_pixel - len(filtered) / 2) * self.accelerator.pixel_size[axis] * self.accelerator.binning[axis]
-            parameters[axis+2] = fwhm_pixel / 2.355 * self.accelerator.pixel_size[axis] * self.accelerator.binning[axis]
-            
-        parameters[1] = -parameters[1]
-
-        return parameters
 
     @property
     def observation(self):

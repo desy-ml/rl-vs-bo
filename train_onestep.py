@@ -2,7 +2,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 import wandb
 
-from environments.onestep import ARESEAOneStep
+from environments.onestep_ppo import ARESEAOneStep
 
 
 hyperparameter_defaults = {
@@ -19,7 +19,19 @@ wandb.init(
 )
 
 # env = make_vec_env(ARESEAOneStep, n_envs=4)
-env = ARESEAOneStep()
+env = ARESEAOneStep(
+    backend="simulation",
+    random_incoming=True,
+    random_initial=True,
+    beam_parameter_method="direct"
+)
+
+eval_env = ARESEAOneStep(
+    backend="simulation",
+    random_incoming=True,
+    random_initial=True,
+    beam_parameter_method="direct"
+)
 
 model = PPO(
     "MlpPolicy",
@@ -32,7 +44,7 @@ model = PPO(
 model.learn(
     total_timesteps=wandb.config["total_timesteps"],
     log_interval=10,
-    eval_env=ARESEAOneStep(),
+    eval_env=eval_env,
     eval_freq=10000
 )
 
