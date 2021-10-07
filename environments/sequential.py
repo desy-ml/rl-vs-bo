@@ -9,7 +9,7 @@ import numpy as np
 from . import simulation, machine, utils
 
 
-class ARESEATransverseBeamSequential(gym.Env):
+class ARESEASequential(gym.Env):
     """ARESEA version using a Cheetah simulation as its backend."""
 
     metadata = {

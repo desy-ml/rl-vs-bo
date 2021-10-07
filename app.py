@@ -20,7 +20,7 @@ import torch
 
 from environments import machine, utils
 from environments.onestep_ppo import ARESEAOneStep
-from environments.sequential import ARESEATransverseBeamSequential
+from environments.sequential import ARESEASequential
 from onestep import GaussianActor, PseudoEnv
 
 
@@ -362,7 +362,7 @@ class AgentThread(qtc.QThread):
         self.took_step.emit(0)
         self.desired_updated.emit(*self.desired_goal)
 
-        self.env = ARESEATransverseBeamSequential(backend="machine")
+        self.env = ARESEASequential(backend="machine")
         self.env = FlattenObservation(self.env)
 
         self.actuators_updated.emit(*self.env.accelerator.actuators)

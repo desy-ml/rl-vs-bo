@@ -4,7 +4,7 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
 import wandb
 
-from environments.sequential import ARESEATransverseBeamSequential
+from environments.sequential import ARESEASequential
 
 
 hyperparameter_defaults = {
@@ -33,7 +33,7 @@ wandb.init(
     settings=wandb.Settings(start_method="fork")
 )
 
-env = ARESEATransverseBeamSequential(
+env = ARESEASequential(
     backend="simulation",
     random_incoming=True,
     random_initial=True,
@@ -42,7 +42,7 @@ env = ARESEATransverseBeamSequential(
 env = TimeLimit(env, max_episode_steps=50)
 env = FlattenObservation(env)
 
-eval_env = ARESEATransverseBeamSequential(
+eval_env = ARESEASequential(
     backend="simulation",
     random_incoming=True,
     random_initial=True,
