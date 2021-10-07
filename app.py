@@ -26,6 +26,51 @@ from onestep import GaussianActor, PseudoEnv
 pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
 
 
+class ActuatorHistoryPanel(pg.GraphicsLayoutWidget):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.p1 = self.addPlot(row=0, col=0, rowspan=1, title="Quadrupoles")
+        self.q1_plot = self.p1.plot([], [], pen=pg.mkPen("r",width=3), name="Q1")
+        self.q2_plot = self.p1.plot([], [], pen=pg.mkPen("g",width=3), name="Q2")
+        self.q3_plot = self.p1.plot([], [], pen=pg.mkPen("b",width=3), name="Q3")
+        self.p1.getAxis("bottom").setLabel("Step")
+        self.p1.getAxis("left").setLabel("Strength")
+        self.p1.addLegend()
+
+        self.p2 = self.addPlot(row=1, col=0, rowspan=1, title="Steerers")
+        self.cv_plot = self.p2.plot([], [], pen=pg.mkPen("r",width=3), name="CV")
+        self.ch_plot = self.p2.plot([], [], pen=pg.mkPen("g",width=3), name="CH")
+        self.p2.getAxis("bottom").setLabel("Step")
+        self.p2.getAxis("left").setLabel("Kick")
+        self.p2.addLegend()
+    
+    def reset(self):
+        self.n = 0
+
+        self.q1_data = []
+        self.q2_data = []
+        self.q3_data = []
+        self.cv_data = []
+        self.ch_data = []
+    
+    def update(self, q1, q2, q3, cv, ch):
+        self.n += 1
+        
+        self.q1_data.append(q1)
+        self.q2_data.append(q2)
+        self.q3_data.append(q3)
+        self.cv_data.append(cv)
+        self.ch_data.append(ch)
+
+        self.q1_plot.setData(range(1,self.n+1), self.q1_data)
+        self.q2_plot.setData(range(1,self.n+1), self.q2_data)
+        self.q3_plot.setData(range(1,self.n+1), self.q3_data)
+        self.cv_plot.setData(range(1,self.n+1), self.cv_data)
+        self.ch_plot.setData(range(1,self.n+1), self.ch_data)
+
+
 class LiveViewReadThread(qtc.QThread):
 
     screen_updated = qtc.pyqtSignal(np.ndarray)
@@ -203,6 +248,7 @@ class AgentThread(qtc.QThread):
     desired_updated = qtc.pyqtSignal(float, float, float, float)
     achieved_updated = qtc.pyqtSignal(float, float, float, float)
     done = qtc.pyqtSignal(int, np.ndarray)
+    actuators_updated = qtc.pyqtSignal(float, float, float, float, float)
 
     step_permission_event = Event()
 
@@ -313,9 +359,8 @@ class AgentThread(qtc.QThread):
 
         self.env = ARESEATransverseBeamSequential(backend="machine")
         self.env = FlattenObservation(self.env)
-        # self.env = Monitor(self.env,
-        #                    f"experiments/{self.timestamp}/recording",
-        #                    video_callable=lambda i: True)
+
+        self.actuators_updated.emit(*self.env.accelerator.actuators)
         
         self.env.unwrapped.target_delta = self.target_delta
 
@@ -353,6 +398,7 @@ class AgentThread(qtc.QThread):
             self.log_channels(log, self.auxiliary_channels)
             log["time"].append(time.time())
 
+            self.actuators_updated.emit(*self.env.accelerator.actuators)
             self.agent_screen_updated.emit(self.env.unwrapped.screen_data)
             self.achieved_updated.emit(*self.env.unwrapped.observation["achieved_goal"])
             i += 1
@@ -683,6 +729,9 @@ class App(qtw.QWidget):
         vbox.addWidget(self.make_run_agent())
         self.setLayout(vbox)
 
+        self.actuator_plot = ActuatorHistoryPanel()
+        self.actuator_plot.show()
+
         self.desired_updated.connect(self.update_desired_labels)
         self.desired_updated.connect(self.screen_view.move_desired_ellipse)
         self.desired_updated.connect(self.update_delta_achieved_indicators)
@@ -897,6 +946,9 @@ class App(qtw.QWidget):
         self.agent_thread.done.connect(self.agent_finished_popup)
         self.agent_thread.started.connect(self.stop_user_interaction)
         self.agent_thread.done.connect(self.start_user_interaction)
+
+        self.actuator_plot.reset()
+        self.agent_thread.actuators_updated.connect(self.actuator_plot.update)
 
         self.agent_thread.start()
     
