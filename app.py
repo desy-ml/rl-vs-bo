@@ -18,6 +18,7 @@ import pyqtgraph as pg
 from stable_baselines3 import PPO, TD3
 import torch
 
+from environments import machine, utils
 from environments.onestep_ppo import ARESEAOneStep
 from environments.sequential import ARESEATransverseBeamSequential
 from onestep import GaussianActor, PseudoEnv
@@ -231,11 +232,15 @@ class MeasureBeamThread(qtc.QThread):
     achieved_updated = qtc.pyqtSignal(float, float, float, float)
 
     def run(self):
-        env = ARESEAMachine()
+        accelerator = machine.ExperimentalArea()
+        screen_data = accelerator.capture_clean_beam()
+        beam_parameters = utils.compute_beam_parameters(
+            screen_data,
+            accelerator.pixel_size * accelerator.binning
+        )
 
-        env.screen_data = env.read_screen()
-        self.agent_screen_updated.emit(env.screen_data)
-        self.achieved_updated.emit(*env.beam_parameters)
+        self.agent_screen_updated.emit(screen_data)
+        self.achieved_updated.emit(*beam_parameters)
 
 
 class AgentThread(qtc.QThread):
