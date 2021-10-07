@@ -290,6 +290,8 @@ class AgentThread(qtc.QThread):
 
         self.timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
+        self.stop_requested = False
+
     def run(self):
         if self.model_name == "Bayesian Optimisation":
             self.run_bayes()
@@ -356,6 +358,9 @@ class AgentThread(qtc.QThread):
             self.achieved_updated.emit(*self.env.unwrapped.observation["achieved_goal"])
             i += 1
             self.took_step.emit(i)
+
+            if self.stop_requested:
+                break
         
         self.took_step.emit(50)
 
@@ -837,15 +842,16 @@ class App(qtw.QWidget):
         self.progress_bar.setMaximum(50)
         self.progress_bar.setValue(50)
 
-        self.start_agent_button = qtw.QPushButton("Start Agent")
-        self.start_agent_button.clicked.connect(self.start_agent)
+        self.start_stop_button = qtw.QPushButton("Optimise")
+        self.start_stop_button.setStyleSheet("background-color: darkgreen")
+        self.start_stop_button.clicked.connect(self.start_agent)
         self.experiment_name_field.textChanged.connect(self.check_is_start_agent_allowed)
         self.check_is_start_agent_allowed(self.experiment_name_field.text())
 
         grid = qtw.QGridLayout()
         grid.addWidget(self.screen_view, 0, 0, 1, 2)
         grid.addWidget(self.progress_bar, 1, 0, 1, 2)
-        grid.addWidget(self.start_agent_button, 2, 0, 1, 2)
+        grid.addWidget(self.start_stop_button, 2, 0, 1, 2)
 
         group_box = qtw.QGroupBox("4. Run beam parameter optimisation")
         group_box.setLayout(grid)
@@ -899,6 +905,9 @@ class App(qtw.QWidget):
 
         self.agent_thread.start()
     
+    def stop_agent(self):
+        self.agent_thread.stop_requested = True
+    
     def set_user_interaction_allowed(self, is_allowed):
         self.magnet_dropdown.setEnabled(is_allowed)
         self.magnet_value_field.setEnabled(is_allowed)
@@ -916,18 +925,26 @@ class App(qtw.QWidget):
 
         self.model_dropdown.setEnabled(is_allowed)
         self.experiment_name_field.setEnabled(is_allowed)
-
-        self.start_agent_button.setEnabled(is_allowed)
     
     def stop_user_interaction(self):
         self.set_user_interaction_allowed(False)
+
+        self.start_stop_button.clicked.disconnect(self.start_agent)
+        self.start_stop_button.clicked.connect(self.stop_agent)
+        self.start_stop_button.setText("Stop")
+        self.start_stop_button.setStyleSheet("background-color: darkred")
     
     def start_user_interaction(self):
         self.set_user_interaction_allowed(True)
+
+        self.start_stop_button.clicked.disconnect(self.stop_agent)
+        self.start_stop_button.clicked.connect(self.start_agent)
+        self.start_stop_button.setText("Optimise")
+        self.start_stop_button.setStyleSheet("background-color: darkgreen")
     
     @qtc.pyqtSlot(str)
     def check_is_start_agent_allowed(self, experiment_name):
-        self.start_agent_button.setEnabled(len(experiment_name) > 0)
+        self.start_stop_button.setEnabled(len(experiment_name) > 0)
     
     @qtc.pyqtSlot(np.ndarray, np.ndarray)
     def step_permission_prompt(self, old_actuators, new_actuators):
