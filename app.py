@@ -249,14 +249,11 @@ class AgentThread(qtc.QThread):
     started = qtc.pyqtSignal()
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
-    want_step_permission = qtc.pyqtSignal(np.ndarray, np.ndarray)
     took_step = qtc.pyqtSignal(int)
     desired_updated = qtc.pyqtSignal(float, float, float, float)
     achieved_updated = qtc.pyqtSignal(float, float, float, float)
     done = qtc.pyqtSignal(int, np.ndarray)
     actuators_updated = qtc.pyqtSignal(float, float, float, float, float)
-
-    step_permission_event = Event()
 
     def __init__(self, model_name, desired_goal, target_delta, experiment_name):
         super().__init__()
@@ -265,9 +262,6 @@ class AgentThread(qtc.QThread):
         self.desired_goal = desired_goal
         self.target_delta = target_delta
         self.experiment_name = experiment_name
-
-        self.step_permission_event.clear()
-        self.step_permission = False
 
         self.timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -317,11 +311,6 @@ class AgentThread(qtc.QThread):
         self.achieved_updated.emit(*self.env.unwrapped.observation["achieved_goal"])
         while not done:
             action, _ = model.predict(observation)
-
-            if not self.ask_delta_permission(action, observation):
-                print("Permission denied!")
-                break
-            print("Permission granted!")
 
             observation, _, done, _ = self.env.step(action)
 
@@ -407,24 +396,19 @@ class AgentThread(qtc.QThread):
         normalized_actuators = unsqueezed_actuators.squeeze()
         actuators = normalized_actuators.detach().numpy() * self.env.actuator_space.high
 
-        if self.ask_magnet_permission(self.env.accelerator.actuators, actuators):
-            print("Permission granted!")
+        _ = self.env.track(actuators)
 
-            _ = self.env.track(actuators)
+        # log["final_background"] = self.env.background # TODO: Reinstate
+        # log["final_beam"] = self.env.beam             # TODO: Reinstate
+        log["final_screen_data"] = self.env._screen_data
+        log["final_achieved"] = self.env.achieved
+        log["final_actuators"] = self.env.accelerator.actuators
+        self.log_channels(log, auxiliary_channels)
+        log["time"].append(time.time())
 
-            # log["final_background"] = self.env.background # TODO: Reinstate
-            # log["final_beam"] = self.env.beam             # TODO: Reinstate
-            log["final_screen_data"] = self.env._screen_data
-            log["final_achieved"] = self.env.achieved
-            log["final_actuators"] = self.env.accelerator.actuators
-            self.log_channels(log, auxiliary_channels)
-            log["time"].append(time.time())
-
-            self.agent_screen_updated.emit(self.env._screen_data)
-            self.achieved_updated.emit(*self.env.achieved)
-        else:
-            print("Permission denied!")
-        
+        self.agent_screen_updated.emit(self.env._screen_data)
+        self.achieved_updated.emit(*self.env.achieved)
+    
         self.took_step.emit(50)
 
         logpath = f"experiments/{self.timestamp}_{self.experiment_name}/"
@@ -466,23 +450,18 @@ class AgentThread(qtc.QThread):
 
         action, _ = model.predict(observation)
 
-        if self.ask_magnet_permission(self.env.accelerator.actuators, action):
-            print("Permission granted!")
+        _ = self.env.step(action)
 
-            _ = self.env.step(action)
+        # log["final_background"] = self.env.background     TODO: Reinstate
+        # log["final_beam"] = self.env.beam                 TODO: Reinstate
+        log["final_screen_data"] = self.env._screen_data
+        log["final_achieved"] = self.env.achieved
+        log["final_actuators"] = self.env.accelerator.actuators
+        self.log_channels(log, auxiliary_channels)
+        log["time"].append(time.time())
 
-            # log["final_background"] = self.env.background     TODO: Reinstate
-            # log["final_beam"] = self.env.beam                 TODO: Reinstate
-            log["final_screen_data"] = self.env._screen_data
-            log["final_achieved"] = self.env.achieved
-            log["final_actuators"] = self.env.accelerator.actuators
-            self.log_channels(log, auxiliary_channels)
-            log["time"].append(time.time())
-
-            self.agent_screen_updated.emit(self.env._screen_data)
-            self.achieved_updated.emit(*self.env.achieved)
-        else:
-            print("Permission denied!")
+        self.agent_screen_updated.emit(self.env._screen_data)
+        self.achieved_updated.emit(*self.env.achieved)
         
         self.took_step.emit(50)
 
@@ -535,10 +514,8 @@ class AgentThread(qtc.QThread):
             normalized_actuators = np.array([q1, q2, q3, cv, ch])
             actuators = normalized_actuators * self.env.actuator_space.high
 
-            if not self.ask_magnet_permission(self.env.actuators, actuators):
-                print("Permission denied!")
+            if self.stop_requested:
                 raise StopBayesException
-            print("Permission granted!")
             
             achieved = self.env.track(actuators)
 
@@ -612,23 +589,6 @@ class AgentThread(qtc.QThread):
         
         delta = np.abs(self.env.desired - self.env.achieved)
         self.done.emit(50, delta)
-
-    def ask_delta_permission(self, action, observation):
-        old_actuators = observation[-5:] * self.env.accelerator_observation_space["observation"].high[-5:]
-        new_actuators = old_actuators + action * self.env.accelerator_action_space.high
-
-        return self.ask_magnet_permission(old_actuators, new_actuators)
-    
-    def ask_magnet_permission(self, old, new):
-        return True
-        self.want_step_permission.emit(old, new)
-        self.step_permission_event.wait()
-        self.step_permission_event.clear()
-
-        tmp = self.step_permission
-        self.step_permission = False
-
-        return tmp
     
     def log_channels(self, log, channels):
         for channel in channels:
@@ -877,7 +837,6 @@ class App(qtw.QWidget):
 
         self.agent_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
         self.agent_thread.achieved_updated.connect(self.update_achieved)
-        self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
         self.agent_thread.done.connect(self.agent_finished_popup)
         self.agent_thread.started.connect(self.stop_user_interaction)
         self.agent_thread.done.connect(self.start_user_interaction)
@@ -927,29 +886,6 @@ class App(qtw.QWidget):
     @qtc.pyqtSlot(str)
     def check_is_start_agent_allowed(self, experiment_name):
         self.start_stop_button.setEnabled(len(experiment_name) > 0)
-    
-    @qtc.pyqtSlot(np.ndarray, np.ndarray)
-    def step_permission_prompt(self, old_actuators, new_actuators):
-        old_scaled = old_actuators * [1, 1, 1, 1e3, 1e3]
-        new_scaled = new_actuators * [1, 1, 1, 1e3, 1e3]
-
-        query = f"Do you allow the next step ?\n" + \
-                f"\n" + \
-                f"AREAMQZM1: {old_scaled[0]:+6.3f} 1/m^2 -> {new_scaled[0]:+6.3f} 1/m^2\n" + \
-                f"AREAMQZM2: {old_scaled[1]:+6.3f} 1/m^2 -> {new_scaled[1]:+6.3f} 1/m^2\n" + \
-                f"AREAMCVM1: {old_scaled[3]:+6.3f} mrad  -> {new_scaled[3]:+6.3f} mrad\n" + \
-                f"AREAMQZM3: {old_scaled[2]:+6.3f} 1/m^2 -> {new_scaled[2]:+6.3f} 1/m^2\n" + \
-                f"AREAMCHM1: {old_scaled[4]:+6.3f} mrad  -> {new_scaled[4]:+6.3f} mrad"
-
-        answer = qtw.QMessageBox.question(
-            self,
-            "Step Permission",
-            query,
-            qtw.QMessageBox.Yes | qtw.QMessageBox.No
-        )
-
-        self.agent_thread.step_permission = (answer == qtw.QMessageBox.Yes)
-        self.agent_thread.step_permission_event.set()
 
     @qtc.pyqtSlot(float, float, float, float)
     def update_achieved(self, mu_x, mu_y, sigma_x, sigma_y):
