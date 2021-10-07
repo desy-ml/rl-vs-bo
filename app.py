@@ -9,7 +9,7 @@ from threading import Event
 import time
 
 from bayes_opt import BayesianOptimization, SequentialDomainReductionTransformer
-from gym.wrappers import FlattenObservation, Monitor, TimeLimit
+from gym.wrappers import FlattenObservation
 import numpy as np
 import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
@@ -312,7 +312,6 @@ class AgentThread(qtc.QThread):
         self.desired_updated.emit(*self.desired_goal)
 
         self.env = ARESEATransverseBeamSequential(backend="machine")
-        self.env = TimeLimit(self.env, max_episode_steps=50)
         self.env = FlattenObservation(self.env)
         # self.env = Monitor(self.env,
         #                    f"experiments/{self.timestamp}/recording",
@@ -358,6 +357,8 @@ class AgentThread(qtc.QThread):
             self.achieved_updated.emit(*self.env.unwrapped.observation["achieved_goal"])
             i += 1
             self.took_step.emit(i)
+
+            print(f"Finished step {i}")
 
             if self.stop_requested:
                 break
@@ -838,10 +839,6 @@ class App(qtw.QWidget):
         self.screen_view = ScreenView()
         # self.screen_view.user_moved_desired_ellipse.connect(self.update_desired)
 
-        self.progress_bar = qtw.QProgressBar()
-        self.progress_bar.setMaximum(50)
-        self.progress_bar.setValue(50)
-
         self.start_stop_button = qtw.QPushButton("Optimise")
         self.start_stop_button.setStyleSheet("background-color: darkgreen")
         self.start_stop_button.clicked.connect(self.start_agent)
@@ -850,8 +847,7 @@ class App(qtw.QWidget):
 
         grid = qtw.QGridLayout()
         grid.addWidget(self.screen_view, 0, 0, 1, 2)
-        grid.addWidget(self.progress_bar, 1, 0, 1, 2)
-        grid.addWidget(self.start_stop_button, 2, 0, 1, 2)
+        grid.addWidget(self.start_stop_button, 1, 0, 1, 2)
 
         group_box = qtw.QGroupBox("4. Run beam parameter optimisation")
         group_box.setLayout(grid)
@@ -896,7 +892,6 @@ class App(qtw.QWidget):
                                         self.experiment_name_field.text())
 
         self.agent_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
-        self.agent_thread.took_step.connect(self.progress_bar.setValue)
         self.agent_thread.achieved_updated.connect(self.update_achieved)
         self.agent_thread.want_step_permission.connect(self.step_permission_prompt)
         self.agent_thread.done.connect(self.agent_finished_popup)
