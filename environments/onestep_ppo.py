@@ -33,21 +33,14 @@ class ARESEAOneStep(gym.Env):
         else:
             raise ValueError(f"There is no \"{backend}\" backend!")
     
-    def reset(self, incoming=None, initial_actuators=None, desired=None):
-        if incoming is not None:
-            self.incoming = incoming
-        elif incoming is None and self.random_incoming:
+    def reset(self, desired=None):
+        if self.random_incoming:
             self.accelerator.randomize_incoming()
-            
-        if initial_actuators is not None:
-            self.initial_actuators = initial_actuators
-        elif initial_actuators is not None and self.random_initial:
+        
+        if self.random_initial:
             self.initial_actuators = self.actuator_space.sample()
         
-        if desired is None:
-            self.desired = self.goal_space.sample()
-        else:
-            self.desired = desired
+        self.desired = desired if desired is not None else self.goal_space.sample()
         
         self._screen_data = self.accelerator.capture_clean_beam()
         self.achieved = self.beam_parameters

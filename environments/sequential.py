@@ -65,11 +65,8 @@ class ARESEATransverseBeamSequential(gym.Env):
         
         if self.random_initial:
             self.accelerator.actuators = self.accelerator_optimization_space.sample()
-                
-        if goal is not None:
-            self.goal = goal
-        else:
-            self.goal = self.accelerator_observation_space["desired_goal"].sample()
+        
+        self.goal = goal if goal is not None else self.accelerator_observation_space["desired_goal"].sample()
 
         self.screen_data = self.accelerator.capture_clean_beam()
 

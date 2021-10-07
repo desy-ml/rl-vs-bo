@@ -1,7 +1,6 @@
 from datetime import datetime
 import pickle
 
-import cheetah
 from gym import spaces
 import numpy as np
 import torch
@@ -9,82 +8,76 @@ from torch import distributions
 from torch import nn
 from torch import optim
 
-from environments.ares import ARESlatticeStage3v1_9 as lattice
+from environments import machine, simulation, utils
 
 
-class Simulation:
+class PseudoEnv:
 
     n_observations = 13
     n_actuators = 5
 
-    def __init__(self):
-        screen_resolution = (2448, 2040)
-        pixel_size = (3.3198e-6, 2.4469e-6)
+    actuator_space = spaces.Box(
+        low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+        high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
+    )
+    goal_space = spaces.Box(
+        low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
+        high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
+    )
 
-        cell = cheetah.utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
+    def __init__(self, backend="simulation", random_incoming=False, random_initial=False, beam_parameter_method="us"):
+        self.backend = backend
+        self.random_incoming = random_incoming
+        self.random_initial = random_initial
+        self.beam_parameter_method = beam_parameter_method
 
-        self.segment = cheetah.Segment.from_ocelot(cell)
-        self.segment.AREABSCR1.resolution = screen_resolution
-        self.segment.AREABSCR1.pixel_size = pixel_size
-        self.segment.AREABSCR1.is_active = True
-
-        self.segment.AREABSCR1.binning = 4
-
-        self.actuator_space = spaces.Box(
-            low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
-            high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
-        )
-        self.goal_space = spaces.Box(
-            low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
-            high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
-        )
+        if self.backend == "simulation":
+            self.accelerator = simulation.ExperimentalArea()
+        elif self.backend == "machine":
+            self.accelerator = machine.ExperimentalArea()
+        else:
+            raise ValueError(f"There is no \"{backend}\" backend!")
     
-    def reset(self, incoming=None, initial_actuators=None, desired=None):
-        if incoming is None:
-            self.incoming = cheetah.Beam.make_random(
-                n=int(1e5),
-                mu_x=np.random.uniform(-3e-3, 3e-3),
-                mu_y=np.random.uniform(-3e-4, 3e-4),
-                mu_xp=np.random.uniform(-1e-4, 1e-4),
-                mu_yp=np.random.uniform(-1e-4, 1e-4),
-                sigma_x=np.random.uniform(0, 2e-3),
-                sigma_y=np.random.uniform(0, 2e-3),
-                sigma_xp=np.random.uniform(0, 1e-4),
-                sigma_yp=np.random.uniform(0, 1e-4),
-                sigma_s=np.random.uniform(0, 2e-3),
-                sigma_p=np.random.uniform(0, 5e-3),
-                energy=np.random.uniform(80e6, 160e6)
-            )
-        else:
-            self.incoming = incoming
-            
-        if initial_actuators is None:
-            self.initial_actuators = self.actuator_space.sample()
-        else:
-            self.initial_actuators = initial_actuators
+    def reset(self, desired=None):
+        if self.random_incoming:
+            self.accelerator.randomize_incoming()
         
-        if desired is None:
-            self.desired = self.goal_space.sample()
-        else:
-            self.desired = desired
+        if self.random_initial:
+            self.accelerator.actuators = self.actuator_space.sample()
+        
+        self.desired = desired if desired is not None else self.goal_space.sample()
 
-        achieved = self.track(self.initial_actuators)
+        self._screen_data = self.accelerator.capture_clean_beam()
+        self.achieved = self.beam_parameters
 
-        observation = np.concatenate([self.initial_actuators, self.desired, achieved])
+        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
 
         return observation
+
     
     def track(self, actuators):
-        self.segment.AREAMQZM1.k1, self.segment.AREAMQZM2.k1, self.segment.AREAMQZM3.k1 = actuators[:3]
-        self.segment.AREAMCVM1.angle, self.segment.AREAMCHM1.angle = actuators[3:]
-
-        _ = self.segment(self.incoming)
-        
+        self.accelerator.actuators = actuators
+        self._screen_data = self.accelerator.capture_clean_beam()
+        self.achieved = self.beam_parameters
+                
+        return self.achieved
+    
+    @property
+    def beam_parameters(self):
+        if self.beam_parameter_method == "direct":
+            return self._read_beam_parameters_from_simulation()
+        else:
+            return utils.compute_beam_parameters(
+                self._screen_data,
+                self.accelerator.pixel_size*self.accelerator.binning,
+                method=self.beam_parameter_method)
+    
+    def _read_beam_parameters_from_simulation(self):
         return np.array([
-            self.segment.AREABSCR1.read_beam.mu_x,
-            self.segment.AREABSCR1.read_beam.mu_y,
-            self.segment.AREABSCR1.read_beam.sigma_x,
-            self.segment.AREABSCR1.read_beam.sigma_y
+            self.accelerator.segment.AREABSCR1.read_beam.mu_x,
+            self.accelerator.segment.AREABSCR1.read_beam.mu_y,
+            self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
+            self.accelerator.segment.AREABSCR1.read_beam.sigma_y
         ])
 
 
@@ -122,7 +115,15 @@ if __name__ == "__main__":
     n_batches = 9375
     batch_size = 64
 
-    simulations = [Simulation() for _ in range(batch_size)]
+    def make_env():
+        return PseudoEnv(
+            backend="simulation", 
+            random_incoming=True, 
+            random_initial=True, 
+            beam_parameter_method="direct"
+        )
+
+    simulations = [make_env() for _ in range(batch_size)]
 
     policy = GaussianActor(simulations[0].n_observations, simulations[0].n_actuators)
     optimizer = optim.Adam(policy.parameters())
