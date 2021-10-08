@@ -8,17 +8,20 @@ from . import machine, simulation, utils
 class ARESEAOneStep(gym.Env):
     """Variant of the ARES EA environment that uses absolute rather than relative actions."""
 
-    action_space = spaces.Box(low=-np.inf, high=np.inf, shape=(5,))
-    observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(5+4+4,))
-
-    actuator_space = spaces.Box(
+    action_space = spaces.Box(
         low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
         high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
     )
-    goal_space = spaces.Box(
+    beam_parameter_space = spaces.Box(
         low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
         high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
     )
+    observation_space = utils.combine_spaces(
+        action_space,
+        beam_parameter_space,
+        beam_parameter_space
+    )
+    
 
     def __init__(self, backend="simulation", random_incoming=False, random_initial=False, beam_parameter_method="us"):
         self.backend = backend
@@ -38,12 +41,12 @@ class ARESEAOneStep(gym.Env):
             self.accelerator.randomize_incoming()
         
         if self.random_initial:
-            self.initial_actuators = self.actuator_space.sample()
+            self.accelerator.actuators = self.action_space.sample()
         
-        self.desired = desired if desired is not None else self.goal_space.sample()
+        self.desired = desired if desired is not None else self.beam_parameter_space.sample()
         
         self._screen_data = self.accelerator.capture_clean_beam()
-        self.achieved = self.beam_parameters
+        self.achieved = self.compute_beam_parameters(self._screen_data)
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
         normalized_observation = self._normalize_observation(observation)
@@ -54,7 +57,7 @@ class ARESEAOneStep(gym.Env):
         self.accelerator.actuators = self._denormalize_action(action)
 
         self._screen_data = self.accelerator.capture_clean_beam()
-        self.achieved = self.beam_parameters
+        self.achieved = self.compute_beam_parameters(self._screen_data)
         objective = self._objective_fn(self.achieved, self.desired)
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
@@ -69,23 +72,22 @@ class ARESEAOneStep(gym.Env):
         return np.log((weights * np.abs(offset)).sum())
     
     def _denormalize_action(self, normalized):
-        return normalized * self.actuator_space.high
+        return normalized * self.action_space.high
     
     def _normalize_observation(self, raw):
         scaler = np.concatenate([
-            self.actuator_space.high,
-            self.goal_space.high,
-            self.goal_space.high
+            self.action_space.high,
+            self.beam_parameter_space.high,
+            self.beam_parameter_space.high
         ])
         return raw / scaler
     
-    @property
-    def beam_parameters(self):
+    def compute_beam_parameters(self, image):
         if self.beam_parameter_method == "direct":
             return self._read_beam_parameters_from_simulation()
         else:
             return utils.compute_beam_parameters(
-                self._screen_data,
+                image,
                 self.accelerator.pixel_size*self.accelerator.binning,
                 method=self.beam_parameter_method)
     

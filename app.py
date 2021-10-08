@@ -5,7 +5,6 @@ import math
 import os
 import pickle
 import sys
-from threading import Event
 import time
 
 from bayes_opt import BayesianOptimization, SequentialDomainReductionTransformer

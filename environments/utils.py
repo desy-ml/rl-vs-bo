@@ -1,5 +1,15 @@
+from gym import spaces
 import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
+
+
+def combine_spaces(*args):
+    "Combines `gym.spaces.Box` spaces into one space."
+    assert all(isinstance(space, spaces.Box) for space in args)
+    return spaces.Box(
+        low=np.concatenate([space.low for space in args]),
+        high=np.concatenate([space.high for space in args])
+    )
 
 
 def compute_beam_parameters(img, pixel_size, method="us"):
