@@ -10,7 +10,7 @@ from environments import machine
 
 
 
-def switch_cathode_laser(self, setto):
+def switch_cathode_laser(setto):
     """Sets the bool switch of the cathode laser event to setto and waits a second."""
     address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
     bits = pydoocs.read(address)["data"]
@@ -19,22 +19,23 @@ def switch_cathode_laser(self, setto):
     time.sleep(1)
 
 
-def cathode_laser_on(self):
-    self.switch_cathode_laser(True)
+def cathode_laser_on():
+    switch_cathode_laser(True)
 
 
-def cathode_laser_off(self):
-    self.switch_cathode_laser(False)
+def cathode_laser_off():
+    switch_cathode_laser(False)
 
 
-def capture_screen(self):
-    return pydoocs.read(self.screen_channel + "IMAGE_EXT_ZMQ")["data"]
+def capture_screen():
+    screen_channel = "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/"
+    return pydoocs.read(screen_channel + "IMAGE_EXT_ZMQ")["data"]
 
 
-def capture_interval(self, n, dt):
+def capture_interval(n, dt):
     images = []
     for _ in range(n):
-        images.append(self.capture_screen())
+        images.append(capture_screen())
         time.sleep(dt)
     return np.array(images)
 

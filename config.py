@@ -22,7 +22,7 @@ auxiliary_channels = [
     "SINBAD.MAGNETS/MAGNET.ML/ARLIMCVG2/CURRENT.RBV",               # VCor (ARLIMCVG2) current
     "SINBAD.MAGNETS/MAGNET.ML/ARLIMCVG2/MOMENTUM.SP",               # VCor (ARLIMCVG2) beam momentum setting
     "SINBAD.DIAG/DARKC_MON/AR.LI.BCM.G.1/CHARGE.CALC",              # Dark current charge (?)
-    "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOL1++/CURRENT.RBV",             # TWS1 current
+    # "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOL1++/CURRENT.RBV",             # TWS1 current
     "SINBAD.RF/LLRF.CONTROLLER/CTRL.AR.LI.RSB.L.1/SP.PHASE",        # TWS1 phase
     "SINBAD.RF/LLRF.CONTROLLER/FORWARD.AR.LI.RSB.L.1/POWER.SAMPLE", # TWS1 power
     "SINBAD.MAGNETS/MAGNET.ML/ARLIMCHG3/KICK.RBV",                  # HCor (ARLIMCHG3) kick
