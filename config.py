@@ -67,4 +67,9 @@ auxiliary_channels = [
     "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/HEIGHT",                      # Screen image height (pixel)
     "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/GAINRAW",                     # Screen camera gain
     "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/GAINAUTO",                    # Screen camera auto gain setting
+    "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ",               # Screen image
+    "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/SPECTRUM.X.MEAN",             # Beam mu x
+    "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/SPECTRUM.X.MEAN",             # Beam mu y
+    "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/SPECTRUM.X.SIG",              # Beam sigma x
+    "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/SPECTRUM.Y.SIG",              # Beam sigma y
 ]
