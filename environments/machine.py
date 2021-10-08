@@ -20,7 +20,7 @@ class ExperimentalArea:
     ]
     screen_channel = "SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/"
 
-    screen_resolution = np.array([2448, 2040])
+    screen_resolution = np.array([2464, 2056])
     pixel_size = np.array([3.3198e-6, 2.4469e-6])
 
     @property

@@ -110,6 +110,9 @@ class ARESEASequential(gym.Env):
             "observation": self.observation,
             "action": action
         })
+        
+        print("OBJECTIVE:", objective)
+        print("ACHIEVED:", self.observation["achieved_goal"])
 
         # done = all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(self.observation["achieved_goal"], self.observation["desired_goal"]))
         done = (abs(self.observation["achieved_goal"] - self.observation["desired_goal"]) < self.target_delta).all()
