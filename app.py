@@ -1,6 +1,5 @@
 from datetime import datetime
 import glob
-from functools import partial
 import importlib
 import math
 import os
@@ -601,72 +600,6 @@ class AgentThread(qtc.QThread):
                 log[channel].append(sample)
 
 
-class UpDownValueSetter(qtw.QWidget):
-    
-    def __init__(self, name, unit, n_predecimal, n_decimal=0, **kwargs):
-        super().__init__(**kwargs)
-
-        n_digits = n_predecimal + n_decimal
-
-        self._factors = list(reversed([10**p for p in range(-n_decimal, n_predecimal)]))
-
-        name_label = qtw.QLabel(name)
-        unit_label = qtw.QLabel(unit)
-        decimal_point_label = qtw.QLabel(".")
-
-        up_buttons = [qtw.QPushButton("▲") for _ in range(n_digits)]
-        self._digit_labels = [qtw.QLabel("0") for _ in range(n_digits)]
-        down_buttons = [qtw.QPushButton("▼") for _ in range(n_digits)]
-
-        for label in self._digit_labels:
-            label.setAlignment(qtc.Qt.AlignCenter)
-            label.setFixedSize(15, 15)
-        for button in up_buttons + down_buttons:
-            button.setFixedSize(15, 12)
-
-        for button, factor in zip(up_buttons, self._factors):
-            button.clicked.connect(partial(self.add, factor))
-        for button, factor in zip(down_buttons, self._factors):
-            button.clicked.connect(partial(self.add, -factor))
-
-        grid = qtw.QGridLayout()        
-        grid.addWidget(name_label, 1, 0)
-        for i in range(n_digits):
-            row = 1 + i + (i >= n_predecimal)
-            grid.addWidget(up_buttons[i], 0, row)
-            grid.addWidget(self._digit_labels[i], 1, row)
-            grid.addWidget(down_buttons[i], 2, row)
-
-        grid.addWidget(decimal_point_label, 1, n_predecimal + 1)
-        grid.addWidget(unit_label, 1, n_digits + 2)
-        self.setLayout(grid)
-
-        grid.setSpacing(1)
-        
-        self.value = 0.0
-    
-    @property
-    def value(self):
-        return self._value
-    
-    @value.setter
-    def value(self, value):
-        self._value = value
-
-        x = self._value
-        for label, factor in zip(self._digit_labels, self._factors):
-            d = int(x // factor)
-            label.setText(str(d))
-            x -= d * factor
-    
-    def add(self, value):
-        self.value += value
-
-    
-class DoocsValueSetter(UpDownValueSetter):
-    pass
-
-
 class App(qtw.QWidget):
 
     achieved_updated = qtc.pyqtSignal(float, float, float, float)
@@ -733,7 +666,8 @@ class App(qtw.QWidget):
 
         hbox = qtw.QHBoxLayout()
         hbox.addWidget(self.magnet_dropdown)
-        hbox.addWidget(UpDownValueSetter("Q1", "A", 5, 2))
+        hbox.addWidget(self.magnet_value_field)
+        hbox.addWidget(self.magnet_write_button)
         hbox.addStretch()
         hbox.addWidget(self.measure_beam_button)
 
