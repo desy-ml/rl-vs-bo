@@ -1,5 +1,6 @@
 import cheetah
 import numpy as np
+
 from .ares import ARESlatticeStage3v1_9 as lattice
 
 
