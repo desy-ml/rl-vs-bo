@@ -11,8 +11,7 @@ class ExperimentalArea:
     pixel_size = (3.3198e-6, 2.4469e-6)
 
     def __init__(self):
-        cell = cheetah.utils.subcell_of(lattice.cell, "AREASOLA1", "AREABSCR1")
-        self.segment = cheetah.Segment.from_ocelot(cell)
+        self.segment = cheetah.Segment.from_ocelot(lattice.cell, warnings=False).subcell("AREASOLA1", "AREABSCR1")
         self.segment.AREABSCR1.resolution = self.screen_resolution
         self.segment.AREABSCR1.pixel_size = self.pixel_size
         self.segment.AREABSCR1.is_active = True
@@ -20,8 +19,7 @@ class ExperimentalArea:
         self.segment.AREABSCR1.binning = 4
     
     def randomize_incoming(self):
-        self.incoming = cheetah.Beam.make_random(
-            n=int(1e5),
+        self.incoming = cheetah.ParameterBeam.from_parameters(
             mu_x=np.random.uniform(-3e-3, 3e-3),
             mu_y=np.random.uniform(-3e-4, 3e-4),
             mu_xp=np.random.uniform(-1e-4, 1e-4),
