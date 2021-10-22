@@ -1,8 +1,11 @@
+from copy import deepcopy
+
+from gym.wrappers import NormalizeObservation, NormalizeReward, RescaleAction
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 import wandb
 
-from environments.onestep_ppo import ARESEAOneStep
+from environments.onestep import ARESEAOneStep
 
 
 hyperparameter_defaults = {
@@ -25,13 +28,11 @@ env = ARESEAOneStep(
     random_initial=True,
     beam_parameter_method="direct"
 )
+env = NormalizeObservation(env)
+env = NormalizeReward(env)
+env = RescaleAction(env, -1, 1)
 
-eval_env = ARESEAOneStep(
-    backend="simulation",
-    random_incoming=True,
-    random_initial=True,
-    beam_parameter_method="direct"
-)
+eval_env = deepcopy(env)
 
 model = PPO(
     "MlpPolicy",

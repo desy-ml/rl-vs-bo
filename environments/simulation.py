@@ -17,6 +17,8 @@ class ExperimentalArea:
         self.segment.AREABSCR1.is_active = True
 
         self.segment.AREABSCR1.binning = 4
+
+        self.randomize_incoming()
     
     def randomize_incoming(self):
         self.incoming = cheetah.ParameterBeam.from_parameters(
@@ -32,6 +34,7 @@ class ExperimentalArea:
             sigma_p=np.random.uniform(0, 5e-3),
             energy=np.random.uniform(80e6, 160e6)
         )
+        self._run_simulation()
 
     @property
     def actuators(self):
@@ -45,9 +48,10 @@ class ExperimentalArea:
     def actuators(self, values):
         self.segment.AREAMQZM1.k1, self.segment.AREAMQZM2.k1, self.segment.AREAMQZM3.k1 = values[:3]
         self.segment.AREAMCVM1.angle, self.segment.AREAMCHM1.angle = values[3:]
+
+        self._run_simulation()
     
     def capture_clean_beam(self):
-        self._run_simulation()
         return self.segment.AREABSCR1.reading
     
     def _run_simulation(self):

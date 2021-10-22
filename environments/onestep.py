@@ -22,7 +22,6 @@ class ARESEAOneStep(gym.Env):
         beam_parameter_space
     )
     
-
     def __init__(self, backend="simulation", random_incoming=False, random_initial=False, beam_parameter_method="us"):
         self.backend = backend
         self.random_incoming = random_incoming
@@ -45,8 +44,7 @@ class ARESEAOneStep(gym.Env):
         
         self.desired = desired if desired is not None else self.beam_parameter_space.sample()
         
-        self._screen_data = self.accelerator.capture_clean_beam()
-        self.achieved = self.compute_beam_parameters(self._screen_data)
+        self.achieved = self.compute_beam_parameters()
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
         normalized_observation = self._normalize_observation(observation)
@@ -56,8 +54,7 @@ class ARESEAOneStep(gym.Env):
     def step(self, action):
         self.accelerator.actuators = self._denormalize_action(action)
 
-        self._screen_data = self.accelerator.capture_clean_beam()
-        self.achieved = self.compute_beam_parameters(self._screen_data)
+        self.achieved = self.compute_beam_parameters()
         objective = self._objective_fn(self.achieved, self.desired)
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
@@ -82,10 +79,11 @@ class ARESEAOneStep(gym.Env):
         ])
         return raw / scaler
     
-    def compute_beam_parameters(self, image):
+    def compute_beam_parameters(self):
         if self.beam_parameter_method == "direct":
             return self._read_beam_parameters_from_simulation()
         else:
+            image = self.accelerator.capture_clean_beam()
             return utils.compute_beam_parameters(
                 image,
                 self.accelerator.pixel_size*self.accelerator.binning,
