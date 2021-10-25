@@ -1,8 +1,8 @@
 from copy import deepcopy
 
-from gym.wrappers import NormalizeObservation, NormalizeReward, RescaleAction
+from gym.wrappers import RescaleAction
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 
 from environments.onestep import ARESEAOneStep
@@ -21,18 +21,18 @@ wandb.init(
     settings=wandb.Settings(start_method="fork")
 )
 
-# env = make_vec_env(ARESEAOneStep, n_envs=4)
-env = ARESEAOneStep(
-    backend="simulation",
-    random_incoming=True,
-    random_initial=True,
-    beam_parameter_method="direct"
-)
-env = NormalizeObservation(env)
-env = NormalizeReward(env)
-env = RescaleAction(env, -1, 1)
+def make_env():
+    env = ARESEAOneStep(
+        backend="simulation",
+        random_incoming=True,
+        random_initial=True,
+        beam_parameter_method="direct"
+    )
+    env = RescaleAction(env, -1, 1)
+    return env
 
-eval_env = deepcopy(env)
+env = DummyVecEnv([make_env])
+env = VecNormalize(env, norm_obs=True, norm_reward=True)
 
 model = PPO(
     "MlpPolicy",
@@ -44,9 +44,9 @@ model = PPO(
 
 model.learn(
     total_timesteps=wandb.config["total_timesteps"],
-    log_interval=10,
-    eval_env=eval_env,
-    eval_freq=10000
+    log_interval=10
 )
 
-model.save(f"models/{wandb.run.name}")
+log_dir = f"models/{wandb.run.name}"
+model.save(f"{log_dir}/model")
+env.save(f"{log_dir}/vec_normalize.pkl")

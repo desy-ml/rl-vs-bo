@@ -1,6 +1,6 @@
 git+git://gitlab.desy.de/msk-ipc/helmholtz-ai-aa/cheetah.git@v0.5-release-candidate#egg=cheetah
 git+git://gitlab.desy.de/dummy-pydoocs.git@master#egg=dummypydoocs
-gym==0.21.0
+gym==0.19.0
 jupyter==1.0.0
 matplotlib==3.4.3
 moviepy==1.0.3
@@ -14,7 +14,7 @@ PyQt5==5.15.5
 pyqtgraph==0.12.3
 PyYAML==6.0
 scipy==1.7.1
-stable-baselines3==1.2.0
+stable-baselines3==1.3.0
 tensorboard==2.7.0
 torch==1.10.0
 wandb==0.12.5

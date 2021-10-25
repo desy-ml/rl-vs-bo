@@ -47,37 +47,24 @@ class ARESEAOneStep(gym.Env):
         self.achieved = self.compute_beam_parameters()
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
-        normalized_observation = self._normalize_observation(observation)
         
-        return normalized_observation
+        return observation
     
     def step(self, action):
-        self.accelerator.actuators = self._denormalize_action(action)
+        self.accelerator.actuators = action
 
         self.achieved = self.compute_beam_parameters()
         objective = self._objective_fn(self.achieved, self.desired)
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
-        normalized_observation = self._normalize_observation(observation)
 
-        return normalized_observation, -objective, True, {}
+        return observation, -objective, True, {}
     
     def _objective_fn(self, achieved, desired):
         offset = achieved - desired
         weights = np.array([1, 1, 2, 2])
 
         return np.log((weights * np.abs(offset)).sum())
-    
-    def _denormalize_action(self, normalized):
-        return normalized * self.action_space.high
-    
-    def _normalize_observation(self, raw):
-        scaler = np.concatenate([
-            self.action_space.high,
-            self.beam_parameter_space.high,
-            self.beam_parameter_space.high
-        ])
-        return raw / scaler
     
     def compute_beam_parameters(self):
         if self.beam_parameter_method == "direct":
