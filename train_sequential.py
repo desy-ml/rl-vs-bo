@@ -1,7 +1,8 @@
-from gym.wrappers import Monitor, TimeLimit, FlattenObservation
+from gym.wrappers import RescaleAction, TimeLimit
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 
 from environments.sequential import ARESEASequential
@@ -29,28 +30,22 @@ wandb.init(
     entity="msk-ipc",
     config=hyperparameter_defaults,
     sync_tensorboard=True,
-    monitor_gym=True,
     settings=wandb.Settings(start_method="fork")
 )
 
-env = ARESEASequential(
-    backend="simulation",
-    random_incoming=True,
-    random_initial=True,
-    beam_parameter_method="direct"
-)
-env = TimeLimit(env, max_episode_steps=50)
-env = FlattenObservation(env)
+def make_env():
+    env = ARESEASequential(
+        backend="simulation",
+        random_incoming=True,
+        random_initial=True,
+        beam_parameter_method="direct"
+    )
+    env = TimeLimit(env, max_episode_steps=50)
+    env = RescaleAction(env, -1, 1)
+    return env
 
-eval_env = ARESEASequential(
-    backend="simulation",
-    random_incoming=True,
-    random_initial=True,
-    beam_parameter_method="direct"
-)
-eval_env = TimeLimit(eval_env, max_episode_steps=50)
-eval_env = FlattenObservation(eval_env)
-eval_env = Monitor(eval_env, f"recordings/{wandb.run.name}", video_callable=lambda i: (i % 5) == 0)
+env = DummyVecEnv([make_env])
+env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=wandb.config["gamma"])
 
 n_actions = env.action_space.shape[-1]
 if wandb.config["noise_type"] == "none":
@@ -82,9 +77,9 @@ model = TD3(
 
 model.learn(
     total_timesteps=wandb.config["total_timesteps"],
-    log_interval=10,
-    eval_env=eval_env,
-    eval_freq=10000
+    log_interval=10
 )
 
-model.save(f"models/{wandb.run.name}")
+log_dir = f"models/{wandb.run.name}"
+model.save(f"{log_dir}/model")
+env.save(f"{log_dir}/vec_normalize.pkl")

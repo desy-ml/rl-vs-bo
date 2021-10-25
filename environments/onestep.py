@@ -38,12 +38,10 @@ class ARESEAOneStep(gym.Env):
     def reset(self, desired=None):
         if self.random_incoming:
             self.accelerator.randomize_incoming()
-        
         if self.random_initial:
             self.accelerator.actuators = self.action_space.sample()
         
         self.desired = desired if desired is not None else self.beam_parameter_space.sample()
-        
         self.achieved = self.compute_beam_parameters()
 
         observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])

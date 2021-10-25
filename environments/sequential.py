@@ -17,31 +17,22 @@ class ARESEASequential(gym.Env):
         "video.frames_per_second": 5
     }
 
-    accelerator_observation_space = spaces.Dict({
-        "observation": spaces.Box(
-            low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
-            high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
-        ),
-        "desired_goal": spaces.Box(
-            low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
-            high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
-        ),
-        "achieved_goal": spaces.Box(
-            low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
-            high=np.array([2e-3,  2e-3, 5e-4, 5e-4], dtype=np.float32)
-        )
-    })
-    accelerator_action_space = spaces.Box(
-        low=accelerator_observation_space["observation"].low * 0.1,
-        high=accelerator_observation_space["observation"].high * 0.1
+    actuator_space = spaces.Box(
+        low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+        high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
     )
-    accelerator_optimization_space = spaces.Box(
-        low=accelerator_observation_space["observation"].low,
-        high=accelerator_observation_space["observation"].high
+    beam_parameter_space = spaces.Box(
+        low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
+        high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
     )
-    accelerator_reward_range = (
-        -accelerator_observation_space["achieved_goal"].high[0] * 250,
-        accelerator_observation_space["achieved_goal"].high[0] * 250
+    observation_space = utils.combine_spaces(
+        actuator_space,
+        beam_parameter_space,
+        beam_parameter_space
+    )
+    action_space = spaces.Box(
+        low=actuator_space.low * 0.1,
+        high=actuator_space.high * 0.1
     )
 
     target_delta = np.array([5e-6] * 4)
@@ -59,66 +50,77 @@ class ARESEASequential(gym.Env):
         else:
             raise ValueError(f"There is no \"{backend}\" backend!")
     
-    def reset(self, goal=None):
+    def reset(self, desired=None):
         if self.random_incoming:
             self.accelerator.randomize_incoming()
-        
         if self.random_initial:
-            self.accelerator.actuators = self.accelerator_optimization_space.sample()
+            self.accelerator.actuators = self.actuator_space.sample()
+
+        self.desired = desired if desired is not None else self.beam_parameter_space.sample()
+        self.achieved = self.compute_beam_parameters()
+
+        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
         
-        self.goal = goal if goal is not None else self.accelerator_observation_space["desired_goal"].sample()
-
-        self.screen_data = self.accelerator.capture_clean_beam()
-
-        self.finished_steps = 0
-        objective = self.compute_objective(
-            self.observation["achieved_goal"],
-            self.observation["desired_goal"]
-        )
+        objective = self._objective_fn(self.achieved, self.desired)
         self.history = [{
             "objective": objective,
             "reward": np.nan,
-            "observation": self.observation,
+            "observation": observation,
             "action": np.full_like(self.action_space.high, np.nan)
         }]
 
-        return self.observation2agent(self.observation)
+        return observation
     
     def step(self, action):
-        action = self.action2accelerator(action)
+        previous_objective = self._objective_fn(self.achieved, self.desired)
 
         self.accelerator.actuators += action
 
-        self.screen_data = self.accelerator.capture_clean_beam()
+        self.achieved = self.compute_beam_parameters()
+        objective = self._objective_fn(self.achieved, self.desired)
+        reward = self._reward_fn(objective, previous_objective)
 
-        info = {"previous_objective": self.history[-1]["objective"]}
+        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
 
-        reward = self.compute_reward(
-            self.observation["achieved_goal"],
-            self.observation["desired_goal"],
-            info
-        )
-        objective = self.compute_objective(
-            self.observation["achieved_goal"],
-            self.observation["desired_goal"]
-        )
-
-        self.finished_steps += 1
         self.history.append({
             "objective": objective,
             "reward": reward,
-            "observation": self.observation,
+            "observation": observation,
             "action": action
         })
-        
-        print("OBJECTIVE:", objective)
-        print("ACHIEVED:", self.observation["achieved_goal"])
 
-        # done = all(abs(achieved - desired) < 5e-6 for achieved, desired in zip(self.observation["achieved_goal"], self.observation["desired_goal"]))
-        done = (abs(self.observation["achieved_goal"] - self.observation["desired_goal"]) < self.target_delta).all()
+        done = (np.abs(self.achieved - self.desired) < self.target_delta).all()
 
-        return self.observation2agent(self.observation), self.reward2agent(reward), done, info
+        return observation, reward, done, {}
     
+    def _objective_fn(self, achieved, desired):
+        offset = achieved - desired
+        weights = np.array([1, 1, 2, 2])
+
+        return np.log((weights * np.abs(offset)).sum())
+    
+    def _reward_fn(self, objective, previous):
+        reward = previous - objective
+        return reward if reward > 0 else 2 * reward
+    
+    def compute_beam_parameters(self):
+        if self.beam_parameter_method == "direct":
+            return self._read_beam_parameters_from_simulation()
+        else:
+            image = self.accelerator.capture_clean_beam()
+            return utils.compute_beam_parameters(
+                image,
+                self.accelerator.pixel_size*self.accelerator.binning,
+                method=self.beam_parameter_method)
+    
+    def _read_beam_parameters_from_simulation(self):
+        return np.array([
+            self.accelerator.segment.AREABSCR1.read_beam.mu_x,
+            self.accelerator.segment.AREABSCR1.read_beam.mu_y,
+            self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
+            self.accelerator.segment.AREABSCR1.read_beam.sigma_y
+        ])
+
     def render(self, mode="human"):
         fig = plt.figure("ARESEA-Cheetah", figsize=(28,8))
         fig.clear()
@@ -157,85 +159,6 @@ class ARESEASequential(gym.Env):
             plt.show()
         else:
             raise ValueError(f"Invalid render mode \"{mode}\" (allowed: {self.metadata['render.modes']})")
-    
-    @property
-    def beam_parameters(self):
-        if self.beam_parameter_method == "direct":
-            return self._read_beam_parameters_from_simulation()
-        else:
-            return utils.compute_beam_parameters(
-                self.screen_data,
-                self.accelerator.pixel_size*self.accelerator.binning,
-                method=self.beam_parameter_method)
-    
-    def _read_beam_parameters_from_simulation(self):
-        return np.array([
-            self.accelerator.segment.AREABSCR1.read_beam.mu_x,
-            self.accelerator.segment.AREABSCR1.read_beam.mu_y,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_y
-        ])
-
-    @property
-    def observation(self):
-        return {
-            "observation": self.accelerator.actuators,
-            "desired_goal": self.goal,
-            "achieved_goal": self.beam_parameters
-        }
-    
-    def compute_objective(self, achieved_goal, desired_goal):
-        offset = achieved_goal - desired_goal
-        weights = np.array([1, 1, 2, 2])
-
-        return np.log((weights * np.abs(offset)).sum())
-
-    def compute_reward(self, achieved_goal, desired_goal, info):
-        current_objective = self.compute_objective(achieved_goal, desired_goal)
-        previous_objective = info["previous_objective"]
-
-        reward = previous_objective - current_objective
-
-        return reward if reward > 0 else 2 * reward
-    
-    @property
-    def observation_space(self):
-        return spaces.Dict({
-            k: spaces.Box(
-                low=self.accelerator_observation_space[k].low / self.accelerator_observation_space[k].high,
-                high=self.accelerator_observation_space[k].high / self.accelerator_observation_space[k].high
-            ) for k in self.accelerator_observation_space.spaces.keys()
-        })
-    
-    @property
-    def action_space(self):
-        return spaces.Box(
-            low=self.accelerator_action_space.low / self.accelerator_action_space.high,
-            high=self.accelerator_action_space.high / self.accelerator_action_space.high
-        )
-    
-    @property
-    def reward_range(self):
-        return (
-            self.accelerator_reward_range[0] / self.accelerator_reward_range[1],
-            self.accelerator_reward_range[1] / self.accelerator_reward_range[1]
-        )
-    
-    def observation2agent(self, observation):
-        """Convert an observation from accelerator view to agent view."""
-        return {k: observation[k] / self.accelerator_observation_space[k].high for k in observation.keys()}
-    
-    def action2accelerator(self, action):
-        """Convert an action from agent view to accelerator view."""
-        return action * self.accelerator_action_space.high
-    
-    def action2agent(self, action):
-        """Convert an action from accelerator view to agent view."""
-        return action / self.accelerator_action_space.high
-    
-    def reward2agent(self, reward):
-        """Convert a reward from accelerator view to agent view."""
-        return reward / self.accelerator_reward_range[1]
     
     def plot_beam_overview(self, axx, axy, axl):
         axx.set_title(f"Beam Overview")
