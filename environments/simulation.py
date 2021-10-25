@@ -11,7 +11,7 @@ class ExperimentalArea:
     pixel_size = (3.3198e-6, 2.4469e-6)
 
     def __init__(self):
-        self.segment = cheetah.Segment.from_ocelot(lattice.cell, warnings=False).subcell("AREASOLA1", "AREABSCR1")
+        self.segment = cheetah.Segment.from_ocelot(lattice.cell, warnings=False, device="cpu").subcell("AREASOLA1", "AREABSCR1")
         self.segment.AREABSCR1.resolution = self.screen_resolution
         self.segment.AREABSCR1.pixel_size = self.pixel_size
         self.segment.AREABSCR1.is_active = True
