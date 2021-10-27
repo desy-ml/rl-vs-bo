@@ -37,10 +37,14 @@ class ARESEASequential(gym.Env):
 
     target_delta = np.array([5e-6] * 4)
 
-    def __init__(self, backend="simulation", random_incoming=False, random_initial=False, beam_parameter_method="us"):
+    def __init__(self, backend="simulation", random_incoming=False, random_initial=False,
+                random_quadrupole_misalignments=False, random_screen_misalignments=False,
+                beam_parameter_method="us"):
         self.backend = backend
         self.random_incoming = random_incoming
         self.random_initial = random_initial
+        self.random_quadrupole_misalignments = random_quadrupole_misalignments
+        self.random_screen_misalignments = random_screen_misalignments
         self.beam_parameter_method = beam_parameter_method
 
         if self.backend == "simulation":
@@ -55,6 +59,10 @@ class ARESEASequential(gym.Env):
             self.accelerator.randomize_incoming()
         if self.random_initial:
             self.accelerator.actuators = self.actuator_space.sample()
+        if self.random_quadrupole_misalignments:
+            self.accelerator.randomize_quadrupole_misalignments()
+        if self.random_screen_misalignments:
+            self.accelerator.randomize_screen_misalignment()
 
         self.desired = desired if desired is not None else self.beam_parameter_space.sample()
         self.achieved = self.compute_beam_parameters()

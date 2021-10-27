@@ -38,6 +38,8 @@ def make_env():
         backend="simulation",
         random_incoming=True,
         random_initial=True,
+        random_quadrupole_misalignments=True,
+        random_screen_misalignments=True,
         beam_parameter_method="direct"
     )
     env = TimeLimit(env, max_episode_steps=50)

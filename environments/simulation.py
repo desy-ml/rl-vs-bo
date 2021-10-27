@@ -35,6 +35,26 @@ class ExperimentalArea:
             energy=np.random.uniform(80e6, 160e6)
         )
         self._run_simulation()
+    
+    def randomize_quadrupole_misalignments(self):
+        self.segment.AREAMQZM1.misalignment = (
+            np.random.uniform(-1e3, 1e3),
+            np.random.uniform(-1e3, 1e3)
+        )
+        self.segment.AREAMQZM2.misalignment = (
+            np.random.uniform(-1e3, 1e3),
+            np.random.uniform(-1e3, 1e3)
+        )
+        self.segment.AREAMQZM3.misalignment = (
+            np.random.uniform(-1e3, 1e3),
+            np.random.uniform(-1e3, 1e3)
+        )
+
+    def randomize_screen_misalignment(self):
+        self.segment.AREABSCR1.misalignment = (
+            np.random.uniform(-1e3, 1e3),
+            np.random.uniform(-1e3, 1e3)
+        )
 
     @property
     def actuators(self):
