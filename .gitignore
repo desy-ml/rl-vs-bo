@@ -16,3 +16,9 @@ models/*
 !models/onestep_ppo
 !models/onestep_vpg
 !models/sequential
+
+machine_studies/*.pkl
+machine_studies/holdplease
+machine_studies/operator_5only/
+machine_studies/operator_all/
+machine_studies/operator_defocus/
