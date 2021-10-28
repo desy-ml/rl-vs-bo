@@ -121,8 +121,8 @@ class DiskWriter(Writer):
 
 class WandBWriter:
 
-    def __init__(self, name=None):
-        wandb.init(project="many-sase-chlorians", entity="msk-ipc", name=name)
+    def __init__(self, project=None, name=None):
+        wandb.init(project=project, entity="msk-ipc", name=name)
         logger.info(f"Setting up W&B Writer to run {wandb.run.name}")
         self._executor = ThreadPoolExecutor()
     
@@ -156,7 +156,7 @@ def main():
 
     writers = []
     if "wandb" in config:
-        wandb_writer = WandBWriter(name=config["wandb"]["name"])
+        wandb_writer = WandBWriter(project="ares-planet-destroyer", name=config["wandb"]["name"])
         writers.append(wandb_writer)
     if "disk" in config:
         disk_writer = DiskWriter(
