@@ -87,7 +87,7 @@ def main():
     parser.add_argument("filename", help="Name of the file to write to")
     args = parser.parse_args()
 
-    logging.info(f"Starting data collection to {directory}")
+    logging.info(f"Starting data collection")
 
     channels, values = zip(*scan_space.items())
 
