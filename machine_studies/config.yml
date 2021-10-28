@@ -1,7 +1,7 @@
 wandb:
   name: ares-studies-kw43
 disk:
-  directory: data_at_beegfs/ares-studies-kw43
+  directory: ares-studies-kw43
   pulses_per_file: 3600
 dt: 0.5
 channels:
