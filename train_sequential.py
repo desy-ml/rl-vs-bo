@@ -9,7 +9,7 @@ from environments.sequential import ARESEASequential
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 600000,
+    "total_timesteps": 10*600000,
     "noise_type": "normal",
     "noise_std": 0.1,
     "learning_rate": 1e-3,
@@ -38,8 +38,8 @@ def make_env():
         backend="simulation",
         random_incoming=True,
         random_initial=True,
-        random_quadrupole_misalignments=True,
-        random_screen_misalignments=True,
+        random_quadrupole_misalignments=False,
+        random_screen_misalignments=False,
         beam_parameter_method="direct"
     )
     env = TimeLimit(env, max_episode_steps=50)
