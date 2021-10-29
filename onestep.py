@@ -74,10 +74,10 @@ class PseudoEnv:
     
     def _read_beam_parameters_from_simulation(self):
         return np.array([
-            self.accelerator.segment.AREABSCR1.read_beam.mu_x,
-            self.accelerator.segment.AREABSCR1.read_beam.mu_y,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_y
+            self.accelerator._segment.AREABSCR1.read_beam.mu_x,
+            self.accelerator._segment.AREABSCR1.read_beam.mu_y,
+            self.accelerator._segment.AREABSCR1.read_beam.sigma_x,
+            self.accelerator._segment.AREABSCR1.read_beam.sigma_y
         ])
 
 

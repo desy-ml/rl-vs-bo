@@ -4,6 +4,8 @@ import time
 
 import numpy as np
 
+from . import utils
+
 
 pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
 
@@ -22,6 +24,9 @@ class ExperimentalArea:
 
     screen_resolution = np.array([2464, 2056])
     pixel_size = np.array([3.3198e-6, 2.4469e-6])
+
+    def reset(self):
+        pass
 
     @property
     def actuators(self):
@@ -62,6 +67,13 @@ class ExperimentalArea:
         flipped = np.flipud(removed)
         
         return flipped
+    
+    def compute_beam_parameters(self):
+        image = self.capture_clean_beam()
+        return utils.compute_beam_parameters(
+            image,
+            self.pixel_size * self.binning,
+            method=self._beam_parameter_method)
     
     def capture_screen(self):
         return pydoocs.read(self.screen_channel + "IMAGE_EXT_ZMQ")["data"]

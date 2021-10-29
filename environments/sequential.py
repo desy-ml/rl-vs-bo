@@ -37,37 +37,30 @@ class ARESEASequential(gym.Env):
 
     target_delta = np.array([5e-6] * 4)
 
-    def __init__(self, backend="simulation", random_incoming=False, random_initial=False,
-                random_quadrupole_misalignments=False, random_screen_misalignments=False,
-                beam_parameter_method="us"):
-        self.backend = backend
-        self.random_incoming = random_incoming
-        self.random_initial = random_initial
-        self.random_quadrupole_misalignments = random_quadrupole_misalignments
-        self.random_screen_misalignments = random_screen_misalignments
-        self.beam_parameter_method = beam_parameter_method
-
-        if self.backend == "simulation":
-            self.accelerator = simulation.ExperimentalArea()
-        elif self.backend == "machine":
-            self.accelerator = machine.ExperimentalArea()
+    def __init__(self, backend="simulation", initial="none", backendargs={}):
+        if backend == "simulation":
+            self.backend = simulation.ExperimentalArea(**backendargs)
+        elif backend == "machine":
+            self.backend = machine.ExperimentalArea(**backendargs)
         else:
-            raise ValueError(f"There is no \"{backend}\" backend!")
+            raise ValueError(f"Backend {backend} is not supported!")
+
+        self._initial_method = initial
     
     def reset(self, desired=None):
-        if self.random_incoming:
-            self.accelerator.randomize_incoming()
-        if self.random_initial:
-            self.accelerator.actuators = self.actuator_space.sample()
-        if self.random_quadrupole_misalignments:
-            self.accelerator.randomize_quadrupole_misalignments()
-        if self.random_screen_misalignments:
-            self.accelerator.randomize_screen_misalignment()
+        self.backend.reset()
+        
+        if self._initial_method == "none":
+            pass
+        elif self._initial_method == "reset":
+            self.backend.actuators = np.zeros(5)
+        elif self._initial_method == "random":
+            self.backend.actuators = self.actuator_space.sample()
 
         self.desired = desired if desired is not None else self.beam_parameter_space.sample()
-        self.achieved = self.compute_beam_parameters()
+        self.achieved = self.backend.compute_beam_parameters()
 
-        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
+        observation = np.concatenate([self.backend.actuators, self.desired, self.achieved])
         
         objective = self._objective_fn(self.achieved, self.desired)
         self.history = [{
@@ -82,13 +75,13 @@ class ARESEASequential(gym.Env):
     def step(self, action):
         previous_objective = self._objective_fn(self.achieved, self.desired)
 
-        self.accelerator.actuators += action
+        self.backend.actuators += action
 
-        self.achieved = self.compute_beam_parameters()
+        self.achieved = self.backend.compute_beam_parameters()
         objective = self._objective_fn(self.achieved, self.desired)
         reward = self._reward_fn(objective, previous_objective)
 
-        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
+        observation = np.concatenate([self.backend.actuators, self.desired, self.achieved])
 
         self.history.append({
             "objective": objective,
@@ -110,24 +103,6 @@ class ARESEASequential(gym.Env):
     def _reward_fn(self, objective, previous):
         reward = previous - objective
         return reward if reward > 0 else 2 * reward
-    
-    def compute_beam_parameters(self):
-        if self.beam_parameter_method == "direct":
-            return self._read_beam_parameters_from_simulation()
-        else:
-            image = self.accelerator.capture_clean_beam()
-            return utils.compute_beam_parameters(
-                image,
-                self.accelerator.pixel_size*self.accelerator.binning,
-                method=self.beam_parameter_method)
-    
-    def _read_beam_parameters_from_simulation(self):
-        return np.array([
-            self.accelerator.segment.AREABSCR1.read_beam.mu_x,
-            self.accelerator.segment.AREABSCR1.read_beam.mu_y,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_y
-        ])
 
     def render(self, mode="human"):
         fig = plt.figure("ARESEA-Cheetah", figsize=(28,8))
@@ -170,16 +145,16 @@ class ARESEASequential(gym.Env):
     
     def plot_beam_overview(self, axx, axy, axl):
         axx.set_title(f"Beam Overview")
-        self.accelerator.segment.plot_reference_particle_traces(axx, axy, beam=self.accelerator.incoming)
-        self.accelerator.segment.plot(axl, s=0)
+        self.backend.segment.plot_reference_particle_traces(axx, axy, beam=self.backend.incoming)
+        self.backend.segment.plot(axl, s=0)
     
     def plot_screen(self, ax):
         ax.set_title("Screen")
         screen_extent = (
-            -self.accelerator.screen_resolution[0] * self.accelerator.pixel_size[0] / 2,
-            self.accelerator.screen_resolution[0] * self.accelerator.pixel_size[0] / 2,
-            -self.accelerator.screen_resolution[1] * self.accelerator.pixel_size[1] / 2,
-            self.accelerator.screen_resolution[1] * self.accelerator.pixel_size[1] / 2
+            -self.backend.screen_resolution[0] * self.backend.pixel_size[0] / 2,
+            self.backend.screen_resolution[0] * self.backend.pixel_size[0] / 2,
+            -self.backend.screen_resolution[1] * self.backend.pixel_size[1] / 2,
+            self.backend.screen_resolution[1] * self.backend.pixel_size[1] / 2
         )
         ax.imshow(self.screen_data, cmap="magma", interpolation="None", extent=screen_extent)
         ax.set_xlabel("x (m)")

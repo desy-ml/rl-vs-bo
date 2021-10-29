@@ -22,39 +22,40 @@ class ARESEAOneStep(gym.Env):
         beam_parameter_space
     )
     
-    def __init__(self, backend="simulation", random_incoming=False, random_initial=False, beam_parameter_method="us"):
-        self.backend = backend
-        self.random_incoming = random_incoming
-        self.random_initial = random_initial
-        self.beam_parameter_method = beam_parameter_method
-
-        if self.backend == "simulation":
-            self.accelerator = simulation.ExperimentalArea()
-        elif self.backend == "machine":
-            self.accelerator = machine.ExperimentalArea()
+    def __init__(self, backend="simulation", initial="none", backendargs={}):
+        if backend == "simulation":
+            self.backend = simulation.ExperimentalArea(**backendargs)
+        elif backend == "machine":
+            self.backend = machine.ExperimentalArea(**backendargs)
         else:
-            raise ValueError(f"There is no \"{backend}\" backend!")
+            raise ValueError(f"Backend {backend} is not supported!")
+
+        self._initial_method = initial
     
     def reset(self, desired=None):
-        if self.random_incoming:
-            self.accelerator.randomize_incoming()
-        if self.random_initial:
-            self.accelerator.actuators = self.action_space.sample()
+        self.backend.reset()
+        
+        if self._initial_method == "none":
+            pass
+        elif self._initial_method == "reset":
+            self.backend.actuators = np.zeros(5)
+        elif self._initial_method == "random":
+            self.backend.actuators = self.actuator_space.sample()
         
         self.desired = desired if desired is not None else self.beam_parameter_space.sample()
-        self.achieved = self.compute_beam_parameters()
+        self.achieved = self.backend.compute_beam_parameters()
 
-        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
+        observation = np.concatenate([self.backend.actuators, self.desired, self.achieved])
         
         return observation
     
     def step(self, action):
-        self.accelerator.actuators = action
+        self.backend.actuators = action
 
-        self.achieved = self.compute_beam_parameters()
+        self.achieved = self.backend.compute_beam_parameters()
         objective = self._objective_fn(self.achieved, self.desired)
 
-        observation = np.concatenate([self.accelerator.actuators, self.desired, self.achieved])
+        observation = np.concatenate([self.backend.actuators, self.desired, self.achieved])
 
         return observation, -objective, True, {}
     
@@ -63,21 +64,3 @@ class ARESEAOneStep(gym.Env):
         weights = np.array([1, 1, 2, 2])
 
         return np.log((weights * np.abs(offset)).sum())
-    
-    def compute_beam_parameters(self):
-        if self.beam_parameter_method == "direct":
-            return self._read_beam_parameters_from_simulation()
-        else:
-            image = self.accelerator.capture_clean_beam()
-            return utils.compute_beam_parameters(
-                image,
-                self.accelerator.pixel_size*self.accelerator.binning,
-                method=self.beam_parameter_method)
-    
-    def _read_beam_parameters_from_simulation(self):
-        return np.array([
-            self.accelerator.segment.AREABSCR1.read_beam.mu_x,
-            self.accelerator.segment.AREABSCR1.read_beam.mu_y,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_x,
-            self.accelerator.segment.AREABSCR1.read_beam.sigma_y
-        ])
