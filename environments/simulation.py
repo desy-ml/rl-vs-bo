@@ -11,11 +11,10 @@ class ExperimentalArea:
     screen_resolution = (2448, 2040)
     pixel_size = (3.3198e-6, 2.4469e-6)
 
-    def __init__(self, incoming="const", quadrupole_misalignments="none", screen_misalignment="none", beam_parameters="us"):
+    def __init__(self, incoming="const", misalignments="none", measure_beam="us"):
         self._incoming_method = incoming
-        self._quadrupole_misalignment_method = quadrupole_misalignments
-        self._screen_misalignment_method = screen_misalignment
-        self._beam_parameter_method = beam_parameters
+        self._misalignment_method = misalignments
+        self._beam_parameter_method = measure_beam
         
         self._segment = cheetah.Segment.from_ocelot(lattice.cell, warnings=False, device="cpu").subcell("AREASOLA1", "AREABSCR1")
         self._segment.AREABSCR1.resolution = self.screen_resolution
@@ -23,21 +22,20 @@ class ExperimentalArea:
         self._segment.AREABSCR1.is_active = True
         self._segment.AREABSCR1.binning = 4
     
-    def reset(self):
-        if self._incoming_method == "const":
+    def reset(self, incoming=None, misalignments=None):
+        if incoming is not None:
+            self._incoming =cheetah.ParameterBeam.from_parameters(**incoming)
+        elif self._incoming_method == "const":
             self._incoming = cheetah.ParameterBeam.from_parameters()
         elif self._incoming_method == "random":
             self._incoming = self._make_random_incoming()
         
-        if self._quadrupole_misalignment_method == "none":
-            pass
-        elif self._quadrupole_misalignment_method == "random":
-            self._randomize_quadrupole_misalignments()
-        
-        if self._screen_misalignment_method == "none":
-            pass
-        elif self._screen_misalignment_method == "random":
-            self._randomize_screen_misalignment()
+        if misalignments is not None:
+            self.misalignments = misalignments
+        elif self._misalignment_method == "none":
+            self.misalignments = np.zeros(8)
+        elif self._misalignment_method == "random":
+            self.misalignments = np.random.uniform(-1e3, 1e3, size=8)
 
         self._run_simulation()
     
@@ -56,25 +54,25 @@ class ExperimentalArea:
             energy=np.random.uniform(80e6, 160e6)
         )
     
-    def _randomize_quadrupole_misalignments(self):
-        self._segment.AREAMQZM1.misalignment = (
-            np.random.uniform(-1e3, 1e3),
-            np.random.uniform(-1e3, 1e3)
-        )
-        self._segment.AREAMQZM2.misalignment = (
-            np.random.uniform(-1e3, 1e3),
-            np.random.uniform(-1e3, 1e3)
-        )
-        self._segment.AREAMQZM3.misalignment = (
-            np.random.uniform(-1e3, 1e3),
-            np.random.uniform(-1e3, 1e3)
-        )
+    @property
+    def misalignments(self):
+        return [
+            self._segment.AREAMQZM1.misalignment[0],
+            self._segment.AREAMQZM1.misalignment[1],
+            self._segment.AREAMQZM2.misalignment[0],
+            self._segment.AREAMQZM2.misalignment[1],
+            self._segment.AREAMQZM3.misalignment[0],
+            self._segment.AREAMQZM3.misalignment[1],
+            self._segment.AREABSCR1.misalignment[0],
+            self._segment.AREABSCR1.misalignment[1]
+        ]
 
-    def _randomize_screen_misalignment(self):
-        self._segment.AREABSCR1.misalignment = (
-            np.random.uniform(-1e3, 1e3),
-            np.random.uniform(-1e3, 1e3)
-        )
+    @misalignments.setter
+    def misalignments(self, value):
+        self._segment.AREAMQZM1.misalignment = (value[0], value[1])
+        self._segment.AREAMQZM2.misalignment = (value[2], value[3])
+        self._segment.AREAMQZM3.misalignment = (value[4], value[5])
+        self._segment.AREABSCR1.misalignment = (value[6], value[7])
 
     @property
     def actuators(self):

@@ -47,10 +47,12 @@ class ARESEASequential(gym.Env):
 
         self._initial_method = initial
     
-    def reset(self, desired=None):
-        self.backend.reset()
+    def reset(self, desired=None, initial=None, **kwargs):
+        self.backend.reset(**kwargs)
         
-        if self._initial_method == "none":
+        if initial is not None:
+            self.backend.actuators = initial
+        elif self._initial_method == "none":
             pass
         elif self._initial_method == "reset":
             self.backend.actuators = np.zeros(5)
