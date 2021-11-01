@@ -9,7 +9,7 @@ from environments.sequential import ARESEASequential
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 10*600000,
+    "total_timesteps": 600000,
     "noise_type": "normal",
     "noise_std": 0.1,
     "learning_rate": 1e-3,
@@ -36,11 +36,12 @@ wandb.init(
 def make_env():
     env = ARESEASequential(
         backend="simulation",
-        random_incoming=True,
-        random_initial=True,
-        random_quadrupole_misalignments=False,
-        random_screen_misalignments=False,
-        beam_parameter_method="direct"
+        initial="reset",
+        backendargs={
+            "incoming": "random",
+            "measure_beam": "direct",
+            "misalignments": "random"
+        }
     )
     env = TimeLimit(env, max_episode_steps=50)
     env = RescaleAction(env, -1, 1)
