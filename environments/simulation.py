@@ -35,7 +35,7 @@ class ExperimentalArea:
         elif self._misalignment_method == "none":
             self.misalignments = np.zeros(8)
         elif self._misalignment_method == "random":
-            self.misalignments = np.random.uniform(-1e3, 1e3, size=8)
+            self.misalignments = np.random.uniform(-400e-6, 400e-6, size=8)
 
         self._run_simulation()
     
