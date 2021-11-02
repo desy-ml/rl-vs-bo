@@ -40,7 +40,7 @@ def make_env():
         backendargs={
             "incoming": "random",
             "measure_beam": "direct",
-            "misalignments": "random"
+            "misalignments": "none"
         }
     )
     env = TimeLimit(env, max_episode_steps=50)
