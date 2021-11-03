@@ -18,7 +18,7 @@ class ARESEASequential(gym.Env):
     }
 
     actuator_space = spaces.Box(
-        low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),
+        low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),      # TODO: Quad limits +/-72
         high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
     )
     beam_parameter_space = spaces.Box(
@@ -35,9 +35,9 @@ class ARESEASequential(gym.Env):
         high=actuator_space.high * 0.1
     )
 
-    target_delta = np.array([5e-6] * 4)
+    target_delta = np.array([5e-6] * 4)     # TODO: Set to somethind like pixel accuracy
 
-    def __init__(self, backend="simulation", initial="none", backendargs={}):
+    def __init__(self, backend="simulation", initial="none", desired="random", backendargs={}):
         if backend == "simulation":
             self.backend = simulation.ExperimentalArea(**backendargs)
         elif backend == "machine":
@@ -46,20 +46,40 @@ class ARESEASequential(gym.Env):
             raise ValueError(f"Backend {backend} is not supported!")
 
         self._initial_method = initial
-    
-    def reset(self, desired=None, initial=None, **kwargs):
-        self.backend.reset(**kwargs)
+        if initial == "problem":
+            self.next_initial = None
         
-        if initial is not None:
-            self.backend.actuators = initial
-        elif self._initial_method == "none":
+        self._desired_method = desired
+        if desired == "problem":
+            self.next_desired = None
+    
+    def reset(self):
+        self.backend.reset()
+        
+        if self._initial_method == "none":
             pass
         elif self._initial_method == "reset":
             self.backend.actuators = np.zeros(5)
         elif self._initial_method == "random":
             self.backend.actuators = self.actuator_space.sample()
+        elif self._initial_method == "problem":
+            if self.next_initial is None:
+                raise ValueError("No next initial actuators have been set.")
+            self.actuators = self.next_initial
+            self.next_initial = None
+        else:
+            raise ValueError(f"Invalid setting \"{self._initial_method}\" for initial method.")
 
-        self.desired = desired if desired is not None else self.beam_parameter_space.sample()
+        if self._desired_method == "random":
+            self.desired = self.beam_parameter_space.sample()
+        elif self._desired_method == "problem":
+            if self.desired is None:
+                raise ValueError("No next desired beam parameters have been set.")
+            self.desired = self.next_desired
+            self.next_desired = None
+        else:
+            raise ValueError(f"Invalid setting \"{self._desired_method}\" for desired method.")
+        
         self.achieved = self.backend.compute_beam_parameters()
 
         observation = np.concatenate([self.backend.actuators, self.desired, self.achieved])
@@ -105,6 +125,30 @@ class ARESEASequential(gym.Env):
     def _reward_fn(self, objective, previous):
         reward = previous - objective
         return reward if reward > 0 else 2 * reward
+    
+    @property
+    def next_problem(self):
+        initial = self.next_initial if self._initial_method == "problem" else None
+        incoming = self.backend.next_incoming if self.backend._incoming_method == "problem" else None
+        misalignments = self.backend.next_misalignments if self.backend._misalignment_method == "problem" else None
+        desired = self.next_desired if self._desired_method == "problem" else None
+        return {
+            "initial": initial,
+            "incoming": incoming,
+            "misalignments": misalignments,
+            "desired": desired
+        }
+    
+    @next_problem.setter
+    def next_problem(self, value):
+        if "initial" in value and self._initial_method == "problem":
+            self.next_initial = value["initial"]
+        if "incoming" in value and self.backend._incoming_method == "problem":
+            self.backend.next_incoming = value["incoming"]
+        if "misalignments" in value and self.backend._misalignments_method == "problem":
+            self.backend.next_misalignments = value["misalignments"]
+        if "desired" in value and self._desired_method == "problem":
+            self.next_desired = value["desired"]
 
     def render(self, mode="human"):
         fig = plt.figure("ARESEA-Cheetah", figsize=(28,8))

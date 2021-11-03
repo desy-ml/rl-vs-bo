@@ -13,7 +13,12 @@ class ExperimentalArea:
 
     def __init__(self, incoming="const", misalignments="none", measure_beam="us"):
         self._incoming_method = incoming
+        if incoming == "problem":
+            self.next_incoming = None
         self._misalignment_method = misalignments
+        if misalignments == "problem":
+            self.next_misalignments = None
+
         self._beam_parameter_method = measure_beam
         
         self._segment = cheetah.Segment.from_ocelot(lattice.cell, warnings=False, device="cpu").subcell("AREASOLA1", "AREABSCR1")
@@ -22,20 +27,30 @@ class ExperimentalArea:
         self._segment.AREABSCR1.is_active = True
         self._segment.AREABSCR1.binning = 4
     
-    def reset(self, incoming=None, misalignments=None):
-        if incoming is not None:
-            self._incoming =cheetah.ParameterBeam.from_parameters(**incoming)
-        elif self._incoming_method == "const":
+    def reset(self):
+        if self._incoming_method == "const":
             self._incoming = cheetah.ParameterBeam.from_parameters()
         elif self._incoming_method == "random":
             self._incoming = self._make_random_incoming()
+        elif self._incoming_method == "problem":
+            if self.next_incoming is None:
+                raise ValueError("No next incoming beam has been set.")
+            self._incoming = cheetah.ParameterBeam.from_parameters(**self.next_incoming)
+            self.next_incoming = None
+        else:
+            raise ValueError(f"Invalid setting \"{self._incoming_method}\" for incoming method.")
         
-        if misalignments is not None:
-            self.misalignments = misalignments
-        elif self._misalignment_method == "none":
+        if self._misalignment_method == "none":
             self.misalignments = np.zeros(8)
         elif self._misalignment_method == "random":
             self.misalignments = np.random.uniform(-400e-6, 400e-6, size=8)
+        elif self._misalignment_method == "problem":
+            if self.next_misalignments is None:
+                raise ValueError("No next misalignments have been set")
+            self.misalignments = self.next_misalignments
+            self.next_misalignments = None
+        else:
+            raise ValueError(f"Invalid setting \"{self._misalignment_method}\" for misalignment method.")
 
         self._run_simulation()
     
