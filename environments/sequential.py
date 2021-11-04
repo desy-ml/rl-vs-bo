@@ -37,7 +37,7 @@ class ARESEASequential(gym.Env):
 
     target_delta = np.array([5e-6] * 4)     # TODO: Set to somethind like pixel accuracy
 
-    def __init__(self, backend="simulation", initial="none", desired="random", backendargs={}):
+    def __init__(self, backend="simulation", backendargs={}):
         if backend == "simulation":
             self.backend = simulation.ExperimentalArea(**backendargs)
         elif backend == "machine":
@@ -45,40 +45,22 @@ class ARESEASequential(gym.Env):
         else:
             raise ValueError(f"Backend {backend} is not supported!")
 
-        self._initial_method = initial
-        if initial == "problem":
-            self.next_initial = None
-        
-        self._desired_method = desired
-        if desired == "problem":
-            self.next_desired = None
+        self.next_initial = None
+        self.next_desired = None
     
     def reset(self):
         self.backend.reset()
         
-        if self._initial_method == "none":
+        if self.next_initial is not None:
+            self.backend.actuators = self.next_initial
+        elif self.next_initial == "stay":
             pass
-        elif self._initial_method == "reset":
-            self.backend.actuators = np.zeros(5)
-        elif self._initial_method == "random":
+        else:
             self.backend.actuators = self.actuator_space.sample()
-        elif self._initial_method == "problem":
-            if self.next_initial is None:
-                raise ValueError("No next initial actuators have been set.")
-            self.actuators = self.next_initial
-            self.next_initial = None
-        else:
-            raise ValueError(f"Invalid setting \"{self._initial_method}\" for initial method.")
+        self.next_initial = None
 
-        if self._desired_method == "random":
-            self.desired = self.beam_parameter_space.sample()
-        elif self._desired_method == "problem":
-            if self.desired is None:
-                raise ValueError("No next desired beam parameters have been set.")
-            self.desired = self.next_desired
-            self.next_desired = None
-        else:
-            raise ValueError(f"Invalid setting \"{self._desired_method}\" for desired method.")
+        self.desired = self.next_desired if self.next_desired is not None else self.beam_parameter_space.sample()
+        self.next_desired = None
         
         self.achieved = self.backend.compute_beam_parameters()
 
@@ -125,30 +107,6 @@ class ARESEASequential(gym.Env):
     def _reward_fn(self, objective, previous):
         reward = previous - objective
         return reward if reward > 0 else 2 * reward
-    
-    @property
-    def next_problem(self):
-        initial = self.next_initial if self._initial_method == "problem" else None
-        incoming = self.backend.next_incoming if self.backend._incoming_method == "problem" else None
-        misalignments = self.backend.next_misalignments if self.backend._misalignment_method == "problem" else None
-        desired = self.next_desired if self._desired_method == "problem" else None
-        return {
-            "initial": initial,
-            "incoming": incoming,
-            "misalignments": misalignments,
-            "desired": desired
-        }
-    
-    @next_problem.setter
-    def next_problem(self, value):
-        if "initial" in value and self._initial_method == "problem":
-            self.next_initial = value["initial"]
-        if "incoming" in value and self.backend._incoming_method == "problem":
-            self.backend.next_incoming = value["incoming"]
-        if "misalignments" in value and self.backend._misalignments_method == "problem":
-            self.backend.next_misalignments = value["misalignments"]
-        if "desired" in value and self._desired_method == "problem":
-            self.next_desired = value["desired"]
 
     def render(self, mode="human"):
         fig = plt.figure("ARESEA-Cheetah", figsize=(28,8))

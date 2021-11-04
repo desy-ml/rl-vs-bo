@@ -11,14 +11,9 @@ class ExperimentalArea:
     screen_resolution = (2448, 2040)
     pixel_size = (3.3198e-6, 2.4469e-6)
 
-    def __init__(self, incoming="const", misalignments="none", measure_beam="us"):
-        self._incoming_method = incoming
-        if incoming == "problem":
-            self.next_incoming = None
-        self._misalignment_method = misalignments
-        if misalignments == "problem":
-            self.next_misalignments = None
+    max_misalignment = 400e-6
 
+    def __init__(self, measure_beam="us"):
         self._beam_parameter_method = measure_beam
         
         self._segment = cheetah.Segment.from_ocelot(lattice.cell, warnings=False, device="cpu").subcell("AREASOLA1", "AREABSCR1")
@@ -26,31 +21,22 @@ class ExperimentalArea:
         self._segment.AREABSCR1.pixel_size = self.pixel_size
         self._segment.AREABSCR1.is_active = True
         self._segment.AREABSCR1.binning = 4
+
+        self.next_incoming = None
+        self.next_misalignments = None
     
     def reset(self):
-        if self._incoming_method == "const":
-            self._incoming = cheetah.ParameterBeam.from_parameters()
-        elif self._incoming_method == "random":
-            self._incoming = self._make_random_incoming()
-        elif self._incoming_method == "problem":
-            if self.next_incoming is None:
-                raise ValueError("No next incoming beam has been set.")
+        if self.next_incoming is not None:
             self._incoming = cheetah.ParameterBeam.from_parameters(**self.next_incoming)
-            self.next_incoming = None
         else:
-            raise ValueError(f"Invalid setting \"{self._incoming_method}\" for incoming method.")
+            self._incoming = self._make_random_incoming()
+        self.next_incoming = None
         
-        if self._misalignment_method == "none":
-            self.misalignments = np.zeros(8)
-        elif self._misalignment_method == "random":
-            self.misalignments = np.random.uniform(-400e-6, 400e-6, size=8)
-        elif self._misalignment_method == "problem":
-            if self.next_misalignments is None:
-                raise ValueError("No next misalignments have been set")
+        if self.next_misalignments is not None:
             self.misalignments = self.next_misalignments
-            self.next_misalignments = None
         else:
-            raise ValueError(f"Invalid setting \"{self._misalignment_method}\" for misalignment method.")
+            self.misalignments = np.random.uniform(-self.max_misalignment, self.max_misalignment, size=8)
+        self.next_misalignments = None
 
         self._run_simulation()
     
