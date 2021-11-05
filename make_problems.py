@@ -1,21 +1,18 @@
 import json
+import numpy as np
 
-from environments import ARESEAOneStep, ARESEASequential
+from environments import ARESEASequential
 
 
 def make_problems(n=100):
     env = ARESEASequential(
         backend="simulation",
-        initial="reset",
-        backendargs={
-            "incoming": "random",
-            "measure_beam": "direct",
-            "misalignments": "none"
-        }
+        backendargs={"measure_beam": "direct"}
     )
 
     problems = []
     for _ in range(n):
+        env.next_initial = np.zeros(5)
         env.reset()
 
         problem = {
@@ -31,7 +28,7 @@ def make_problems(n=100):
 
 
 def main():
-    problems = make_problems(n=100)
+    problems = make_problems(n=300)
     
     with open("problems.json", "w") as f:
         json.dump(problems, f, indent=4)
