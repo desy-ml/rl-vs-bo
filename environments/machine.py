@@ -25,6 +25,9 @@ class ExperimentalArea:
     screen_resolution = np.array([2464, 2056])
     pixel_size = np.array([3.3198e-6, 2.4469e-6])
 
+    def __init__(self, measure_beam="us"):
+        self._beam_parameter_method = measure_beam
+
     def reset(self):
         pass
 
@@ -65,6 +68,8 @@ class ExperimentalArea:
 
         removed = (median_beam - median_background).clip(0, 2**16-1)
         flipped = np.flipud(removed)
+
+        self.last_beam_image = flipped
         
         return flipped
     
