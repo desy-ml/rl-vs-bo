@@ -38,12 +38,12 @@ class ARESEAOptimization(gym.Env):
     def reset(self):
         self.backend.reset()
         
-        if self.next_initial is not None:
-            self.backend.actuators = self.next_initial
-        elif self.next_initial == "stay":
+        if isinstance(self.next_initial, str) and self.next_initial == "stay":
             pass
+        elif self.next_initial is not None:
+            self.backend.actuators = self.next_initial
         else:
-            self.backend.actuators = self.actuator_space.sample()
+            self.backend.actuators = self.action_space.sample()
         self.next_initial = None
 
         self.desired = self.next_desired if self.next_desired is not None else self.beam_parameter_space.sample()
