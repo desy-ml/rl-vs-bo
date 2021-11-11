@@ -35,7 +35,7 @@ class ARESEASequential(gym.Env):
         high=actuator_space.high * 0.1
     )
 
-    target_delta = np.array([5e-6] * 4)     # TODO: Set to somethind like pixel accuracy
+    target_delta = np.array([6.6396e-06] * 4)
 
     def __init__(self, backend="simulation", backendargs={}):
         if backend == "simulation":
