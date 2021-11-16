@@ -42,16 +42,16 @@ class ExperimentalArea:
     
     def _make_random_incoming(self):
         return cheetah.ParameterBeam.from_parameters(
-            mu_x=np.random.uniform(-3e-3, 3e-3),    # 1e-3
-            mu_y=np.random.uniform(-3e-4, 3e-4),    # 1e-3
-            mu_xp=np.random.uniform(-1e-4, 1e-4),   # 1e-4
-            mu_yp=np.random.uniform(-1e-4, 1e-4),   # 1e-4
-            sigma_x=np.random.uniform(0, 2e-3),     # 1e-5 -> 5e-4
-            sigma_y=np.random.uniform(0, 2e-3),     # 1e-5 -> 5e-4
-            sigma_xp=np.random.uniform(0, 1e-4),    # 1e-6 -> 5e-5
-            sigma_yp=np.random.uniform(0, 1e-4),    # 1e-6 -> 5e-5
-            sigma_s=np.random.uniform(0, 2e-3),     # 1e-6 -> 5e-5
-            sigma_p=np.random.uniform(0, 5e-3),     # 1e-4 -> 1e-3
+            mu_x=np.random.uniform(-1e-3, 1e-3),
+            mu_y=np.random.uniform(-1e-3, 1e-3),
+            mu_xp=np.random.uniform(-1e-4, 1e-4),
+            mu_yp=np.random.uniform(-1e-4, 1e-4),
+            sigma_x=np.random.uniform(1e-5, 5e-4),
+            sigma_y=np.random.uniform(1e-5, 5e-4),
+            sigma_xp=np.random.uniform(1e-6, 5e-5),
+            sigma_yp=np.random.uniform(1e-6, 5e-5),
+            sigma_s=np.random.uniform(1e-6, 5e-5),
+            sigma_p=np.random.uniform(1e-4, 1e-3),
             energy=np.random.uniform(80e6, 160e6)
         )
     

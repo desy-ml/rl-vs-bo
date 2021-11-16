@@ -1,3 +1,4 @@
+import gym
 from gym import spaces
 import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
@@ -43,3 +44,10 @@ def compute_beam_parameters_via_fwhm(img, pixel_size):
     parameters[1] = -parameters[1]
 
     return parameters
+
+
+class ResetActuators(gym.Wrapper):
+
+    def reset(self, **kwargs):
+        self.env.unwrapped.next_initial = np.zeros(self.env.action_space.shape)
+        return self.env.reset(**kwargs)

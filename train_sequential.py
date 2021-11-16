@@ -5,7 +5,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 
-from environments.sequential import ARESEASequential
+from environments import ARESEASequential, ResetActuators
 
 
 hyperparameter_defaults = {
@@ -36,13 +36,9 @@ wandb.init(
 def make_env():
     env = ARESEASequential(
         backend="simulation",
-        initial="reset",
-        backendargs={
-            "incoming": "random",
-            "measure_beam": "direct",
-            "misalignments": "none"
-        }
+        backendargs={"measure_beam": "direct"}
     )
+    env = ResetActuators(env)
     env = TimeLimit(env, max_episode_steps=50)
     env = RescaleAction(env, -1, 1)
     return env
