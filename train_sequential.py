@@ -5,7 +5,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 
-from environments import ARESEAMSE, ResetActuators
+from environments import ARESEAPunish, ResetActuators
 
 
 hyperparameter_defaults = {
@@ -34,7 +34,7 @@ wandb.init(
 )
 
 def make_env():
-    env = ARESEAMSE(
+    env = ARESEAPunish(
         backend="simulation",
         backendargs={"measure_beam": "direct"}
     )
