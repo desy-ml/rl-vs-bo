@@ -1,7 +1,7 @@
-from .mse import ARESEAMSE
+from .sequential import ARESEASequential
 
 
-class ARESEAPunish(ARESEAMSE):
+class ARESEAPunish(ARESEASequential):
 
     def _reward_fn(self, objective, previous):
         return -objective
