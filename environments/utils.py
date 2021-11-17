@@ -1,6 +1,7 @@
 import gym
 from gym import spaces
 import numpy as np
+from scipy import optimize
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
 
@@ -17,7 +18,7 @@ def compute_beam_parameters(img, pixel_size, method="us"):
     if method == "us":
         return compute_beam_parameters_via_fwhm(img, pixel_size)
     elif method == "willi":
-        raise NotImplementedError()
+        return compute_beam_parameters_via_gaussianfit(img, pixel_size)
     else:
         raise ValueError(f"There exists no beam parameter method \"{method}\"!")
 
@@ -25,8 +26,8 @@ def compute_beam_parameters(img, pixel_size, method="us"):
 def compute_beam_parameters_via_fwhm(img, pixel_size):
     parameters = np.empty(4)
     for axis in [0, 1]:
-        profile = img.sum(axis=axis)
-        minfiltered = minimum_filter1d(profile, size=5, mode="nearest")
+        projection = img.sum(axis=axis)
+        minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
         filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
 
         half_values, = np.where(filtered >= 0.5 * filtered.max())
@@ -40,6 +41,29 @@ def compute_beam_parameters_via_fwhm(img, pixel_size):
 
         parameters[axis] = (center_pixel - len(filtered) / 2) * pixel_size[axis]
         parameters[axis+2] = fwhm_pixel / 2.355 * pixel_size[axis]
+        
+    parameters[1] = -parameters[1]
+
+    return parameters
+
+
+def compute_beam_parameters_via_gaussianfit(img, pixel_size):
+    def gaussian(x, a, mu, sigma):
+        return np.abs(a) * np.exp(-((x - mu) / sigma)**2 / 2)
+
+    parameters = np.empty(4)
+    for axis in [0, 1]:
+        projection = img.sum(axis=axis)
+        minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
+        filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
+
+        pixel_centers = np.arange(len(filtered)) + 0.5
+
+        result, _ = optimize.curve_fit(gaussian, pixel_centers, filtered)
+        _, mu_pixel, sigma_pixel = result
+
+        parameters[axis] = (mu_pixel - len(filtered) / 2) * pixel_size[axis]
+        parameters[axis+2] = sigma_pixel * pixel_size[axis]
         
     parameters[1] = -parameters[1]
 
