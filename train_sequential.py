@@ -5,11 +5,11 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 
-from environments import ARESEAPunish, ResetActuators
+from environments import ARESEASequential, ResetActuators
 
 
 hyperparameter_defaults = {
-    "total_timesteps": 600000,
+    "total_timesteps": 6000000,
     "noise_type": "normal",
     "noise_std": 0.1,
     "learning_rate": 1e-3,
@@ -34,7 +34,7 @@ wandb.init(
 )
 
 def make_env():
-    env = ARESEAPunish(
+    env = ARESEASequential(
         backend="simulation",
         backendargs={"measure_beam": "direct"}
     )
