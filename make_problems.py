@@ -30,7 +30,7 @@ def make_problems(n=100):
 def main():
     problems = make_problems(n=300)
     
-    with open("problems.json", "w") as f:
+    with open("problems_2.json", "w") as f:
         json.dump(problems, f, indent=4)
 
 
