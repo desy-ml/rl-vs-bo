@@ -11,7 +11,7 @@ from environments import ARESEASequential, ResetActuators
 
 def main():
     hyperparameter_defaults = {
-        "total_timesteps": 6000000,
+        "total_timesteps": 100000000,
         "learning_rate": 1e-3,
         "n_steps": 2048,
         "batch_size": 64,
