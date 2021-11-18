@@ -11,12 +11,6 @@ log
 recordings
 wandb
 
-models/*
-!models/old
-!models/onestep_ppo
-!models/onestep_vpg
-!models/sequential
-
 machine_studies/*.pkl
 machine_studies/holdplease
 machine_studies/operator_5only/
