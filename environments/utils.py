@@ -87,6 +87,7 @@ class ResetActuatorsToDFD(gym.Wrapper):
         self.env.unwrapped.next_initial = np.array([10, -10, 10, 0, 0], dtype="float")
         return self.env.reset(**kwargs)
 
+
 class ResetActuatorsToRandom(gym.Wrapper):
 
     def __init__(self, env):
