@@ -1,5 +1,6 @@
+import itertools
+
 import json
-import numpy as np
 
 from environments import ARESEASequential
 
@@ -12,11 +13,10 @@ def make_problems(n=100):
 
     problems = []
     for _ in range(n):
-        env.next_initial = np.zeros(5)
         env.reset()
 
         problem = {
-            "initial": list(env.backend.actuators),
+            "initial": list(env.backend.actuators.astype("float64")),
             "incoming": {k: float(v) for k, v in env.backend._incoming.parameters.items()},
             "misalignments": list(env.backend.misalignments),
             "desired": list(env.desired.astype("float64"))
@@ -27,10 +27,26 @@ def make_problems(n=100):
     return problems
 
 
+def place_structured_problems(problems):
+    point = (0.0, 0.0)
+    horizontal = (5e-4, 0.0)
+    vertical = (0.0, 5e-4)
+    shapes = [point, horizontal, vertical]
+
+    xs = [0.0, -1e-3, 1e-3]
+    ys = [0.0, -1e-3, 1e-3]
+
+    for i, (mu_y, mu_x, (sigma_x, sigma_y)) in enumerate(itertools.product(ys, xs, shapes)):
+        problems[i]["desired"] = [mu_x, mu_y, sigma_x, sigma_y]
+    
+    return problems
+
+
 def main():
     problems = make_problems(n=300)
+    problems = place_structured_problems(problems)
     
-    with open("problems_2.json", "w") as f:
+    with open("problems_3.json", "w") as f:
         json.dump(problems, f, indent=4)
 
 
