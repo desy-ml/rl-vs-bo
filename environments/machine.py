@@ -1,13 +1,43 @@
+from datetime import datetime
 import importlib
+import logging
 import os
+from pathlib import Path
 import time
 
 import numpy as np
 
 from . import utils
+from mail import send_mail
 
 
 pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
+
+
+# Setup logging (to console)
+timestamp = lambda: datetime.now().strftime("%y%m%d_%H%M%S")
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(levelname)-7.7s: %(message)s")
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+path = os.getcwd() # Check path and directory before running
+folder = 'logs'
+Path(folder).mkdir(parents=True, exist_ok=True)
+directory = os.path.join(path, folder)
+description  = 'machine_backend'
+logpath = os.path.join(directory,f'{timestamp()}_{description}.log')
+
+file_handler = logging.FileHandler(logpath)
+file_handler.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter("%(asctime)s - %(levelname)-7.7s: %(message)s")
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
 
 
 class ExperimentalArea:
@@ -44,6 +74,10 @@ class ExperimentalArea:
     @actuators.setter
     def actuators(self, values):
         """Set the magents on ARES (the actual machine) in the experimental area."""
+        self._wait_machine_okay()
+        
+        logger.debug(f"Setting actuators to {values}")
+        
         for channel, value in zip(self.actuator_channels[:3], values[:3]):
             pydoocs.write(channel + "STRENGTH.SP", value)
         for channel, value in zip(self.actuator_channels[3:], values[3:]):
@@ -117,3 +151,39 @@ class ExperimentalArea:
             pydoocs.read(self.screen_channel + "BINNINGHORIZONTAL")["data"],
             pydoocs.read(self.screen_channel + "BINNINGVERTICAL")["data"]
         )
+    
+    def _wait_machine_okay(self):
+        timeout = 600
+        if self._error_count > 0:
+            logger.warning("Waiting for machine okay")
+            i = 0
+            while self._error_count > 0:
+                time.sleep(1)
+                i += 1
+                logger.warning(f"Shutdown in {timeout-i} seconds")
+                
+                if i > timeout:
+                    self._go_to_safe_state()
+                    logger.error("Wait machine okay timed out -> machine set to safe state")
+                    send_mail(
+                        "MSK-IPC AA: Wait machine okay timed out -> machine set to safe state",
+                        ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
+                    )
+                    raise Exception(f"Error count was above 0 for more than {timeout} seconds")
+                
+
+    @property
+    def _error_count(self):
+        response = pydoocs.read("SINBAD.UTIL/MACHINE.STATE/ACCLXSISRV04._SVR/SVR.ERROR_COUNT")
+        return response["data"]
+    
+    def _go_to_safe_state(self):
+        self._switch_cathode_laser(False)
+        self._zero_magnets()
+    
+    def _zero_magnets(self):
+        for channel in self.actuator_channels[:3]:
+            pydoocs.write(channel + "STRENGTH.SP", 0)
+        for channel in self.actuator_channels[3:]:
+            pydoocs.write(channel + "KICK_MRAD.SP", 0)
+        
