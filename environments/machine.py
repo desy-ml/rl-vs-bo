@@ -171,7 +171,6 @@ class ExperimentalArea:
                     )
                     raise Exception(f"Error count was above 0 for more than {timeout} seconds")
                 
-
     @property
     def _error_count(self):
         response = pydoocs.read("SINBAD.UTIL/MACHINE.STATE/ACCLXSISRV04._SVR/SVR.ERROR_COUNT")
