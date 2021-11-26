@@ -84,8 +84,29 @@ class ExperimentalArea:
             pydoocs.write(channel + "KICK_MRAD.SP", value * 1000)
         
         time.sleep(3.0)
+        i = 0
         while any(pydoocs.read(channel + "BUSY")["data"] or not pydoocs.read(channel + "PS_ON")["data"] for channel in self.actuator_channels):
             time.sleep(0.25)
+            i += 1
+            if i > 180:
+                for channel in self.actuator_channels:
+                    if not pydoocs.read(channel + "PS_ON")["data"]:
+                        pydoocs.write(channel + "PS_ON", 1)
+                        time.sleep(1)
+                    elif pydoocs.read(channel + "BUSY")["data"]:
+                        pydoocs.write(channel + "PS_ON", 0)
+                        time.sleep(1)
+                        pydoocs.write(channel + "PS_ON", 1)
+                        time.sleep(1)
+            if i > 360:
+                self._go_to_safe_state()
+                logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
+                send_mail(
+                    "Magnet setting timed out and could not be recvoered -> machine set to safe state",
+                    ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
+                )
+                raise Exception(f"Magnet setting timed out")
+
     
     def capture_clean_beam(self, average=10):
         """Capture a clean (dark current removed) image of the beam."""
