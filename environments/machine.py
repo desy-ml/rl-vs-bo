@@ -14,32 +14,6 @@ import toolkit
 pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
 
 
-# Setup logging (to console)
-timestamp = lambda: datetime.now().strftime("%y%m%d_%H%M%S")
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)-7.7s: %(message)s")
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
-path = os.getcwd() # Check path and directory before running
-folder = 'logs'
-Path(folder).mkdir(parents=True, exist_ok=True)
-directory = os.path.join(path, folder)
-description  = 'machine_backend'
-logpath = os.path.join(directory,f'{timestamp()}_{description}.log')
-
-file_handler = logging.FileHandler(logpath)
-file_handler.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter("%(asctime)s - %(levelname)-7.7s: %(message)s")
-file_handler.setFormatter(formatter)
-
-logger.addHandler(file_handler)
-
-
 class ExperimentalArea:
     """Interface to the Experimental Area at ARES."""
 
@@ -57,9 +31,18 @@ class ExperimentalArea:
 
     def __init__(self, measure_beam="us"):
         self._beam_parameter_method = measure_beam
+        self._setup_logger()
 
     def reset(self):
         pass
+    
+    def _setup_logger(self):
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        self.logger.addHandler(console)
 
     @property
     def actuators(self):
@@ -76,7 +59,7 @@ class ExperimentalArea:
         """Set the magents on ARES (the actual machine) in the experimental area."""
         self._wait_machine_okay()
         
-        logger.debug(f"Setting actuators to {values}")
+        self.logger.debug(f"Setting actuators to {list(values)}")
         
         for channel, value in zip(self.actuator_channels[:3], values[:3]):
             pydoocs.write(channel + "STRENGTH.SP", value)
@@ -84,11 +67,12 @@ class ExperimentalArea:
             pydoocs.write(channel + "KICK_MRAD.SP", value * 1000)
         
         self._wait_for_magnets(self.actuator_channels)
-
     
     def capture_clean_beam(self, average=10):
         """Capture a clean (dark current removed) image of the beam."""
         self._wait_machine_okay()
+
+        self.logger.debug("Capturing clean beam")
 
         # Laser off
         self._cathode_laser_off()
@@ -140,9 +124,11 @@ class ExperimentalArea:
         time.sleep(1)
     
     def _cathode_laser_on(self):
+        self.logger.debug("Turning laser on")
         self._switch_cathode_laser(True)
     
     def _cathode_laser_off(self):
+        self.logger.debug("Turning laser off")
         self._switch_cathode_laser(False)
     
     @property
@@ -152,19 +138,19 @@ class ExperimentalArea:
             pydoocs.read(self.screen_channel + "BINNINGVERTICAL")["data"]
         )
     
-    def _wait_machine_okay(self):
-        timeout = 600
+    def _wait_machine_okay(self, timeout=600):
+        self.logger.debug("Checking machine okay")
+
         if self._error_count > 0:
-            logger.warning("Waiting for machine okay")
+            self.logger.warning("Waiting for machine okay")
             i = 0
             while self._error_count > 0:
                 time.sleep(1)
                 i += 1
-                logger.warning(f"Shutdown in {timeout-i} seconds")
                 
                 if i > timeout:
                     self._go_to_safe_state()
-                    logger.error("Wait machine okay timed out -> machine set to safe state")
+                    self.logger.error("Wait machine okay timed out -> machine set to safe state")
                     toolkit.send_mail(
                         "MSK-IPC AA: Wait machine okay timed out -> machine set to safe state",
                         ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
@@ -177,6 +163,7 @@ class ExperimentalArea:
         return response["data"]
     
     def _go_to_safe_state(self):
+        self.logger.debug("Going to safe state")
         self._switch_cathode_laser(False)
         self._zero_magnets()
     
@@ -187,12 +174,14 @@ class ExperimentalArea:
             pydoocs.write(channel + "KICK_MRAD.SP", 0)
     
     def _wait_for_magnets(self, channels, timeout1=180, timeout2=360):
+        self.logger.debug("Waiting for magnets")
         time.sleep(3.0)
         i = 0
         while any(self._is_busy(channel) or not self._is_ps_on(channel) for channel in channels):
             time.sleep(0.25)
             i += 1
             if i > timeout1:
+                self.logger.warning("Waiting for magnets timed out -> attempting recovery")
                 for channel in self.actuator_channels:
                     if not self._is_ps_on(channel):
                         self._turn_on_ps(channel)
@@ -200,7 +189,7 @@ class ExperimentalArea:
                         self._restart_ps(channel)
             if i > timeout2:
                 self._go_to_safe_state()
-                logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
+                self.logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
                 toolkit.send_mail(
                     "Magnet setting timed out and could not be recvoered -> machine set to safe state",
                     ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
@@ -214,10 +203,12 @@ class ExperimentalArea:
         return pydoocs.read(channel + "PS_ON")["data"]
     
     def _turn_on_ps(self, channel):
+        self.logger.debug("Turning on power supply \"{channel}\"")
         pydoocs.write(channel + "PS_ON", 1)
         time.sleep(0.5)
 
     def _turn_off_ps(self, channel):
+        self.logger.debug("Turning off power supply \"{channel}\"")
         pydoocs.write(channel + "PS_ON", 0)
         time.sleep(0.5)
     
