@@ -89,6 +89,7 @@ class ExperimentalArea:
     
     def capture_clean_beam(self, average=10):
         """Capture a clean (dark current removed) image of the beam."""
+        self._wait_machine_okay()
 
         # Laser off
         self._cathode_laser_off()
