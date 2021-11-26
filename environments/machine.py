@@ -1,14 +1,11 @@
-from datetime import datetime
 import importlib
 import logging
 import os
-from pathlib import Path
 import time
 
 import numpy as np
 
 from . import utils
-import toolkit
 
 
 pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
@@ -151,10 +148,6 @@ class ExperimentalArea:
                 if i > timeout:
                     self._go_to_safe_state()
                     self.logger.error("Wait machine okay timed out -> machine set to safe state")
-                    toolkit.send_mail(
-                        "MSK-IPC AA: Wait machine okay timed out -> machine set to safe state",
-                        ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
-                    )
                     raise Exception(f"Error count was above 0 for more than {timeout} seconds")
                 
     @property
@@ -200,10 +193,6 @@ class ExperimentalArea:
             if i > timeout:
                 self._go_to_safe_state()
                 self.logger.error("Magnet setting timed out and could not be recovered -> machine set to safe state")
-                toolkit.send_mail(
-                    "Magnet setting timed out and could not be recovered -> machine set to safe state",
-                    ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
-                )
                 raise Exception(f"Magnet setting timed out")
     
     def _is_busy(self, channel):

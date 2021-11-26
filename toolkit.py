@@ -1,3 +1,4 @@
+import logging
 import os
 import requests
 import subprocess
@@ -63,12 +64,32 @@ def print_logbook_http(title, msg):
     print(r2.status_code)
         
         
-def send_mail(msg, to):
+def send_mail(to, subject="", msg="", sender=None):
     if isinstance(to, list):
-        for recepient in to:
-            send_mail(msg, recepient)
-    else:
-        os.popen(f"echo -n \"Subject: {msg}\" | sendmail {to}")
+        to = ",".join(to)
+    
+    echo = f"echo -n \"Subject: {subject}\n\n{msg}\""
+    
+    send = "sendmail"
+    if sender is not None:
+        send += f" -F \"{sender}\""
+    send += f" {to}"
+
+    cmd = f"{echo} | {send}"
+    os.popen(cmd)
+
+
+class MailHandler(logging.StreamHandler):
+
+    def __init__(self, recepients, name=None, send_history=True):
+        super().__init__(self)
+        self.recepients = recepients
+        self.name = name
+        self.send_history = send_history
+
+    def emit(self, record):
+        msg = self.format(record)
+        send_mail(self.recepients, subject=msg, sender=self.name)
 
  
 def main():
