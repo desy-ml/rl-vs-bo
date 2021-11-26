@@ -173,25 +173,35 @@ class ExperimentalArea:
         for channel in self.actuator_channels[3:]:
             pydoocs.write(channel + "KICK_MRAD.SP", 0)
     
-    def _wait_for_magnets(self, channels, timeout1=180, timeout2=360):
+    def _wait_for_magnets(self, channels, timeout=180):
         self.logger.debug("Waiting for magnets")
         time.sleep(3.0)
         i = 0
         while any(self._is_busy(channel) or not self._is_ps_on(channel) for channel in channels):
             time.sleep(0.25)
             i += 1
-            if i > timeout1:
-                self.logger.warning("Waiting for magnets timed out -> attempting recovery")
-                for channel in self.actuator_channels:
-                    if not self._is_ps_on(channel):
-                        self._turn_on_ps(channel)
-                    elif self._is_busy(channel):
-                        self._restart_ps(channel)
-            if i > timeout2:
+            if i > timeout:
+                self._recover_magnets(channels)
+    
+    def _recover_magnets(self, channels, timeout=180):
+        self.logger.warning("Attempting magnet recovery")
+        
+        for channel in channels:
+            if self._is_ps_on(channel) and self._is_busy(channel):
+                self._restart_ps(channel)
+            elif not self._is_ps_on(channel):
+                self._turn_on_ps(channel)
+
+        i = 0
+        while any(self._is_busy(channel) or not self._is_ps_on(channel) for channel in channels):
+            time.sleep(0.25)
+            i += 1
+
+            if i > timeout:
                 self._go_to_safe_state()
-                self.logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
+                self.logger.error("Magnet setting timed out and could not be recovered -> machine set to safe state")
                 toolkit.send_mail(
-                    "Magnet setting timed out and could not be recvoered -> machine set to safe state",
+                    "Magnet setting timed out and could not be recovered -> machine set to safe state",
                     ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
                 )
                 raise Exception(f"Magnet setting timed out")
@@ -203,12 +213,12 @@ class ExperimentalArea:
         return pydoocs.read(channel + "PS_ON")["data"]
     
     def _turn_on_ps(self, channel):
-        self.logger.debug("Turning on power supply \"{channel}\"")
+        self.logger.debug(f"Turning on power supply \"{channel}\"")
         pydoocs.write(channel + "PS_ON", 1)
         time.sleep(0.5)
 
     def _turn_off_ps(self, channel):
-        self.logger.debug("Turning off power supply \"{channel}\"")
+        self.logger.debug(f"Turning off power supply \"{channel}\"")
         pydoocs.write(channel + "PS_ON", 0)
         time.sleep(0.5)
     
