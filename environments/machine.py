@@ -83,29 +83,7 @@ class ExperimentalArea:
         for channel, value in zip(self.actuator_channels[3:], values[3:]):
             pydoocs.write(channel + "KICK_MRAD.SP", value * 1000)
         
-        time.sleep(3.0)
-        i = 0
-        while any(pydoocs.read(channel + "BUSY")["data"] or not pydoocs.read(channel + "PS_ON")["data"] for channel in self.actuator_channels):
-            time.sleep(0.25)
-            i += 1
-            if i > 180:
-                for channel in self.actuator_channels:
-                    if not pydoocs.read(channel + "PS_ON")["data"]:
-                        pydoocs.write(channel + "PS_ON", 1)
-                        time.sleep(1)
-                    elif pydoocs.read(channel + "BUSY")["data"]:
-                        pydoocs.write(channel + "PS_ON", 0)
-                        time.sleep(1)
-                        pydoocs.write(channel + "PS_ON", 1)
-                        time.sleep(1)
-            if i > 360:
-                self._go_to_safe_state()
-                logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
-                toolkit.send_mail(
-                    "Magnet setting timed out and could not be recvoered -> machine set to safe state",
-                    ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
-                )
-                raise Exception(f"Magnet setting timed out")
+        self._wait_for_magnets(self.actuator_channels)
 
     
     def capture_clean_beam(self, average=10):
@@ -207,4 +185,42 @@ class ExperimentalArea:
             pydoocs.write(channel + "STRENGTH.SP", 0)
         for channel in self.actuator_channels[3:]:
             pydoocs.write(channel + "KICK_MRAD.SP", 0)
-        
+    
+    def _wait_for_magnets(self, channels, timeout1=180, timeout2=360):
+        time.sleep(3.0)
+        i = 0
+        while any(self._is_busy(channel) or not self._is_ps_on(channel) for channel in channels):
+            time.sleep(0.25)
+            i += 1
+            if i > timeout1:
+                for channel in self.actuator_channels:
+                    if not self._is_ps_on(channel):
+                        self._turn_on_ps(channel)
+                    elif self._is_busy(channel):
+                        self._restart_ps(channel)
+            if i > timeout2:
+                self._go_to_safe_state()
+                logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
+                toolkit.send_mail(
+                    "Magnet setting timed out and could not be recvoered -> machine set to safe state",
+                    ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
+                )
+                raise Exception(f"Magnet setting timed out")
+    
+    def _is_busy(self, channel):
+        return pydoocs.read(channel + "BUSY")["data"]
+    
+    def _is_ps_on(self, channel):
+        return pydoocs.read(channel + "PS_ON")["data"]
+    
+    def _turn_on_ps(self, channel):
+        pydoocs.write(channel + "PS_ON", 1)
+        time.sleep(0.5)
+
+    def _turn_off_ps(self, channel):
+        pydoocs.write(channel + "PS_ON", 0)
+        time.sleep(0.5)
+    
+    def _restart_ps(self, channel):
+        self._turn_off_ps(channel)
+        self._turn_on_ps(channel)
