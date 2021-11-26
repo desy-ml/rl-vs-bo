@@ -8,7 +8,7 @@ import time
 import numpy as np
 
 from . import utils
-from mail import send_mail
+import toolkit
 
 
 pydoocs = importlib.import_module(os.getenv("EARLMCP", "dummypydoocs"))
@@ -101,7 +101,7 @@ class ExperimentalArea:
             if i > 360:
                 self._go_to_safe_state()
                 logger.error("Magnet setting timed out and could not be recvoered -> machine set to safe state")
-                send_mail(
+                toolkit.send_mail(
                     "Magnet setting timed out and could not be recvoered -> machine set to safe state",
                     ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
                 )
@@ -187,7 +187,7 @@ class ExperimentalArea:
                 if i > timeout:
                     self._go_to_safe_state()
                     logger.error("Wait machine okay timed out -> machine set to safe state")
-                    send_mail(
+                    toolkit.send_mail(
                         "MSK-IPC AA: Wait machine okay timed out -> machine set to safe state",
                         ["oliver.stein@desy.de","jan.kaiser@desy.de","florian.burkart@desy.de"]
                     )
