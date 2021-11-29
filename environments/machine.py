@@ -37,10 +37,6 @@ class ExperimentalArea:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
 
-        console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
-        self.logger.addHandler(console)
-
     @property
     def actuators(self):
         data = []

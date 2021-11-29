@@ -21,6 +21,8 @@ logger.setLevel(logging.DEBUG)
 
 console = logging.StreamHandler()
 console.setLevel(logging.WARNING)
+formatter = logging.Formatter("[%(asctime)s] - %(message)s")
+console.setFormatter(formatter)
 logger.addHandler(console)
 
 Path("log").mkdir(parents=True, exist_ok=True)
@@ -61,6 +63,7 @@ def load_sequential(model_name, max_episode_steps=30, measure_beam="us", init="d
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
         env = RescaleAction(env, -1, 1)
 
+        env.unwrapped.backend.logger.addHandler(console)
         env.unwrapped.backend.logger.addHandler(logfile)
         env.unwrapped.backend.logger.addHandler(mail)
 
