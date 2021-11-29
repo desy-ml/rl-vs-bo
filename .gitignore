@@ -8,6 +8,7 @@ slurm-*.out
 distributions
 experiments
 log
+logs
 recordings
 wandb
 
@@ -20,6 +21,8 @@ machine_studies/first_light_pyramid_run/
 machine_studies/dataframes/
 machine_studies/first_three_all_agents_thirty/
 machine_studies/next_to_27_polished_donkey/
+machine_studies/first_three_all_agents
+machine_studies/evaluation_dummytests
 
 .cache
 .cache_2

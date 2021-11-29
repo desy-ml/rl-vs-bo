@@ -156,7 +156,7 @@ class ExperimentalArea:
         return response["data"]
     
     def _go_to_safe_state(self):
-        self.logger.debug("Going to safe state")
+        self.logger.info("Going to safe state")
         self._switch_cathode_laser(False)
         self._zero_magnets()
     
