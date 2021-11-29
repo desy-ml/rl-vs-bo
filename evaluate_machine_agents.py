@@ -146,17 +146,15 @@ def run(setup, problem):
 def evaluate(model_name, directory, method=None, description=None, init="dfd", n=None):
     setup = load_sequential(model_name, init=init)
 
+    if isinstance(n, int):
+        n = (0, n)
+
     with open("problems_3.json", "r") as f:
-        if isinstance(n, int):            
-            problems = json.load(f) if n is None else json.load(f)[:n]
-        elif isinstance(n, tuple):
-            problems = json.load(f) if n is None else json.load(f)[n[0]:n[1]]
-        else:
-            raise ValueError
+        problems = json.load(f) if n is None else json.load(f)
         
     Path(directory).mkdir(parents=True, exist_ok=True)
 
-    for i, problem in enumerate(tqdm(problems, desc="Evaluate")):
+    for i, problem in enumerate(tqdm(problems[n[0]:n[1]], desc="Evaluate"), start=n[0]):
         logger.info(f"Agent {model_name} running problem {i}: Desired = {problem['desired']}")
         
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
