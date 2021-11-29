@@ -126,7 +126,7 @@ def run(setup, problem):
 
     env.get_attr("unwrapped")[0].next_initial = "stay"
 
-    with tqdm(total=setup.max_episode_steps) as pbar:
+    with tqdm(total=setup.max_episode_steps, desc="Run") as pbar:
         done = False
         while not done:
             action, _ = model.predict(observation, deterministic=True)
@@ -156,7 +156,7 @@ def evaluate(model_name, directory, method=None, description=None, init="dfd", n
         
     Path(directory).mkdir(parents=True, exist_ok=True)
 
-    for i, problem in enumerate(tqdm(problems)):
+    for i, problem in enumerate(tqdm(problems, desc="Evaluate")):
         logger.info(f"Agent {model_name} running problem {i}: Desired = {problem['desired']}")
         
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
