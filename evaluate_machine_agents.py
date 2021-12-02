@@ -101,7 +101,7 @@ def pack_dataframe(fn):
         df["reward"] = [np.nan] + rewards
         df["beam_image"] = beam_images
 
-        df["model_name"] = setup.name
+        df["model"] = setup.name
         df["max_episode_steps"] = setup.max_episode_steps
         df["measure_beam"] = setup.measure_beam
 
