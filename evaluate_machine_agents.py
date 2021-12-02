@@ -33,7 +33,7 @@ logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
 mail = toolkit.MailHandler(
-    ["jan.kaiser@desy.de"],
+    ["jan.kaiser@desy.de","oliver.stein@desy.de"],
     name="MSK-IPC Autonomus Accelerator",
     send_history=False
 )
