@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Sourcing .bashrc"
+source ~/.bashrc
+
 echo "Activating conda environment"
 conda activate /home/kaiserja/.conda/envs/rl
 

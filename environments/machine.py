@@ -140,11 +140,16 @@ class ExperimentalArea:
             while self._error_count > 0:
                 time.sleep(1)
                 i += 1
+
+                if i % (30) == 0:
+                    self.logger.debug(f"Waiting for machine okay (timeout in {timeout-i} seconds)")
                 
                 if i > timeout:
                     self._go_to_safe_state()
                     self.logger.error("Wait machine okay timed out -> machine set to safe state")
                     raise Exception(f"Error count was above 0 for more than {timeout} seconds")
+        
+        self.logger.debug("Machine is okay")
                 
     @property
     def _error_count(self):
@@ -162,34 +167,49 @@ class ExperimentalArea:
         for channel in self.actuator_channels[3:]:
             pydoocs.write(channel + "KICK_MRAD.SP", 0)
     
-    def _wait_for_magnets(self, channels, timeout=180):
+    def _wait_for_magnets(self, channels, timeout=720):
         self.logger.debug("Waiting for magnets")
         time.sleep(3.0)
         i = 0
         while any(self._is_busy(channel) or not self._is_ps_on(channel) for channel in channels):
             time.sleep(0.25)
             i += 1
+
+            if i % (4*30) == 0:
+                self.logger.debug(f"Waiting for magnets (timeout in {int((timeout-i)/4)} seconds)")
+
             if i > timeout:
                 self._recover_magnets(channels)
     
-    def _recover_magnets(self, channels, timeout=180):
+    def _recover_magnets(self, channels, timeout=720):
+        self._wait_machine_okay()
+
         self.logger.warning("Attempting magnet recovery")
         
         for channel in channels:
             if self._is_ps_on(channel) and self._is_busy(channel):
                 self._restart_ps(channel)
+                time.sleep(1)
+                self._wiggle(f"{channel}CURRENT.SP", 1.0)
             elif not self._is_ps_on(channel):
                 self._turn_on_ps(channel)
+                time.sleep(1)
+                self._wiggle(f"{channel}CURRENT.SP", 1.0)
 
         i = 0
         while any(self._is_busy(channel) or not self._is_ps_on(channel) for channel in channels):
             time.sleep(0.25)
             i += 1
 
+            if i % (4*30) == 0:
+                self.logger.debug(f"Waiting for magnet recovery (timeout in {int((timeout-i)/4)} seconds)")
+
             if i > timeout:
                 self._go_to_safe_state()
                 self.logger.error("Magnet setting timed out and could not be recovered -> machine set to safe state")
                 raise Exception(f"Magnet setting timed out")
+        
+        self.logger.debug("Magnets recovered successfully")
     
     def _is_busy(self, channel):
         return pydoocs.read(channel + "BUSY")["data"]
@@ -210,3 +230,11 @@ class ExperimentalArea:
     def _restart_ps(self, channel):
         self._turn_off_ps(channel)
         self._turn_on_ps(channel)
+    
+
+    def _wiggle(self, channel, delta):
+        current = pydoocs.read(channel)["data"]
+        wiggle_value = current + delta
+        pydoocs.write(channel, wiggle_value)
+        time.sleep(0.2)
+        pydoocs.write(channel, current)
