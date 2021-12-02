@@ -10,6 +10,7 @@ import pandas as pd
 from stable_baselines3 import TD3
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from tqdm import tqdm
+import yaml
 
 from environments import ARESEASequential, ResetActuators, ResetActuatorsToDFD
 import toolkit
@@ -32,8 +33,10 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
+with open("evaluate_machine_agents_todos.yaml", "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
 mail = toolkit.MailHandler(
-    ["jan.kaiser@desy.de","oliver.stein@desy.de"],
+    config["experts"],
     name="MSK-IPC Autonomus Accelerator",
     send_history=False
 )
@@ -174,27 +177,33 @@ def evaluate(model_name, directory, method=None, description=None, init="dfd", n
 
 
 def main():
-    n = (22, 300)
-    directory = "machine_studies/evaluation_dummytests"
-    todo = {
-        "method": "resettodfd",
-        "description": "Reset to DFD (with Adjusted Initial)",
-        "models": ["polished-donkey-996"], # , "polar-lake-997", "still-deluge-998"],
-        "init": "dfd"
-    }
-
     logger.error("Starting evaluation on ARES")
 
     try:
-        for model in todo["models"]:
+        while True:
+            with open("evaluate_machine_agents_todos.yaml", "r") as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+            
+            todo = config["todo"][0]
+
+            logger.debug(f"Evaluating TODO model={todo['model']}, directory=\"{todo['directory']}\", problems={todo['problems']}, init={todo['init']}")
+
             evaluate(
-                model,
-                directory,
+                todo["model"],
+                todo["directory"],
                 method=todo["method"],
                 description=todo["description"],
                 init=todo["init"],
-                n=n
+                n=todo["problems"]
             )
+
+            config["done"].append(todo)
+            config["todo"].remove(todo)
+
+            with open("evaluate_machine_agents_todos.yaml", "w") as f:
+                config = yaml.dump(config, f)
+
+
     except Exception as e:
         logger.error(f"{e.__class__.__name__}: {str(e)} -> machine set to safe state")
         from environments.machine import ExperimentalArea

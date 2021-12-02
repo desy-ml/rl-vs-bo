@@ -1,0 +1,29 @@
+done:
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/experiment_c
+  init: dfd
+  method: resettodfd
+  model: polished-donkey-996
+  problems:
+  - 0
+  - 3
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/experiment_a
+  init: dfd
+  method: resettodfd
+  model: polished-donkey-996
+  problems:
+  - 0
+  - 1
+experts:
+- jan.kaiser@desy.de
+- oliver.stein@desy.de
+todo:
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/experiment_b
+  init: dfd
+  method: resettodfd
+  model: polished-donkey-996
+  problems:
+  - 67
+  - 100
