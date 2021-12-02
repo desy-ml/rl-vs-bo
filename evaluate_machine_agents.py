@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 console = logging.StreamHandler()
-console.setLevel(logging.WARNING)
+console.setLevel(logging.DEBUG)
 formatter = logging.Formatter("[%(asctime)s] - %(message)s")
 console.setFormatter(formatter)
 logger.addHandler(console)
@@ -131,7 +131,11 @@ def run(setup, problem):
 
     with tqdm(total=setup.max_episode_steps, desc="Run") as pbar:
         done = False
+        i = 0
         while not done:
+            logger.debug(f"Executing step {i}")
+            i += 1
+
             action, _ = model.predict(observation, deterministic=True)
             observation, reward, done, info = env.step(action)
 
@@ -170,12 +174,12 @@ def evaluate(model_name, directory, method=None, description=None, init="dfd", n
             result["description"] = description
         result.to_pickle(f"{directory}/{model_name}_{i:03d}_{timestamp}.pkl")
 
-        logger.error(f"Agent {model_name} finished running problem {i}")
+        logger.info(f"Agent {model_name} finished running problem {i}")
 
 
 def main():
-    n = (22, 300)
-    directory = "machine_studies/evaluation_dummytests"
+    n = (0, 3)
+    directory = "machine_studies/evaluation_firstthree_today_solenid-58-6"
     todo = {
         "method": "resettodfd",
         "description": "Reset to DFD (with Adjusted Initial)",
@@ -197,10 +201,11 @@ def main():
             )
     except Exception as e:
         logger.error(f"{e.__class__.__name__}: {str(e)} -> machine set to safe state")
+        raise e
+    finally:
         from environments.machine import ExperimentalArea
         backend = ExperimentalArea()
         backend._go_to_safe_state()
-        raise e
 
     logger.error("Evaluation has finished.")
 
