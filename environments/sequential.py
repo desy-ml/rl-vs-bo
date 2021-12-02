@@ -96,7 +96,12 @@ class ARESEASequential(gym.Env):
 
         done = (np.abs(self.achieved - self.desired) < self.target_delta).all()
 
-        return observation, reward, done, {}
+        if hasattr(self.backend, "last_beam_image"):
+            info = {"beam_image": self.backend.last_beam_image}
+        else:
+            info = {}
+
+        return observation, reward, done, info
     
     def _objective_fn(self, achieved, desired):
         offset = achieved - desired

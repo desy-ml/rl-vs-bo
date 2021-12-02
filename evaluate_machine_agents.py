@@ -137,7 +137,7 @@ def run(setup, problem):
 
             observations.append(env.unnormalize_obs(observation).squeeze())
             rewards.append(reward.squeeze())
-            beam_images.append(env.get_attr("backend")[0].last_beam_image)
+            beam_images.append(info[0]["beam_image"])
 
             pbar.update(1)
 
