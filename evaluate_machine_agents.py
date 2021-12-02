@@ -188,7 +188,10 @@ def main():
             with open("evaluate_machine_agents_todos.yaml", "r") as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
             
-            todo = config["todo"][0]
+            if len(config["todo"]) > 0:
+                todo = config["todo"][0]
+            else:
+                break
 
             logger.debug(f"Evaluating TODO model={todo['model']}, directory=\"{todo['directory']}\", problems={todo['problems']}, init={todo['init']}")
 
