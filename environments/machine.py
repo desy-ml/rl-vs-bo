@@ -209,6 +209,10 @@ class ExperimentalArea:
                     time.sleep(30)
                     t2 = time.time()
                     self.logger.debug(f"Waiting for magnets to recover (timeout in {int(timeout-(t2-t1))} seconds)")
+
+                if not self._is_ps_on(channel):
+                    self.logger.debug("Magnet did not turn back on")
+                    continue
                 
                 pydoocs.write(f"{channel}CURRENT.SP", sp)
 
