@@ -198,12 +198,8 @@ class ExperimentalArea:
             broken = [channel for channel in channels if not self._is_ps_on(channel) or self._is_busy(channel)]
             self.logger.debug(f"Detected magnets requiring recovery: {broken}")
 
-            continued = False
             for channel in broken:
-                if not continued:
-                    sp = pydoocs.read(f"{channel}CURRENT.SP")["data"]
-                else:
-                    continued = False
+                sp = pydoocs.read(f"{channel}CURRENT.SP")["data"]
                 pydoocs.write(f"{channel}CURRENT.SP", 0)
                 time.sleep(10)
                 self._turn_on_ps(channel)
@@ -216,7 +212,6 @@ class ExperimentalArea:
 
                 if not self._is_ps_on(channel):
                     self.logger.debug("Magnet did not turn back on")
-                    continued = True
                     continue
                 
                 pydoocs.write(f"{channel}CURRENT.SP", sp)
