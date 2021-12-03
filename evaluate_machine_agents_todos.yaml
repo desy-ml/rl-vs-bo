@@ -20,6 +20,14 @@ experts:
 - oliver.stein@desy.de
 todo:
 - description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/lake_debug
+  init: dfd
+  method: resettodfd
+  model: polar-lake-997
+  problems:
+  - 0
+  - 3
+- description: Reset to DFD (with Adjusted Initial)
   directory: machine_studies/lake_70_100
   init: dfd
   method: resettodfd
