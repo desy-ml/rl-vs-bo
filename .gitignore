@@ -25,6 +25,9 @@ machine_studies/first_three_all_agents
 machine_studies/evaluation_dummytests
 machine_studies/evaluation_firstthree_today
 machine_studies/evaluation_firstthree_today_solenid-58-6
+machine_studies/donkey_fill_gap/
+machine_studies/donkey_to_100/
+machine_studies/lake_0_100/
 
 .cache
 .cache_2

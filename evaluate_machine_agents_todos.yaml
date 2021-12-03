@@ -1,8 +1,4 @@
-done: []
-experts:
-- jan.kaiser@desy.de
-- oliver.stein@desy.de
-todo:
+done:
 - description: Reset to DFD (with Adjusted Initial)
   directory: machine_studies/donkey_fill_gap
   init: dfd
@@ -19,6 +15,10 @@ todo:
   problems:
   - 67
   - 100
+experts:
+- jan.kaiser@desy.de
+- oliver.stein@desy.de
+todo:
 - description: Reset to DFD (with Adjusted Initial)
   directory: machine_studies/lake_0_100
   init: dfd
