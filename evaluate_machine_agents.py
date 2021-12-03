@@ -90,8 +90,8 @@ def pack_dataframe(fn):
         df = pd.DataFrame(np.arange(len(observations)), columns=["step"])
         df["q1"] = observations[:,0]
         df["q2"] = observations[:,1]
-        df["cv"] = observations[:,2]
-        df["q3"] = observations[:,3]
+        df["q3"] = observations[:,2]
+        df["cv"] = observations[:,3]
         df["ch"] = observations[:,4]
         df["mup_x"] = observations[:,5]
         df["mup_y"] = observations[:,6]
