@@ -1,21 +1,29 @@
-done:
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/experiment_c
-  init: dfd
-  method: resettodfd
-  model: polished-donkey-996
-  problems:
-  - 0
-  - 3
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/experiment_a
-  init: dfd
-  method: resettodfd
-  model: polished-donkey-996
-  problems:
-  - 0
-  - 1
+done: []
 experts:
 - jan.kaiser@desy.de
 - oliver.stein@desy.de
-todo: []
+todo:
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/donkey_fill_gap
+  init: dfd
+  method: resettodfd
+  model: polished-donkey-996
+  problems:
+  - 3
+  - 22
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/donkey_to_100
+  init: dfd
+  method: resettodfd
+  model: polished-donkey-996
+  problems:
+  - 67
+  - 100
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/lake_0_100
+  init: dfd
+  method: resettodfd
+  model: polar-lake-997
+  problems:
+  - 0
+  - 100
