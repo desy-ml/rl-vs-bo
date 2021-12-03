@@ -184,39 +184,43 @@ class ExperimentalArea:
         
         self.logger.debug("Magnets are ready")
     
-    def _recover_magnets(self, channels, timeout=120, max_wiggle=20):
+    def _recover_magnets(self, channels, timeout=120):
         self.logger.debug("Entering magnet recovery")
 
         self._wait_machine_okay()
 
-        wiggle_delta = 1
-        while wiggle_delta < max_wiggle and not self._are_magnets_ready(channels):
+        i = 0
+        while not self._are_magnets_ready(channels) and i < 10:
+            i += 1
+
+            # Via zero
+            self.logger.debug(f"Attemping magnet recovery via zero")
             broken = [channel for channel in channels if not self._is_ps_on(channel) or self._is_busy(channel)]
             self.logger.debug(f"Detected magnets requiring recovery: {broken}")
 
             for channel in broken:
-                if self._is_ps_on(channel) and self._is_busy(channel):
-                    self._restart_ps(channel)
-                    time.sleep(1)
-                    self._wiggle(f"{channel}CURRENT.SP", wiggle_delta)
-                elif not self._is_ps_on(channel):
-                    self._turn_on_ps(channel)
-                    time.sleep(1)
-                    self._wiggle(f"{channel}CURRENT.SP", wiggle_delta)
-        
-            t1, t2 = time.time(), time.time()
-            while not self._are_magnets_ready(broken) and t2 - t1 < timeout:
-                time.sleep(30)
-                t2 = time.time()
-                self.logger.debug(f"Waiting for magnets to recover (timeout in {int(timeout-(t2-t1))} seconds)")
-            
-            wiggle_delta *= 2
+                sp = pydoocs.read(f"{channel}CURRENT.SP")["data"]
+                pydoocs.write(f"{channel}CURRENT.SP", 0)
+                time.sleep(10)
+                self._turn_on_ps(channel)
+
+                t1, t2 = time.time(), time.time()
+                while not self._are_magnets_ready(broken) and t2 - t1 < timeout:
+                    time.sleep(30)
+                    t2 = time.time()
+                    self.logger.debug(f"Waiting for magnets to recover (timeout in {int(timeout-(t2-t1))} seconds)")
+                
+                pydoocs.write(f"{channel}CURRENT.SP", sp)
+
+                t1, t2 = time.time(), time.time()
+                while not self._are_magnets_ready(broken) and t2 - t1 < timeout:
+                    time.sleep(30)
+                    t2 = time.time()
+                    self.logger.debug(f"Waiting for magnets to recover (timeout in {int(timeout-(t2-t1))} seconds)")
 
         if self._are_magnets_ready(channels):
             self.logger.debug("Magnet recovery was successful")
         else:
-            if wiggle_delta > max_wiggle:
-                self.logger.debug(f"Maximum wiggle of {max_wiggle} has been reached")
             self._go_to_safe_state()
             self.logger.error("Magnet recovery failed -> machine set to safe state")
             raise Exception(f"Magnet setting timed out")
