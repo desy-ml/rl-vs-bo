@@ -1,7 +1,7 @@
-wandb:
-  name: ares-studies-kw43
+# wandb:
+#   name: test_20211209_hannes_vs_agent
 disk:
-  directory: ares-studies-kw43
+  directory: 20211209_hannes_vs_agent_01
   pulses_per_file: 3600
 dt: 0.5
 channels:
@@ -18,7 +18,7 @@ channels:
   - SINBAD.MAGNETS/MAGNET.ML/ARLIMCVG1/CURRENT.RBV                 # VCor (ARLIMCVG1) current
   - SINBAD.MAGNETS/MAGNET.ML/ARLIMCVG1/MOMENTUM.SP                 # VCor (ARLIMCVG1) beam momentum setting
   - SINBAD.UTIL/INJ.LASER.MOTOR/MOTOR1.MBDEV1/POS                  # Laser attenuation
-  - SINBAD.LASER/SINBADCPULASER1.SETTINGS/SINBAD_aperture_pos/SETTINGS.CURRENT     # Laser aperture
+  # - SINBAD.LASER/SINBADCPULASER1.SETTINGS/SINBAD_aperture_pos/SETTINGS.CURRENT     # Laser aperture
   - SINBAD.DIAG/SCREEN.MOTOR/MOTOR4.MBDEV4/POS                     # Collimator x position
   - SINBAD.DIAG/COLLIMATOR.ML/AR.LI.SLH.G.1/POS                    # Collimator y position
   - SINBAD.MAGNETS/MAGNET.ML/ARLIMCHG2/KICK.RBV                    # HCor (ARLIMCHG2) kick
@@ -62,7 +62,7 @@ channels:
   - SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/CURRENT.RBV                 # CV current
   - SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/MOMENTUM.SP                 # CV beam momentum setting
   - SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.RBV                # Q3 K1
-  - SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/CURRENT.RBV                 # Q3 current
+  - SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/CURRENT.RBV .conda                # Q3 current
   - SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/MOMENTUM.SP                 # Q3 beam momentum setting
   - SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.RBV               # CH kick (mrad)
   - SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/CURRENT.RBV                 # CH current
