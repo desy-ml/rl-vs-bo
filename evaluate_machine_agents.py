@@ -154,8 +154,8 @@ def run(setup, problem):
     return observations, rewards, beam_images
 
 
-def evaluate(model_name, directory, method=None, description=None, init="dfd", n=None):
-    setup = load_sequential(model_name, init=init)
+def evaluate(model_name, directory, method=None, description=None, init="dfd", n=None, max_episode_steps=30):
+    setup = load_sequential(model_name, init=init, max_episode_steps=max_episode_steps)
 
     if isinstance(n, int):
         n = (0, n)
@@ -202,7 +202,8 @@ def main():
                 method=todo["method"],
                 description=todo["description"],
                 init=todo["init"],
-                n=todo["problems"]
+                n=todo["problems"],
+                max_episode_steps=todo["max_episode_steps"]
             )
 
             config["done"].append(todo)
