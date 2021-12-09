@@ -15,12 +15,20 @@ done:
   problems:
   - 67
   - 100
+- description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/20211209_all_three_drift
+  init: dfd
+  method: resettodfd
+  model: polished-donkey-996
+  problems:
+  - 0
+  - 3
 experts:
 - jan.kaiser@desy.de
 - oliver.stein@desy.de
 todo:
 - description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/lake_debug
+  directory: machine_studies/20211209_all_three_drift
   init: dfd
   method: resettodfd
   model: polar-lake-997
@@ -28,122 +36,10 @@ todo:
   - 0
   - 3
 - description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/lake_70_100
-  init: dfd
-  method: resettodfd
-  model: polar-lake-997
-  problems:
-  - 70
-  - 100
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/deluge_0_50
+  directory: machine_studies/20211209_all_three_drift
   init: dfd
   method: resettodfd
   model: still-deluge-998
   problems:
   - 0
-  - 50
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/deluge_50_100
-  init: dfd
-  method: resettodfd
-  model: still-deluge-998
-  problems:
-  - 50
-  - 100
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/donkey_100_150
-  init: dfd
-  method: resettodfd
-  model: polished-donkey-996
-  problems:
-  - 100
-  - 150
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/lake_100_150
-  init: dfd
-  method: resettodfd
-  model: polar-lake-997
-  problems:
-  - 100
-  - 150
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/deluge_100_150
-  init: dfd
-  method: resettodfd
-  model: still-deluge-998
-  problems:
-  - 100
-  - 150
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/donkey_150_200
-  init: dfd
-  method: resettodfd
-  model: polished-donkey-996
-  problems:
-  - 150
-  - 200
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/lake_150_200
-  init: dfd
-  method: resettodfd
-  model: polar-lake-997
-  problems:
-  - 150
-  - 200
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/deluge_150_200
-  init: dfd
-  method: resettodfd
-  model: still-deluge-998
-  problems:
-  - 150
-  - 200
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/donkey_200_250
-  init: dfd
-  method: resettodfd
-  model: polished-donkey-996
-  problems:
-  - 200
-  - 250
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/lake_200_250
-  init: dfd
-  method: resettodfd
-  model: polar-lake-997
-  problems:
-  - 200
-  - 250
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/deluge_200_250
-  init: dfd
-  method: resettodfd
-  model: still-deluge-998
-  problems:
-  - 200
-  - 250
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/donkey_250_300
-  init: dfd
-  method: resettodfd
-  model: polished-donkey-996
-  problems:
-  - 250
-  - 300
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/lake_250_300
-  init: dfd
-  method: resettodfd
-  model: polar-lake-997
-  problems:
-  - 250
-  - 300
-- description: Reset to DFD (with Adjusted Initial)
-  directory: machine_studies/deluge_250_300
-  init: dfd
-  method: resettodfd
-  model: still-deluge-998
-  problems:
-  - 250
-  - 300
+  - 3
