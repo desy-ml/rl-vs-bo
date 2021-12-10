@@ -4,7 +4,7 @@ echo "Sourcing .bashrc"
 source ~/.bashrc
 
 echo "Activating conda environment"
-conda activate /home/kaiserja/.conda/envs/rl
+conda activate /home/kaiserja/.conda/envs/rl39
 
 echo "Setting EARLMCP environment variable to write to PyDOOCS"
 export EARLMCP=pydoocs

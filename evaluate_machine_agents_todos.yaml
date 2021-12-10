@@ -85,6 +85,15 @@ experts:
 - oliver.stein@desy.de
 todo:
 - description: Reset to DFD (with Adjusted Initial)
+  directory: machine_studies/rl39_test
+  init: dfd
+  max_episode_steps: 5
+  method: resettodfd
+  model: still-deluge-998
+  problems:
+  - 64
+  - 74
+- description: Reset to DFD (with Adjusted Initial)
   directory: machine_studies/deluge_50_100
   init: dfd
   max_episode_steps: 30
