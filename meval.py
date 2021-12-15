@@ -28,13 +28,13 @@ logger.addHandler(console)
 
 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 Path("log").mkdir(parents=True, exist_ok=True)
-logfile = logging.FileHandler(f"log/evaluate_machine_{timestamp}.log")
+logfile = logging.FileHandler(f"log/meval_{timestamp}.log")
 logfile.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
-with open("evaluate_machine_agents_todos.yaml", "r") as f:
+with open("meval_todos.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 mail = toolkit.MailHandler(
     config["experts"],
@@ -186,7 +186,7 @@ def main():
 
     try:
         while True:
-            with open("evaluate_machine_agents_todos.yaml", "r") as f:
+            with open("meval_todos.yaml", "r") as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
             
             if len(config["todo"]) > 0:
@@ -209,7 +209,7 @@ def main():
             config["done"].append(todo)
             config["todo"].remove(todo)
 
-            with open("evaluate_machine_agents_todos.yaml", "w") as f:
+            with open("meval_todos.yaml", "w") as f:
                 config = yaml.dump(config, f)
 
 
