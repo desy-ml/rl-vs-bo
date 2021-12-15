@@ -80,10 +80,6 @@ done:
   problems:
   - 0
   - 50
-experts:
-- jan.kaiser@desy.de
-- oliver.stein@desy.de
-todo:
 - description: Reset to DFD (with Adjusted Initial)
   directory: machine_studies/rl39_test
   init: dfd
@@ -174,6 +170,10 @@ todo:
   problems:
   - 200
   - 250
+experts:
+- jan.kaiser@desy.de
+- oliver.stein@desy.de
+todo:
 - description: Reset to DFD (with Adjusted Initial)
   directory: machine_studies/deluge_200_250
   init: dfd
