@@ -24,13 +24,15 @@ class ARESEAOptimization(gym.Env):
 
     target_delta = np.array([5e-6] * 4)     # TODO: Set to somethind like pixel accuracy
     
-    def __init__(self, backend="simulation", backendargs={}):
+    def __init__(self, backend="simulation", objective="mse", backendargs={}):
         if backend == "simulation":
             self.backend = simulation.ExperimentalArea(**backendargs)
         elif backend == "machine":
             self.backend = machine.ExperimentalArea(**backendargs)
         else:
             raise ValueError(f"Backend {backend} is not supported!")
+        
+        self.objective = objective
 
         self.next_initial = None
         self.next_desired = None
@@ -75,4 +77,13 @@ class ARESEAOptimization(gym.Env):
         return observation, objective, done, {}
     
     def _objective_fn(self, achieved, desired):
-        return ((achieved - desired)**2).mean()
+        if self.objective == "mae":
+            return (np.abs(achieved - desired)).mean()
+        elif self.objective == "mse":
+            return ((achieved - desired)**2).mean()
+        elif self.objective == "log":
+            offset = achieved - desired
+            weights = np.array([1, 1, 2, 2])
+            return np.log((weights * np.abs(offset)).sum())
+        else:
+            raise ValueError(f"Invalid objective \"{self.objective}\"")
