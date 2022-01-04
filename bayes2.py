@@ -5,6 +5,7 @@ import json
 import numpy as np
 import pandas as pd
 from skopt import dummy_minimize, gp_minimize
+from tqdm import tqdm
 
 from environments import ARESEAOptimization, ResetActuatorsToDFD
 
@@ -100,24 +101,17 @@ def cache_to_file(fn):
 
 @cache_to_file
 def evaluate(method, description=None):
+    env = ARESEAOptimization(objective=method[-3:], backendargs={"measure_beam": "direct"})
+    env = ResetActuatorsToDFD(env)
+
     with open("problems_3.json", "r") as f:
         problems = json.load(f)
 
-    def execute_problem(x):
-        i, problem = x
-
-        env = ARESEAOptimization(objective=method[-3:], backendargs={"measure_beam": "direct"})
-        env = ResetActuatorsToDFD(env)
-
+    evaluation = []
+    for i, problem in enumerate(tqdm(problems)):
         result = run(env, problem=problem)
         result["problem"] = i
-
-        print(f"Executed problem {i}")
-
-    with ProcessPoolExecutor() as executor:
-        evaluation = executor.map(execute_problem, enumerate(problems))
-        futures.wait(evaluation)
-
+        evaluation.append(result)
     evaluation = pd.concat(evaluation)
     evaluation["method"] = method
     evaluation["model"] = method
@@ -128,11 +122,12 @@ def evaluate(method, description=None):
 
 
 def main():
-    _ = pd.concat([
-        evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)"),
-        evaluate("bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
-        evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
-    ])
+    with ProcessPoolExecutor(max_workers=3) as executor:
+        fs0 = executor.submit(evaluate, "bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
+        fs1 = executor.submit(evaluate, "bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
+        fs2 = executor.submit(evaluate, "bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
+
+        futures.wait([fs0,fs1,fs2])
 
 
 if __name__ == "__main__":
