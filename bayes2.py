@@ -1,3 +1,4 @@
+from concurrent import futures
 from concurrent.futures import ProcessPoolExecutor
 import json
 
@@ -111,8 +112,11 @@ def evaluate(method, description=None):
         result = run(env, problem=problem)
         result["problem"] = i
 
+        print(f"Executed problem {i}")
+
     with ProcessPoolExecutor() as executor:
         evaluation = executor.map(execute_problem, enumerate(problems))
+        futures.wait(evaluation)
 
     evaluation = pd.concat(evaluation)
     evaluation["method"] = method
