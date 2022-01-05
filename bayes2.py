@@ -122,12 +122,9 @@ def evaluate(method, description=None):
 
 
 def main():
-    with ProcessPoolExecutor(max_workers=3) as executor:
-        fs0 = executor.submit(evaluate, "bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
-        fs1 = executor.submit(evaluate, "bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
-        fs2 = executor.submit(evaluate, "bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
-
-        futures.wait([fs0,fs1,fs2])
+    # evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
+    # evaluate("bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
+    evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
 
 
 if __name__ == "__main__":
