@@ -126,10 +126,10 @@ class ExperimentalArea:
     
     @property
     def binning(self):
-        return (
+        return np.array([
             pydoocs.read(self.screen_channel + "BINNINGHORIZONTAL")["data"],
             pydoocs.read(self.screen_channel + "BINNINGVERTICAL")["data"]
-        )
+        ])
     
     def _wait_machine_okay(self, timeout=600):
         self.logger.debug("Checking machine okay")

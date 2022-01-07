@@ -8,8 +8,8 @@ from .ares import ARESlatticeStage3v1_9 as lattice
 class ExperimentalArea:
     """Cheetah Simulation of the Experimental Area at ARES."""
 
-    screen_resolution = (2448, 2040)
-    pixel_size = (3.3198e-6, 2.4469e-6)
+    screen_resolution = np.array([2448, 2040])
+    pixel_size = np.array([3.3198e-6, 2.4469e-6])
 
     max_misalignment = 400e-6
 
