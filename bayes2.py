@@ -1,6 +1,5 @@
-from concurrent import futures
-from concurrent.futures import ProcessPoolExecutor
 import json
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -35,9 +34,8 @@ def pack_dataframe(fn):
         df["misalignment_q2"] = misalignments[1]
         df["misalignment_q3"] = misalignments[2]
         df["misalignment_screen"] = misalignments[4]
-        df.loc[:,"res"] = [res] * len(df)
 
-        return df
+        return df, res
     
     return wrapper
 
@@ -75,7 +73,7 @@ def run(env, problem=None):
         (env.action_space.low[4], env.action_space.high[4])
     ]
 
-    res = gp_minimize(optfn, bounds, x0=list(observation[:5]), n_jobs=-1)
+    res = gp_minimize(optfn, bounds, n_calls=300, acq_func="LCB", x0=list(observation[:5]), n_jobs=-1)
 
     observation, _, _, _ = env.step(res.x)
     observations.append(observation)
@@ -91,8 +89,13 @@ def cache_to_file(fn):
             evaluation = pd.read_pickle(filename)
             print(f"Read {method} from cache file")
         except FileNotFoundError:
-            evaluation = fn(method, **kwargs)
+            evaluation, res = fn(method, **kwargs)
             evaluation.to_pickle(filename)
+            try:
+                with open(filename[:-4]+"-res"+filename[-4:], "wb") as f:
+                    pickle.dump(res, f)
+            except Exception as e:
+                print(f"EXCEPTION: {e}")
         
         return evaluation
 
@@ -108,23 +111,29 @@ def evaluate(method, description=None):
         problems = json.load(f)
 
     evaluation = []
+    allbayesres = {}
     for i, problem in enumerate(tqdm(problems)):
-        result = run(env, problem=problem)
+        result, bayesres = run(env, problem=problem)
         result["problem"] = i
         evaluation.append(result)
+        allbayesres[i] = bayesres
     evaluation = pd.concat(evaluation)
     evaluation["method"] = method
     evaluation["model"] = method
     if description is not None:
         evaluation["description"] = description
     
-    return evaluation
+    return evaluation, allbayesres
 
 
 def main():
     # evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
     # evaluate("bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
-    evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
+    # evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
+
+    evaluate("bayesian300-mae", description="Bayesian Optimisation for 300 Steps with MAE (scipy-optimize)")
+    # evaluate("bayesian300-mse", description="Bayesian Optimisation for 300 Steps with MSE (scipy-optimize)"),
+    # evaluate("bayesian300-log", description="Bayesian Optimisation for 300 Steps with Our Log Objective (scipy-optimize)")
 
 
 if __name__ == "__main__":

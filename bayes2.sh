@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=maxwell
-#SBATCH --job-name bayes-log
+#SBATCH --job-name bayes300-mae
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --mail-type ALL
