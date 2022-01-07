@@ -1,17 +1,24 @@
-import json
-import pickle
+from collections import namedtuple
+import random
 
+from gym.wrappers import RescaleAction, TimeLimit
+import json
+from matplotlib.patches import Ellipse
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
-from skopt import dummy_minimize, gp_minimize
+from scipy.optimize import Bounds, minimize
+import seaborn as sns
+from stable_baselines3 import PPO, TD3
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from tqdm import tqdm
 
-from environments import ARESEAOptimization, ResetActuatorsToDFD
+from environments import ARESEAOptimization, ARESEASequential, ResetActuators, ResetActuatorsToDFD
 
 
 def pack_dataframe(fn):
     def wrapper(env, problem=None):
-        observations, incoming, misalignments, res = fn(env, problem=problem)
+        observations, incoming, misalignments = fn(env, problem=problem)
         observations = np.array(observations)
 
         df = pd.DataFrame(np.arange(len(observations)), columns=["step"])
@@ -38,9 +45,8 @@ def pack_dataframe(fn):
         df["misalignment_q3_y"] = misalignments[5]
         df["misalignment_screen_x"] = misalignments[6]
         df["misalignment_screen_y"] = misalignments[7]
-        df.loc[:,"res"] = [res] * len(df)
 
-        return df, res
+        return df
     
     return wrapper
 
@@ -49,13 +55,13 @@ def pack_dataframe(fn):
 def run(env, problem=None):
     if problem is not None:
         if "initial" in problem:
-            env.next_initial = problem["initial"]
+            env.unwrapped.next_initial = problem["initial"]
         if "incoming" in problem:
-            env.backend.next_incoming = problem["incoming"]
+            env.unwrapped.backend.next_incoming = problem["incoming"]
         if "misalignments" in problem:
-            env.backend.next_misalignments = problem["misalignments"]
+            env.unwrapped.backend.next_misalignments = problem["misalignments"]
         if "desired" in problem:
-            env.next_desired = problem["desired"]
+            env.unwrapped.next_desired = problem["desired"]
 
     observations = []
 
@@ -65,26 +71,20 @@ def run(env, problem=None):
     incoming = env.backend._incoming.parameters
     misalignments = env.backend.misalignments
 
-    def optfn(x):
-        observation, reward, _, _ = env.step(x)
+    def optfn(actuators):
+        observation, objective, _, _ = env.step(actuators)
         observations.append(observation)
-        return reward
+        return objective
 
-    bounds = [
-        (env.action_space.low[0], env.action_space.high[0]),
-        (env.action_space.low[1], env.action_space.high[1]),
-        (env.action_space.low[2], env.action_space.high[2]),
-        (env.action_space.low[3], env.action_space.high[3]),
-        (env.action_space.low[4], env.action_space.high[4])
-    ]
+    bounds = Bounds(env.action_space.low, env.action_space.high)
+    # TODO: Should probably be options={"fatol": 4.5e-11}
+    #       Because max pixel_size = 3.3198e-6
+    #       Double that (two pixels) -> 6.6396e-06
+    #       Squared error would then be 4.408428816e-11
+    #       Round to 4.5e-11
+    minimize(optfn, observation[:5], method="Nelder-Mead", bounds=bounds, options={"fatol": 4.5e-11, "xatol": 1})
 
-    res = gp_minimize(optfn, bounds, n_calls=100, x0=list(observation[:5]), n_jobs=-1)
-    # res = dummy_minimize(optfn, bounds, n_calls=300, x0=list(observation[:5]))
-
-    observation, _, _, _ = env.step(res.x)
-    observations.append(observation)
-
-    return observations, incoming, misalignments, res
+    return observations, incoming, misalignments
 
 
 def cache_to_file(fn):
@@ -95,13 +95,8 @@ def cache_to_file(fn):
             evaluation = pd.read_pickle(filename)
             print(f"Read {method} from cache file")
         except FileNotFoundError:
-            evaluation, res = fn(method, **kwargs)
+            evaluation = fn(method, **kwargs)
             evaluation.to_pickle(filename)
-            try:
-                with open(filename[:-4]+"-res"+filename[-4:], "wb") as f:
-                    pickle.dump(res, f)
-            except Exception as e:
-                print(f"EXCEPTION: {e}")
         
         return evaluation
 
@@ -110,39 +105,33 @@ def cache_to_file(fn):
 
 @cache_to_file
 def evaluate(method, description=None):
-    env = ARESEAOptimization(objective=method[-3:], backendargs={"measure_beam": "direct"})
-    # env = ARESEAOptimization(objective="mae", backendargs={"measure_beam": "direct"})
-    env = ResetActuatorsToDFD(env)
+    env = ARESEAOptimization()
 
     with open("problems_3.json", "r") as f:
         problems = json.load(f)
+    
+    if "fdf" in method:
+        env = ResetActuatorsToDFD(env)
+    if "normalize" in method:
+        env = RescaleAction(env, -1, 1)
 
     evaluation = []
-    allbayesres = {}
     for i, problem in enumerate(tqdm(problems)):
-        result, bayesres = run(env, problem=problem)
+        result = run(env, problem=problem)
         result["problem"] = i
         evaluation.append(result)
-        allbayesres[i] = bayesres
     evaluation = pd.concat(evaluation)
     evaluation["method"] = method
     evaluation["model"] = method
     if description is not None:
         evaluation["description"] = description
     
-    return evaluation, allbayesres
+    return evaluation
 
 
 def main():
-    # evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
-    # evaluate("bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
-    evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
-
-    # evaluate("bayesian300-mae", description="Bayesian Optimisation for 300 Steps with MAE (scipy-optimize)")
-    # evaluate("bayesian300-mse", description="Bayesian Optimisation for 300 Steps with MSE (scipy-optimize)"),
-    # evaluate("bayesian300-log", description="Bayesian Optimisation for 300 Steps with Our Log Objective (scipy-optimize)")
-
-    # evaluate("random-search", description="Random Search for 300 Steps (scipy-optimize dummuy_minimize)")
+    # evaluate("nelder-mead", description="Nelder-Mead Optimiser Starting at 0")
+    evaluate("nelder-mead-fdf", description="Nelder-Mead Optimiser Starting at FDF")
 
 
 if __name__ == "__main__":
