@@ -30,10 +30,15 @@ def pack_dataframe(fn):
         df["sigma_y"] = observations[:,12]
         for k in incoming.keys():
             df["incoming_"+k] = float(incoming[k])
-        df["misalignment_q1"] = misalignments[0]
-        df["misalignment_q2"] = misalignments[1]
-        df["misalignment_q3"] = misalignments[2]
-        df["misalignment_screen"] = misalignments[4]
+        df["misalignment_q1_x"] = misalignments[0]
+        df["misalignment_q1_y"] = misalignments[1]
+        df["misalignment_q2_x"] = misalignments[2]
+        df["misalignment_q2_y"] = misalignments[3]
+        df["misalignment_q3_x"] = misalignments[4]
+        df["misalignment_q3_y"] = misalignments[5]
+        df["misalignment_screen_x"] = misalignments[6]
+        df["misalignment_screen_y"] = misalignments[7]
+        df.loc[:,"res"] = [res] * len(df)
 
         return df, res
     
