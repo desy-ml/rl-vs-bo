@@ -38,7 +38,6 @@ def pack_dataframe(fn):
         df["misalignment_q3_y"] = misalignments[5]
         df["misalignment_screen_x"] = misalignments[6]
         df["misalignment_screen_y"] = misalignments[7]
-        df.loc[:,"res"] = [res] * len(df)
 
         return df, res
     
@@ -134,9 +133,9 @@ def evaluate(method, description=None):
 
 
 def main():
-    # evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
+    evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
     # evaluate("bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
-    evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
+    # evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
 
     # evaluate("bayesian300-mae", description="Bayesian Optimisation for 300 Steps with MAE (scipy-optimize)")
     # evaluate("bayesian300-mse", description="Bayesian Optimisation for 300 Steps with MSE (scipy-optimize)"),
