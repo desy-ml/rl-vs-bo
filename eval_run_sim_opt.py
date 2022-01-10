@@ -105,7 +105,7 @@ def cache_to_file(fn):
 
 @cache_to_file
 def evaluate(method, description=None):
-    env = ARESEAOptimization()
+    env = ARESEAOptimization(backendargs={"measure_beam": "direct"})
 
     with open("problems_3.json", "r") as f:
         problems = json.load(f)
