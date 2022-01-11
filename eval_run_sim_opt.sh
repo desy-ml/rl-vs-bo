@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=maxwell
-#SBATCH --job-name nelder-mead-fdf-2
+#SBATCH --job-name cobyla-1e-3
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --mail-type ALL

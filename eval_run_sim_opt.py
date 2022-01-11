@@ -1,19 +1,11 @@
-from collections import namedtuple
-import random
-
-from gym.wrappers import RescaleAction, TimeLimit
+from gym.wrappers import RescaleAction
 import json
-from matplotlib.patches import Ellipse
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.optimize import Bounds, minimize
-import seaborn as sns
-from stable_baselines3 import PPO, TD3
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from tqdm import tqdm
 
-from environments import ARESEAOptimization, ARESEASequential, ResetActuators, ResetActuatorsToDFD
+from environments import ARESEAOptimization, ResetActuatorsToDFD
 
 
 def pack_dataframe(fn):
@@ -82,7 +74,10 @@ def run(env, problem=None):
     #       Double that (two pixels) -> 6.6396e-06
     #       Squared error would then be 4.408428816e-11
     #       Round to 4.5e-11
-    minimize(optfn, observation[:5], method="Nelder-Mead", bounds=bounds, options={"fatol": 4.5e-11, "xatol": 1})
+    # minimize(optfn, observation[:5], method="Nelder-Mead", bounds=bounds, options={"fatol": 4.5e-11, "xatol": 1})
+    # minimize(optfn, observation[:5], method="Powell", bounds=bounds, options={"ftol": 4.5e-11, "xtol": 1})
+    # minimize(optfn, observation[:5], method="COBYLA", bounds=bounds, options={"tol": 4.5e-11, "rhobeg": 1})
+    minimize(optfn, observation[:5], method="COBYLA", bounds=bounds, options={"tol": 4.5e-11, "rhobeg": 1e-3})
 
     return observations, incoming, misalignments
 
@@ -105,7 +100,11 @@ def cache_to_file(fn):
 
 @cache_to_file
 def evaluate(method, description=None):
-    env = ARESEAOptimization(backendargs={"measure_beam": "direct"})
+    env = ARESEAOptimization(objective="mse", backendargs={"measure_beam": "direct"})
+    if "mae" in method:
+        env = ARESEAOptimization(objective="mae", backendargs={"measure_beam": "direct"})
+    elif "log" in method:
+        env = ARESEAOptimization(objective="log", backendargs={"measure_beam": "direct"})
 
     with open("problems_3.json", "r") as f:
         problems = json.load(f)
@@ -131,7 +130,18 @@ def evaluate(method, description=None):
 
 def main():
     # evaluate("nelder-mead", description="Nelder-Mead Optimiser Starting at 0")
-    evaluate("nelder-mead-fdf", description="Nelder-Mead Optimiser Starting at FDF")
+    # evaluate("nelder-mead-fdf", description="Nelder-Mead Optimiser Starting at FDF")
+    # evaluate("nelder-mead-fdf-mae", description="Nelder-Mead Optimiser Starting at FDF (MAE)")
+    # evaluate("nelder-mead-fdf-log", description="Nelder-Mead Optimiser Starting at FDF (LOG)")
+    # evaluate("powell-fdf", description="Powell Optimiser Starting at FDF")
+    # evaluate("powell-fdf-mae", description="Powell Optimiser Starting at FDF (MAE)")
+    # evaluate("powell-fdf-log", description="Powell Optimiser Starting at FDF (LOG)")
+    evaluate("cobyla-fdf-mae", description="COBYLA Optimiser Starting at FDF (MAE)")
+    evaluate("cobyla-fdf-mse", description="COBYLA Optimiser Starting at FDF (MSE)")
+    evaluate("cobyla-fdf-log", description="COBYLA Optimiser Starting at FDF (LOG)")
+    evaluate("cobyla-fdf-mae-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (MAE)")
+    evaluate("cobyla-fdf-mse-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (MSE)")
+    evaluate("cobyla-fdf-log-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (LOG)")
 
 
 if __name__ == "__main__":
