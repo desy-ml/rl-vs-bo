@@ -38,7 +38,6 @@ def pack_dataframe(fn):
         df["misalignment_q3_y"] = misalignments[5]
         df["misalignment_screen_x"] = misalignments[6]
         df["misalignment_screen_y"] = misalignments[7]
-        df.loc[:,"res"] = [res] * len(df)
 
         return df, res
     
@@ -78,8 +77,8 @@ def run(env, problem=None):
         (env.action_space.low[4], env.action_space.high[4])
     ]
 
-    res = gp_minimize(optfn, bounds, n_calls=100, x0=list(observation[:5]), n_jobs=-1)
-    # res = dummy_minimize(optfn, bounds, n_calls=300, x0=list(observation[:5]))
+    # res = gp_minimize(optfn, bounds, n_calls=100, x0=list(observation[:5]), n_jobs=-1)
+    res = dummy_minimize(optfn, bounds, n_calls=300, x0=list(observation[:5]))
 
     observation, _, _, _ = env.step(res.x)
     observations.append(observation)
@@ -110,8 +109,8 @@ def cache_to_file(fn):
 
 @cache_to_file
 def evaluate(method, description=None):
-    env = ARESEAOptimization(objective=method[-3:], backendargs={"measure_beam": "direct"})
-    # env = ARESEAOptimization(objective="mae", backendargs={"measure_beam": "direct"})
+    # env = ARESEAOptimization(objective=method[-3:], backendargs={"measure_beam": "direct"})
+    env = ARESEAOptimization(objective="mae", backendargs={"measure_beam": "direct"})
     env = ResetActuatorsToDFD(env)
 
     with open("problems_3.json", "r") as f:
@@ -136,13 +135,17 @@ def evaluate(method, description=None):
 def main():
     # evaluate("bayesian2-mae", description="Bayesian Optimisation with MAE (scipy-optimize)")
     # evaluate("bayesian2-mse", description="Bayesian Optimisation with MSE (scipy-optimize)"),
-    evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
+    # evaluate("bayesian2-log", description="Bayesian Optimisation with Our Log Objective (scipy-optimize)")
 
     # evaluate("bayesian300-mae", description="Bayesian Optimisation for 300 Steps with MAE (scipy-optimize)")
     # evaluate("bayesian300-mse", description="Bayesian Optimisation for 300 Steps with MSE (scipy-optimize)"),
     # evaluate("bayesian300-log", description="Bayesian Optimisation for 300 Steps with Our Log Objective (scipy-optimize)")
 
+    # evaluate("random-search-100", description="Random Search for 100 Steps (scipy-optimize dummy_minimize)")
+    # evaluate("random-search-200", description="Random Search for 200 Steps (scipy-optimize dummy_minimize)")
     # evaluate("random-search", description="Random Search for 300 Steps (scipy-optimize dummuy_minimize)")
+    evaluate("random-search-300b", description="Random Search for 300 Steps (scipy-optimize dummy_minimize)")
+    evaluate("random-search-1000", description="Random Search for 1000 Steps (scipy-optimize dummy_minimize)")
 
 
 if __name__ == "__main__":
