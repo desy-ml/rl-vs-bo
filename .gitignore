@@ -16,3 +16,11 @@ wandb
 .cache
 .cache_2
 .cache_3
+
+plots/*.pdf
+plots/*.png
+machine_studies/polar-lake-997_000_20211209164924.pkl
+machine_studies/polished-donkey-996_000_20211202155327.pkl
+machine_studies/polished-donkey-996_000_20211209162853.pkl
+machine_studies/polished-donkey-996_001_20211209163344.pkl
+machine_studies/polished-donkey-996_002_20211209164207.pkl
