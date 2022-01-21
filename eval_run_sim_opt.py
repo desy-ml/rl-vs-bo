@@ -74,10 +74,19 @@ def run(env, problem=None):
     #       Double that (two pixels) -> 6.6396e-06
     #       Squared error would then be 4.408428816e-11
     #       Round to 4.5e-11
-    # minimize(optfn, observation[:5], method="Nelder-Mead", bounds=bounds, options={"fatol": 4.5e-11, "xatol": 1})
+    bounds = Bounds(env.action_space.low, env.action_space.high)
+    init_simplex = np.array([
+        [10.0, -10.0, 10.0, 0.0, 0.0],
+        [15.0, -10.0, 10.0, 0.0, 0.0],
+        [10.0, -15.0, 10.0, 0.0, 0.0],
+        [10.0, -10.0, 15.0, 0.0, 0.0],
+        [10.0, -10.0, 10.0, 0.5e-3, 0.0],
+        [10.0, -10.0, 10.0, 0.0, 0.5e-3]
+    ])
+    minimize(optfn, observation[:5], method="Nelder-Mead", bounds=bounds, options={"initial_simplex": init_simplex, "fatol": 4.5e-11, "xatol": 1})
     # minimize(optfn, observation[:5], method="Powell", bounds=bounds, options={"ftol": 4.5e-11, "xtol": 1})
     # minimize(optfn, observation[:5], method="COBYLA", bounds=bounds, options={"tol": 4.5e-11, "rhobeg": 1})
-    minimize(optfn, observation[:5], method="COBYLA", bounds=bounds, options={"tol": 4.5e-11, "rhobeg": 1e-3})
+    # minimize(optfn, observation[:5], method="COBYLA", bounds=bounds, options={"tol": 4.5e-11, "rhobeg": 1e-3})
 
     return observations, incoming, misalignments
 
@@ -136,12 +145,13 @@ def main():
     # evaluate("powell-fdf", description="Powell Optimiser Starting at FDF")
     # evaluate("powell-fdf-mae", description="Powell Optimiser Starting at FDF (MAE)")
     # evaluate("powell-fdf-log", description="Powell Optimiser Starting at FDF (LOG)")
-    evaluate("cobyla-fdf-mae", description="COBYLA Optimiser Starting at FDF (MAE)")
-    evaluate("cobyla-fdf-mse", description="COBYLA Optimiser Starting at FDF (MSE)")
-    evaluate("cobyla-fdf-log", description="COBYLA Optimiser Starting at FDF (LOG)")
-    evaluate("cobyla-fdf-mae-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (MAE)")
-    evaluate("cobyla-fdf-mse-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (MSE)")
-    evaluate("cobyla-fdf-log-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (LOG)")
+    # evaluate("cobyla-fdf-mae", description="COBYLA Optimiser Starting at FDF (MAE)")
+    # evaluate("cobyla-fdf-mse", description="COBYLA Optimiser Starting at FDF (MSE)")
+    # evaluate("cobyla-fdf-log", description="COBYLA Optimiser Starting at FDF (LOG)")
+    # evaluate("cobyla-fdf-mae-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (MAE)")
+    # evaluate("cobyla-fdf-mse-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (MSE)")
+    # evaluate("cobyla-fdf-log-1e-3", description="COBYLA Optimiser Starting at FDF and rhobeg=1e-3 (LOG)")
+    evaluate("nelder-mead-fdf-mse-initsimplex", description="Nelder-Mead Optimiser starting at FDF with different initial simplex")
 
 
 if __name__ == "__main__":
