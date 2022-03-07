@@ -7,5 +7,6 @@ slurm-*.out
 
 .cache_3
 distributions
+log
 models
 wandb

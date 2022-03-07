@@ -1,9 +1,9 @@
-import multiprocessing
-
 from gym.wrappers import RescaleAction, TimeLimit
-from stable_baselines3 import PPO
+import numpy as np
+from stable_baselines3 import TD3
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 
 from environments import ARESEASequential, ResetActuators
@@ -11,19 +11,19 @@ from environments import ARESEASequential, ResetActuators
 
 def main():
     hyperparameter_defaults = {
+        "noise_type": "normal",
+        "noise_std": 0.1,
         "learning_rate": 1e-3,
-        "n_steps": 2048,
-        "batch_size": 64,
-        "n_epochs": 10,
+        "buffer_size": 600000,
+        "learning_starts": 2000,
+        "batch_size": 100,
+        "tau": 0.005,
         "gamma": 0.55,
-        "gae_lambda": 0.95,
-        "clip_range": 0.2,
-        "clip_range_vf": None,
-        "ent_coef": 0.0,
-        "vf_coef": 0.5,
-        "use_sde": False,
-        "sde_sample_freq": - 1,
-        "net_arch": [64, 32]
+        "gradient_steps": -1,
+        "policy_delay": 2,
+        "target_policy_noise": 0.2,
+        "target_noise_clip": 0.5,
+        "net_arch": [64,32]
     }
 
     wandb.init(
@@ -45,31 +45,39 @@ def main():
         env = Monitor(env)
         return env
 
-    env = SubprocVecEnv([make_env] * multiprocessing.cpu_count())
+    env = DummyVecEnv([make_env])
     env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=wandb.config["gamma"])
 
-    model = PPO(
+    n_actions = env.action_space.shape[-1]
+    if wandb.config["noise_type"] == "none":
+        noise = None
+    elif wandb.config["noise_type"] == "normal":
+        noise = NormalActionNoise(
+            mean=np.zeros(n_actions),
+            sigma=np.full(n_actions, wandb.config["noise_std"])
+        )
+
+    model = TD3(
         "MlpPolicy",
         env,
+        action_noise=noise,
         learning_rate=wandb.config["learning_rate"],
-        n_steps=wandb.config["n_steps"],
+        buffer_size=wandb.config["buffer_size"],
+        learning_starts=wandb.config["learning_starts"],
         batch_size=wandb.config["batch_size"],
-        n_epochs=wandb.config["n_epochs"],
+        tau=wandb.config["tau"],
         gamma=wandb.config["gamma"],
-        gae_lambda=wandb.config["gae_lambda"],
-        clip_range=wandb.config["clip_range"],
-        clip_range_vf=wandb.config["clip_range_vf"],
-        ent_coef=wandb.config["ent_coef"],
-        vf_coef=wandb.config["vf_coef"],
-        use_sde=wandb.config["use_sde"],
-        sde_sample_freq=wandb.config["sde_sample_freq"],
+        gradient_steps=wandb.config["gradient_steps"],
+        policy_delay=wandb.config["policy_delay"],
+        target_policy_noise=wandb.config["target_policy_noise"],
+        target_noise_clip=wandb.config["target_noise_clip"],
         policy_kwargs={"net_arch": wandb.config["net_arch"]},
         tensorboard_log=f"log/{wandb.run.name}",
-        verbose=1
+        verbose=2
     )
 
     model.learn(
-        total_timesteps=200000,
+        total_timesteps=25000,
         log_interval=1
     )
 
@@ -80,3 +88,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
