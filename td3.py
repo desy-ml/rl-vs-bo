@@ -73,17 +73,22 @@ def main():
         target_noise_clip=wandb.config["target_noise_clip"],
         policy_kwargs={"net_arch": wandb.config["net_arch"]},
         tensorboard_log=f"log/{wandb.run.name}",
-        verbose=2
+        verbose=1
     )
 
-    model.learn(
-        total_timesteps=25000,
-        log_interval=1
-    )
-
-    log_dir = f"models/{wandb.run.name}"
-    model.save(f"{log_dir}/model")
-    env.save(f"{log_dir}/vec_normalize.pkl")
+    done_steps = 0
+    STEP_CHUNK = 3000
+    while True:
+        model.learn(
+            total_timesteps=STEP_CHUNK,
+            reset_num_timesteps=False,
+            log_interval=1,
+            tb_log_name="TD3"
+        )
+        done_steps += STEP_CHUNK
+        model.save(f"log/{wandb.run.name}/{done_steps}_model")
+        model.save_replay_buffer(f"log/{wandb.run.name}/{done_steps}_replay_buffer")
+        env.save(f"log/{wandb.run.name}/{done_steps}_vec_normalize.pkl")
 
 
 if __name__ == "__main__":
