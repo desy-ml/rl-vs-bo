@@ -9,6 +9,7 @@ slurm-*.out
 distributions
 experiments
 log
+logold
 models
 recordings
 wandb

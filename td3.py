@@ -140,7 +140,7 @@ def main():
         # Is enough time left for another iteration?
         chunk_time = datetime.now() - t_last
         if datetime.now() - t_start + chunk_time > NODE_TIMEOUT * SAFETY:
-            # os.system(f"sbatch td3.sh --export ALL,WANDB_RUN_ID=\"{wandb.run.id}\"")
+            os.system(f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh")
             break
 
 
