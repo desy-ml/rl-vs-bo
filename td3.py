@@ -15,7 +15,7 @@ from environments import ARESEASequential, ResetActuators
 
 CHUNK_LENGTH = 3000
 NODE_TIMEOUT = timedelta(hours=24)
-SAFETY = 0.9
+SAFETY = timedelta(hours=1)
 
 HYPERPARAMETER_DEFAULTS = {
     "noise_type": "normal",
@@ -139,7 +139,9 @@ def main():
 
         # Is enough time left for another iteration?
         chunk_time = datetime.now() - t_last
-        if datetime.now() - t_start + chunk_time > NODE_TIMEOUT * SAFETY:
+        allowed_run_time = NODE_TIMEOUT - SAFETY
+        passed_run_time = datetime.now() - t_start
+        if passed_run_time + chunk_time > allowed_run_time:
             os.system(f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh")
             break
 
