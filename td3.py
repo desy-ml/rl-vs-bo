@@ -5,6 +5,7 @@ import os
 from gym.wrappers import RescaleAction, TimeLimit
 import numpy as np
 from stable_baselines3 import TD3
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback, EveryNTimesteps
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
@@ -12,10 +13,6 @@ import wandb
 
 from environments import ARESEASequential, ResetActuators
 
-
-CHUNK_LENGTH = 3000
-NODE_TIMEOUT = timedelta(hours=24)
-SAFETY = timedelta(hours=1)
 
 HYPERPARAMETER_DEFAULTS = {
     "noise_type": "normal",
@@ -79,26 +76,25 @@ def setup_new_training():
         verbose=1
     )
 
-    return env, model
+    return model
 
 
-def find_resume_steps(name):
-    models = glob.glob(f"log/{name}/*_model.zip")
-    resume_steps = max(int(model.split("/")[-1][:-10]) for model in models)
+def find_resume_steps(log_path):
+    paths = glob.glob(f"{log_path}/rl_model_*_steps.zip")
+    resume_steps = max(int(path.split("/")[-1].split("_")[-2]) for path in paths)
     return resume_steps
 
 
-def load_training(name):
-    resume_steps = find_resume_steps(name)
-    resume_path = f"log/{name}/{resume_steps}_"
+def load_training(log_path):
+    resume_steps = find_resume_steps(log_path)
 
     env = DummyVecEnv([make_env])
-    env = VecNormalize.load(resume_path + "vec_normalize.pkl", env)
+    env = VecNormalize.load(f"{log_path}/vec_normalize_{resume_steps}_steps.pkl", env)
 
-    model = TD3.load(resume_path + "model.zip", env=env)
-    model.load_replay_buffer(resume_path + "replay_buffer")
+    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env)
+    model.load_replay_buffer(f"{log_path}/replay_buffer_{resume_steps}_steps.pkl")
 
-    return env, model
+    return model
 
 
 def remove_if_exists(path):
@@ -109,6 +105,82 @@ def remove_if_exists(path):
         return False
 
 
+class ReplayBufferCheckpointCallback(BaseCallback):
+
+    def __init__(self, save_freq, save_path, delete_old=True, name_prefix="replay_buffer", verbose=0):
+        super().__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.delete_old = delete_old
+        self.name_prefix = name_prefix
+        self.last_saved_path = None
+    
+    def _init_callback(self):
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self):
+        if self.n_calls % self.save_freq == 0:
+            path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
+            self.model.save_replay_buffer(path)
+            if self.verbose > 1:
+                print(f"Saving replay buffer to {path}")
+            
+            if self.delete_old and self.last_saved_path is not None:
+                remove_if_exists(self.last_saved_path)
+                if self.verbose > 1:
+                    print(f"Removing old replay buffer at {self.last_saved_path}")
+            
+            self.last_saved_path = path
+
+        return True
+
+
+class EnvironmentCheckpointCallback(BaseCallback):
+
+    def __init__(self, save_freq, save_path, name_prefix="environment", verbose=0):
+        super().__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.name_prefix = name_prefix
+        self.last_saved_path = None
+    
+    def _init_callback(self):
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self):
+        if self.n_calls % self.save_freq == 0:
+            path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.pkl")
+            self.training_env.save(path)
+            if self.verbose > 1:
+                print(f"Saving environment to {path}")
+
+        return True
+
+
+class SLURMRescheduleCallback(BaseCallback):
+
+    def __init__(self, reserved_time, safety=timedelta(minutes=1), verbose=0):
+        super().__init__(verbose)
+        self.allowed_time = reserved_time - safety
+        self.t_start = datetime.now()
+        self.t_last = datetime.now()
+    
+    def _on_step(self):
+        t_now = datetime.now()
+        passed_time = t_now - self.t_start
+        dt = t_now - self.t_last
+        if passed_time + dt > self.allowed_time:
+            os.system(f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh")
+            if self.verbose > 1:
+                print(f"Scheduling new batch job to continue training")
+            return False
+        return True
+
+
 def main():
     wandb.init(
         project="ares-ea-rl-test",
@@ -116,36 +188,26 @@ def main():
         sync_tensorboard=True,
         settings=wandb.Settings(start_method="thread")
     )
+    
+    log_path = f"log/{wandb.run.name}"
 
-    env, model = load_training(wandb.run.name) if wandb.run.resumed else setup_new_training()
+    model = load_training(log_path) if wandb.run.resumed else setup_new_training()
+    
+    callback = EveryNTimesteps(3000, callback=CallbackList([
+        CheckpointCallback(1, log_path),
+        ReplayBufferCheckpointCallback(1, log_path),
+        EnvironmentCheckpointCallback(1, log_path, name_prefix="vec_normalize"),
+        SLURMRescheduleCallback(timedelta(hours=24), safety=timedelta(hours=1))
+    ]))
 
-    t_start = datetime.now()
-    while True:
-        t_last = datetime.now()
-        last_total_timesteps = model._total_timesteps
-
-        model.learn(
-            total_timesteps=CHUNK_LENGTH,
-            reset_num_timesteps=False,
-            log_interval=1,
-            tb_log_name="TD3"
-        )
-
-        model.save(f"log/{wandb.run.name}/{model._total_timesteps}_model")
-        model.save_replay_buffer(f"log/{wandb.run.name}/{model._total_timesteps}_replay_buffer")
-        env.save(f"log/{wandb.run.name}/{model._total_timesteps}_vec_normalize.pkl")
-
-        remove_if_exists(f"log/{wandb.run.name}/{last_total_timesteps}_replay_buffer.pkl")
-
-        # Is enough time left for another iteration?
-        chunk_time = datetime.now() - t_last
-        allowed_run_time = NODE_TIMEOUT - SAFETY
-        passed_run_time = datetime.now() - t_start
-        if passed_run_time + chunk_time > allowed_run_time:
-            os.system(f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh")
-            break
+    model.learn(
+        total_timesteps=int(1e10),
+        reset_num_timesteps=False,
+        log_interval=1,
+        callback=callback,
+        tb_log_name="TD3"
+    )
 
 
 if __name__ == "__main__":
     main()
-
