@@ -42,7 +42,7 @@ def make_env():
     env = ResetActuators(env)
     env = TimeLimit(env, max_episode_steps=50)
     env = RescaleAction(env, -1, 1)
-    env = Monitor(env)
+    env = Monitor(env, info_keywords=("mae",))
     return env
 
 
@@ -114,10 +114,10 @@ def main():
         project="ares-ea-rl-test",
         entity="msk-ipc",
         sync_tensorboard=True,
-        settings=wandb.Settings(start_method="fork")
+        settings=wandb.Settings(start_method="thread")
     )
 
-    env, model = load_training(wandb.run.name) if wandb.run.resumed else setup_new_training()    
+    env, model = load_training(wandb.run.name) if wandb.run.resumed else setup_new_training()
 
     t_start = datetime.now()
     while True:
