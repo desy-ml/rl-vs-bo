@@ -73,7 +73,8 @@ def setup_new_training():
         target_noise_clip=wandb.config["target_noise_clip"],
         policy_kwargs={"net_arch": wandb.config["net_arch"]},
         tensorboard_log=f"log/{wandb.run.name}",
-        verbose=1
+        verbose=1,
+        device="cpu"
     )
 
     return model
@@ -91,7 +92,7 @@ def load_training(log_path):
     env = DummyVecEnv([make_env])
     env = VecNormalize.load(f"{log_path}/vec_normalize_{resume_steps}_steps.pkl", env)
 
-    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env)
+    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env, device="cpu")
     model.load_replay_buffer(f"{log_path}/replay_buffer_{resume_steps}_steps.pkl")
 
     return model
@@ -128,7 +129,7 @@ class ReplayBufferCheckpointCallback(BaseCallback):
                 print(f"Saving replay buffer to {path}")
             
             if self.delete_old and self.last_saved_path is not None:
-                remove_if_exists(self.last_saved_path)
+                remove_if_exists(self.last_saved_path + ".pkl")
                 if self.verbose > 1:
                     print(f"Removing old replay buffer at {self.last_saved_path}")
             
@@ -156,7 +157,7 @@ class EnvironmentCheckpointCallback(BaseCallback):
             path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.pkl")
             self.training_env.save(path)
             if self.verbose > 1:
-                print(f"Saving environment to {path}")
+                print(f"Saving environment to {path[:-4]}")
 
         return True
 
@@ -167,18 +168,22 @@ class SLURMRescheduleCallback(BaseCallback):
         super().__init__(verbose)
         self.allowed_time = reserved_time - safety
         self.t_start = datetime.now()
-        self.t_last = datetime.now()
+        self.t_last = self.t_start
     
     def _on_step(self):
         t_now = datetime.now()
         passed_time = t_now - self.t_start
         dt = t_now - self.t_last
+        self.t_last = t_now
         if passed_time + dt > self.allowed_time:
             os.system(f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh")
             if self.verbose > 1:
                 print(f"Scheduling new batch job to continue training")
             return False
-        return True
+        else:
+            if self.verbose > 1:
+                print(f"Continue running with this SLURM job (passed={passed_time} / allowed={self.allowed_time} / dt={dt})")
+            return True
 
 
 def main():
@@ -194,10 +199,10 @@ def main():
     model = load_training(log_path) if wandb.run.resumed else setup_new_training()
     
     callback = EveryNTimesteps(3000, callback=CallbackList([
-        CheckpointCallback(1, log_path),
-        ReplayBufferCheckpointCallback(1, log_path),
-        EnvironmentCheckpointCallback(1, log_path, name_prefix="vec_normalize"),
-        SLURMRescheduleCallback(timedelta(hours=24), safety=timedelta(hours=1))
+        CheckpointCallback(1, log_path, verbose=2),
+        ReplayBufferCheckpointCallback(1, log_path, verbose=2),
+        EnvironmentCheckpointCallback(1, log_path, name_prefix="vec_normalize", verbose=2),
+        SLURMRescheduleCallback(timedelta(minutes=10), safety=timedelta(minutes=1), verbose=2)
     ]))
 
     model.learn(
