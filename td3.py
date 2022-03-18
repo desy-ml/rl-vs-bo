@@ -208,7 +208,6 @@ def main():
     model.learn(
         total_timesteps=int(1e10),
         reset_num_timesteps=False,
-        log_interval=1,
         callback=callback,
         tb_log_name="TD3"
     )
