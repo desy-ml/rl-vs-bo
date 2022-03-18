@@ -3,18 +3,18 @@ import glob
 import os
 
 from gym.wrappers import RescaleAction, TimeLimit
+import names
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback, EveryNTimesteps
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-import wandb
 
 from environments import ARESEASequential, ResetActuators
 
 
-HYPERPARAMETER_DEFAULTS = {
+hyperparameters = {
     "noise_type": "normal",
     "noise_std": 0.1,
     "learning_rate": 1e-3,
@@ -43,38 +43,36 @@ def make_env():
     return env
 
 
-def setup_new_training():
-    wandb.config = HYPERPARAMETER_DEFAULTS
-
+def setup_new_training(run_name):
     env = DummyVecEnv([make_env])
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=wandb.config["gamma"])
+    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=hyperparameters["gamma"])
 
     n_actions = env.action_space.shape[-1]
-    if wandb.config["noise_type"] == "none":
+    if hyperparameters["noise_type"] == "none":
         noise = None
-    elif wandb.config["noise_type"] == "normal":
+    elif hyperparameters["noise_type"] == "normal":
         noise = NormalActionNoise(
             mean=np.zeros(n_actions),
-            sigma=np.full(n_actions, wandb.config["noise_std"])
+            sigma=np.full(n_actions, hyperparameters["noise_std"])
         )
     model = TD3(
         "MlpPolicy",
         env,
         action_noise=noise,
-        learning_rate=wandb.config["learning_rate"],
-        buffer_size=wandb.config["buffer_size"],
-        learning_starts=wandb.config["learning_starts"],
-        batch_size=wandb.config["batch_size"],
-        tau=wandb.config["tau"],
-        gamma=wandb.config["gamma"],
-        gradient_steps=wandb.config["gradient_steps"],
-        policy_delay=wandb.config["policy_delay"],
-        target_policy_noise=wandb.config["target_policy_noise"],
-        target_noise_clip=wandb.config["target_noise_clip"],
-        policy_kwargs={"net_arch": wandb.config["net_arch"]},
-        tensorboard_log=f"log/{wandb.run.name}",
-        verbose=1,
-        device="cpu"
+        learning_rate=hyperparameters["learning_rate"],
+        buffer_size=hyperparameters["buffer_size"],
+        learning_starts=hyperparameters["learning_starts"],
+        batch_size=hyperparameters["batch_size"],
+        tau=hyperparameters["tau"],
+        gamma=hyperparameters["gamma"],
+        gradient_steps=hyperparameters["gradient_steps"],
+        policy_delay=hyperparameters["policy_delay"],
+        target_policy_noise=hyperparameters["target_policy_noise"],
+        target_noise_clip=hyperparameters["target_noise_clip"],
+        policy_kwargs={"net_arch": hyperparameters["net_arch"]},
+        tensorboard_log=f"log/{run_name}",
+        verbose=2,
+        # device="cpu"
     )
 
     return model
@@ -92,7 +90,7 @@ def load_training(log_path):
     env = DummyVecEnv([make_env])
     env = VecNormalize.load(f"{log_path}/vec_normalize_{resume_steps}_steps.pkl", env)
 
-    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env, device="cpu")
+    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env) #, device="cpu")
     model.load_replay_buffer(f"{log_path}/replay_buffer_{resume_steps}_steps.pkl")
 
     return model
@@ -164,8 +162,9 @@ class EnvironmentCheckpointCallback(BaseCallback):
 
 class SLURMRescheduleCallback(BaseCallback):
 
-    def __init__(self, reserved_time, safety=timedelta(minutes=1), verbose=0):
+    def __init__(self, run_name, reserved_time, safety=timedelta(minutes=1), verbose=0):
         super().__init__(verbose)
+        self.run_name = run_name
         self.allowed_time = reserved_time - safety
         self.t_start = datetime.now()
         self.t_last = self.t_start
@@ -176,7 +175,7 @@ class SLURMRescheduleCallback(BaseCallback):
         dt = t_now - self.t_last
         self.t_last = t_now
         if passed_time + dt > self.allowed_time:
-            os.system(f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh")
+            os.system(f"sbatch --export=ALL,RL_RUN_NAME=\"{self.run_name}\" td3.sh")
             if self.verbose > 1:
                 print(f"Scheduling new batch job to continue training")
             return False
@@ -187,22 +186,19 @@ class SLURMRescheduleCallback(BaseCallback):
 
 
 def main():
-    wandb.init(
-        project="ares-ea-rl-test",
-        entity="msk-ipc",
-        sync_tensorboard=True,
-        settings=wandb.Settings(start_method="thread")
-    )
-    
-    log_path = f"log/{wandb.run.name}"
+    run_name = os.getenv("RL_RUN_NAME")
+    resumed = run_name is not None
+    if not resumed:
+        run_name = names.get_full_name()
+    log_path = f"log/{run_name}"
 
-    model = load_training(log_path) if wandb.run.resumed else setup_new_training()
+    model = load_training(log_path) if resumed else setup_new_training(run_name)
     
     callback = EveryNTimesteps(3000, callback=CallbackList([
         CheckpointCallback(1, log_path, verbose=2),
         ReplayBufferCheckpointCallback(1, log_path, verbose=2),
         EnvironmentCheckpointCallback(1, log_path, name_prefix="vec_normalize", verbose=2),
-        SLURMRescheduleCallback(timedelta(minutes=10), safety=timedelta(minutes=1), verbose=2)
+        SLURMRescheduleCallback(run_name, timedelta(minutes=10), safety=timedelta(minutes=1), verbose=2)
     ]))
 
     model.learn(
