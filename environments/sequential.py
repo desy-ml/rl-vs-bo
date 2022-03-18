@@ -35,6 +35,7 @@ class ARESEASequential(gym.Env):
         high=actuator_space.high * 0.1
     )
 
+    # Pixel size (at binning = 4) -> 3.3198e-6 * 4
     target_delta = np.array([6.6396e-06] * 4)
 
     def __init__(self, backend="simulation", backendargs={}):
