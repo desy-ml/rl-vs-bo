@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 import glob
 import os
@@ -197,18 +198,23 @@ def main():
     log_path = f"log/{wandb.run.name}"
 
     model = load_training(log_path) if wandb.run.resumed else setup_new_training()
-    
+
     callback = EveryNTimesteps(3000, callback=CallbackList([
         CheckpointCallback(1, log_path, verbose=2),
         ReplayBufferCheckpointCallback(1, log_path, verbose=2),
         EnvironmentCheckpointCallback(1, log_path, name_prefix="vec_normalize", verbose=2),
-        SLURMRescheduleCallback(timedelta(minutes=10), safety=timedelta(minutes=1), verbose=2)
+        # SLURMRescheduleCallback(timedelta(minutes=10), safety=timedelta(minutes=1), verbose=2)
     ]))
+
+    eval_env = DummyVecEnv([make_env])
+    eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=True, gamma=wandb.config["gamma"], training=False)
 
     model.learn(
         total_timesteps=int(1e10),
         reset_num_timesteps=False,
         callback=callback,
+        eval_env=eval_env,
+        eval_freq=3000,
         tb_log_name="TD3"
     )
 
