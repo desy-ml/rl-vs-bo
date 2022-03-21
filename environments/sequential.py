@@ -21,14 +21,18 @@ class ARESEASequential(gym.Env):
         low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32),      # TODO: Quad limits +/-72
         high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32)
     )
-    beam_parameter_space = spaces.Box(
+    desired_beam_parameter_space = spaces.Box(
         low=np.array([-2e-3, -2e-3, 0, 0], dtype=np.float32),
         high=np.array([2e-3, 2e-3, 5e-4, 5e-4], dtype=np.float32)
     )
+    achieved_beam_parameter_space = spaces.Box(
+        low=np.array([-np.inf, -np.inf, 0, 0], dtype=np.float32),
+        high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
+    )
     observation_space = utils.combine_spaces(
         actuator_space,
-        beam_parameter_space,
-        beam_parameter_space
+        desired_beam_parameter_space,
+        achieved_beam_parameter_space
     )
     action_space = spaces.Box(
         low=actuator_space.low * 0.1,
@@ -60,7 +64,7 @@ class ARESEASequential(gym.Env):
             self.backend.actuators = self.actuator_space.sample()
         self.next_initial = None
 
-        self.desired = self.next_desired if self.next_desired is not None else self.beam_parameter_space.sample()
+        self.desired = self.next_desired if self.next_desired is not None else self.desired_beam_parameter_space.sample()
         self.next_desired = None
         
         self.achieved = self.backend.compute_beam_parameters()
@@ -95,7 +99,7 @@ class ARESEASequential(gym.Env):
             "action": action
         })
 
-        done = (np.abs(self.achieved - self.desired) < self.target_delta).all()
+        done = bool((np.abs(self.achieved - self.desired) < self.target_delta).all())
 
         info = {"mae": np.abs(self.achieved - self.desired).mean()}
         if hasattr(self.backend, "last_beam_image"):
