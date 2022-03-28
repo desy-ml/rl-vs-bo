@@ -9,6 +9,7 @@ slurm-*.out
 distributions
 experiments
 log
+log2
 logold
 models
 recordings

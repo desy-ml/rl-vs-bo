@@ -1,3 +1,4 @@
+from .misalignments import ARESEAMisalignments
 from .mse import ARESEAMSE
 from .optimization import ARESEAOptimization
 from .sequential import ARESEASequential

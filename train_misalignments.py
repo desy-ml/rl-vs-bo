@@ -3,14 +3,13 @@ import glob
 
 from gym.wrappers import FrameStack, RescaleAction, TimeLimit
 import numpy as np
-from stable_baselines3 import TD3
+from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import wandb
 from wandb.integration.sb3 import WandbCallback
 
-from environments import ARESEASequential, ResetActuators
+from environments import ARESEAMisalignments
 from utils import CheckpointCallback
 
 
@@ -23,31 +22,22 @@ def parse_arguments():
 
 
 def make_env():
-    env = ARESEASequential(
-        backend="simulation",
-        backendargs={"measure_beam": "direct"}
-    )
+    env = ARESEAMisalignments()
     env = FrameStack(env, 16)
-    env = ResetActuators(env)
     env = TimeLimit(env, max_episode_steps=50)
     env = RescaleAction(env, -1, 1)
-    env = Monitor(env, info_keywords=("mae",))
+    env = Monitor(env)
     return env
 
 
 def setup_new_training():
     env = DummyVecEnv([make_env])
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.95)
+    env = VecNormalize(env, norm_obs=True, norm_reward=True)
 
-    
-
-    model = TD3(
+    model = SAC(
         "MlpPolicy",
         env,
-        buffer_size=600000,
-        learning_starts=2000,
-        gamma=0.95,
-        tensorboard_log=f"log/{wandb.run.name}",
+        tensorboard_log=f"log2/{wandb.run.name}",
         verbose=1,
         device="cpu"
     )
@@ -67,7 +57,7 @@ def load_training(log_path):
     env = DummyVecEnv([make_env])
     env = VecNormalize.load(f"{log_path}/vec_normalize_{resume_steps}_steps.pkl", env)
 
-    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env, device="cpu")
+    model = SAC.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env, device="cpu")
     model.load_replay_buffer(f"{log_path}/replay_buffer_{resume_steps}_steps.pkl")
 
     return model
@@ -86,7 +76,7 @@ def main():
         resume="allow"
     )
     
-    log_path = f"log/{wandb.run.name}"
+    log_path = f"log2/{wandb.run.name}"
 
     model = load_training(log_path) if wandb.run.resumed else setup_new_training()
 
@@ -104,7 +94,7 @@ def main():
         callback=callbacks,
         eval_env=eval_env,
         eval_freq=3000,
-        tb_log_name="TD3"
+        tb_log_name="SAC"
     )
 
 

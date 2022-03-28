@@ -1,7 +1,7 @@
 import argparse
 import glob
 
-from gym.wrappers import FrameStack, RescaleAction, TimeLimit
+from gym.wrappers import RescaleAction, TimeLimit
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.monitor import Monitor
@@ -27,7 +27,6 @@ def make_env():
         backend="simulation",
         backendargs={"measure_beam": "direct"}
     )
-    env = FrameStack(env, 16)
     env = ResetActuators(env)
     env = TimeLimit(env, max_episode_steps=50)
     env = RescaleAction(env, -1, 1)
@@ -37,16 +36,20 @@ def make_env():
 
 def setup_new_training():
     env = DummyVecEnv([make_env])
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.95)
+    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.55)
 
-    
+    noise_std = 0.1
+    n_actions = env.action_space.shape[-1]
+    noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=np.full(n_actions, noise_std))
 
     model = TD3(
         "MlpPolicy",
         env,
+        action_noise=noise,
         buffer_size=600000,
         learning_starts=2000,
-        gamma=0.95,
+        gamma=0.55,
+        policy_kwargs={"net_arch": [64,32]},
         tensorboard_log=f"log/{wandb.run.name}",
         verbose=1,
         device="cpu"
