@@ -4,13 +4,6 @@ __pycache__
 .ipynb_checkpoints
 .vscode
 slurm-*.out
-
-.cache_3
-distributions
-experiments
-log
-log2
-logold
-models
-recordings
 wandb
+
+old
