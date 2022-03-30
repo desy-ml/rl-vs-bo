@@ -9,6 +9,12 @@ from ARESlatticeStage3v1_9 import cell as ares_lattice
 
 class ARESEA(gym.Env):
 
+    metadata = {
+        "render.modes": ["rgb_array"],
+        "video.frames_per_second": 2
+    }
+
+
     observation_space = spaces.Dict({
         "beam": spaces.Box(
             low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),

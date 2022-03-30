@@ -7,3 +7,4 @@ slurm-*.out
 wandb
 
 old
+recordings
