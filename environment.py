@@ -126,10 +126,16 @@ class ARESEA(gym.Env):
 
         done = bool(np.all(observation["beam"] < 3.3198e-6))
 
+        misalignments = {
+            "AREAMQZM1": self.simulation.AREAMQZM1.misalignment,
+            "AREAMQZM2": self.simulation.AREAMQZM2.misalignment,
+            "AREAMQZM3": self.simulation.AREAMQZM3.misalignment,
+            "AREABSCR1": self.simulation.AREABSCR1.misalignment,
+        }
         info = {
             "mae": mae,
-            "misalignments": None,
-            "incoming": None,
+            "misalignments": misalignments,
+            "incoming": self.incoming.parameters,
             "mae_reward": mae_reward,
             "time_reward": time_reward
         }
