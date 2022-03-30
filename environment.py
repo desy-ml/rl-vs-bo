@@ -23,7 +23,12 @@ class ARESEA(gym.Env):
         "magnets": spaces.Box(
             low=np.array([0, 0, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
             high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
-        )
+        ),
+        "incoming": spaces.Box(
+            low=np.array([80e6, -1e-3, -1e-4, -1e-3, -1e-4, 1e-5, 1e-6, 1e-5, 1e-6, 1e-6, 1e-4], dtype=np.float32),
+            high=np.array([160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3], dtype=np.float32)
+        ),
+        "misalignments": spaces.Box(low=-400e-6, high=400e-6, shape=(8,))
     })
 
     # action_space= spaces.Box(
@@ -47,25 +52,25 @@ class ARESEA(gym.Env):
         self.simulation.AREABSCR1.binning = 4
         self.simulation.AREABSCR1.is_active = True
 
-        misalignment_space = spaces.Box(low=-400e-6, high=400e-6, shape=(8,))
-        misalignments = misalignment_space.sample()
+        misalignments = self.observation_space["misalignments"].sample()
         self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
         self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
         self.simulation.AREABSCR1.misalignment = misalignments[6:8]
 
+        incoming_parameters = self.observation_space["incoming"].sample()
         self.incoming = cheetah.ParameterBeam.from_parameters(
-            mu_x=np.random.uniform(-1e-3, 1e-3),
-            mu_y=np.random.uniform(-1e-3, 1e-3),
-            mu_xp=np.random.uniform(-1e-4, 1e-4),
-            mu_yp=np.random.uniform(-1e-4, 1e-4),
-            sigma_x=np.random.uniform(1e-5, 5e-4),
-            sigma_y=np.random.uniform(1e-5, 5e-4),
-            sigma_xp=np.random.uniform(1e-6, 5e-5),
-            sigma_yp=np.random.uniform(1e-6, 5e-5),
-            sigma_s=np.random.uniform(1e-6, 5e-5),
-            sigma_p=np.random.uniform(1e-4, 1e-3),
-            energy=np.random.uniform(80e6, 160e6)
+            energy=incoming_parameters[0],
+            mu_x=incoming_parameters[1],
+            mu_xp=incoming_parameters[2],
+            mu_y=incoming_parameters[3],
+            mu_yp=incoming_parameters[4],
+            sigma_x=incoming_parameters[5],
+            sigma_xp=incoming_parameters[6],
+            sigma_y=incoming_parameters[7],
+            sigma_yp=incoming_parameters[8],
+            sigma_s=incoming_parameters[9],
+            sigma_p=incoming_parameters[10],
         )
     
     def reset(self):
@@ -84,13 +89,36 @@ class ARESEA(gym.Env):
                 self.simulation.AREABSCR1.read_beam.sigma_x,
                 self.simulation.AREABSCR1.read_beam.mu_y,
                 self.simulation.AREABSCR1.read_beam.sigma_y
-            ]),
+            ], dtype=np.float32),
             "magnets": np.array([
                 self.simulation.AREAMQZM1.k1,
                 -self.simulation.AREAMQZM2.k1,  # NOTE the sign here
                 self.simulation.AREAMCVM1.angle,
                 self.simulation.AREAMQZM3.k1,
                 self.simulation.AREAMCHM1.angle
+            ], dtype=np.float32),
+            "incoming": np.array([
+                self.incoming.energy,
+                self.incoming.mu_x,
+                self.incoming.mu_xp,
+                self.incoming.mu_y,
+                self.incoming.mu_yp,
+                self.incoming.sigma_x,
+                self.incoming.sigma_xp,
+                self.incoming.sigma_y,
+                self.incoming.sigma_yp,
+                self.incoming.sigma_s,
+                self.incoming.sigma_p
+            ], dtype=np.float32),
+            "misalignments": np.array([
+                self.simulation.AREAMQZM1.misalignment[0],
+                self.simulation.AREAMQZM1.misalignment[1],
+                self.simulation.AREAMQZM2.misalignment[0],
+                self.simulation.AREAMQZM2.misalignment[1],
+                self.simulation.AREAMQZM3.misalignment[0],
+                self.simulation.AREAMQZM3.misalignment[1],
+                self.simulation.AREABSCR1.misalignment[0],
+                self.simulation.AREABSCR1.misalignment[1],
             ], dtype=np.float32)
         }
 
@@ -114,13 +142,36 @@ class ARESEA(gym.Env):
                 self.simulation.AREABSCR1.read_beam.sigma_x,
                 self.simulation.AREABSCR1.read_beam.mu_y,
                 self.simulation.AREABSCR1.read_beam.sigma_y
-            ]),
+            ], dtype=np.float32),
             "magnets": np.array([
                 self.simulation.AREAMQZM1.k1,
                 -self.simulation.AREAMQZM2.k1,  # NOTE the sign here
                 self.simulation.AREAMCVM1.angle,
                 self.simulation.AREAMQZM3.k1,
                 self.simulation.AREAMCHM1.angle
+            ], dtype=np.float32),
+            "incoming": np.array([
+                self.incoming.energy,
+                self.incoming.mu_x,
+                self.incoming.mu_xp,
+                self.incoming.mu_y,
+                self.incoming.mu_yp,
+                self.incoming.sigma_x,
+                self.incoming.sigma_xp,
+                self.incoming.sigma_y,
+                self.incoming.sigma_yp,
+                self.incoming.sigma_s,
+                self.incoming.sigma_p
+            ], dtype=np.float32),
+            "misalignments": np.array([
+                self.simulation.AREAMQZM1.misalignment[0],
+                self.simulation.AREAMQZM1.misalignment[1],
+                self.simulation.AREAMQZM2.misalignment[0],
+                self.simulation.AREAMQZM2.misalignment[1],
+                self.simulation.AREAMQZM3.misalignment[0],
+                self.simulation.AREAMQZM3.misalignment[1],
+                self.simulation.AREABSCR1.misalignment[0],
+                self.simulation.AREABSCR1.misalignment[1],
             ], dtype=np.float32)
         }
 
