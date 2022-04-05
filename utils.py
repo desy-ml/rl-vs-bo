@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 import os
 
+import gym
+from gym import spaces
+import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 import wandb
 
@@ -95,3 +98,65 @@ class SLURMRescheduleCallback(BaseCallback):
             if self.verbose > 1:
                 print(f"Continue running with this SLURM job (passed={passed_time} / allowed={self.allowed_time} / dt={dt})")
             return True
+
+
+class FilterAction(gym.ActionWrapper):
+
+    def __init__(self, env, filter_indicies, replace="random"):
+        super().__init__(env)
+
+        self.filter_indicies = filter_indicies
+        self.replace = replace
+
+        self.action_space = spaces.Box(
+            low=env.action_space.low[filter_indicies],
+            high=env.action_space.high[filter_indicies],
+            shape=env.action_space.low[filter_indicies].shape,
+            dtype=env.action_space.dtype,
+        )
+    
+    def action(self, action):
+        if self.replace == "random":
+            unfiltered = self.env.action_space.sample()
+        else:
+            unfiltered = np.full(self.env.action_space.shape, self.replace, dtype=self.env.action_space.dtype)
+        
+        unfiltered[self.filter_indicies] = action
+
+        return unfiltered
+
+
+class RecordData(gym.Wrapper):
+
+    def __init__(self, env):
+        super().__init__(env)
+
+        self.observations = None
+        self.rewards = None
+        self.infos = None
+        self.actions = None
+
+    def reset(self):
+        self.previous_observations = self.observations
+        self.previous_rewards = self.rewards
+        self.previous_infos = self.infos
+        self.previous_actions = self.actions
+
+        observation = self.env.reset()
+
+        self.observations = [observation]
+        self.rewards = []
+        self.infos = []
+        self.actions = []
+
+        return observation
+
+    def step(self, action):
+        observation, reward, done, info = self.env.step(action)
+
+        self.observations.append(observation)
+        self.rewards.append(reward)
+        self.infos.append(info)
+        self.actions.append(action)
+
+        return observation, reward, done, info

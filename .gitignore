@@ -6,5 +6,6 @@ __pycache__
 slurm-*.out
 wandb
 
+log
 old
 recordings
