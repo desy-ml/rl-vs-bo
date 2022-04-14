@@ -20,7 +20,7 @@ class ARESEA(gym.Env):
             high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
         ),
         "magnets": spaces.Box(
-            low=np.array([0, 0, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
+            low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
             high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
         ),
         "incoming": spaces.Box(
@@ -30,8 +30,8 @@ class ARESEA(gym.Env):
         "misalignments": spaces.Box(low=-400e-6, high=400e-6, shape=(8,))
     })
 
-    action_space= spaces.Box(
-        low=np.array([0, 0, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
+    action_space = spaces.Box(
+        low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
         high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
     )
 
@@ -47,13 +47,44 @@ class ARESEA(gym.Env):
         self.simulation.AREABSCR1.binning = 4
         self.simulation.AREABSCR1.is_active = True
 
-        # misalignments = self.observation_space["misalignments"].sample()
+        # if misalignments is None:
+        #     misalignments = self.observation_space["misalignments"].sample()
+        # self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
+        # self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
+        # self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
+        # self.simulation.AREABSCR1.misalignment = misalignments[6:8]
+
+        # if incoming_parameters is None:
+        #     incoming_parameters = self.observation_space["incoming"].sample()
+        # self.incoming = cheetah.ParameterBeam.from_parameters(
+        #     energy=incoming_parameters[0],
+        #     mu_x=incoming_parameters[1],
+        #     mu_xp=incoming_parameters[2],
+        #     mu_y=incoming_parameters[3],
+        #     mu_yp=incoming_parameters[4],
+        #     sigma_x=incoming_parameters[5],
+        #     sigma_xp=incoming_parameters[6],
+        #     sigma_y=incoming_parameters[7],
+        #     sigma_yp=incoming_parameters[8],
+        #     sigma_s=incoming_parameters[9],
+        #     sigma_p=incoming_parameters[10],
+        # )
+    
+    def reset(self):
+        self.simulation.AREAMQZM1.k1 = 0.0
+        self.simulation.AREAMQZM2.k1 = 0.0     # NOTE the sign here
+        self.simulation.AREAMCVM1.angle = 0.0
+        self.simulation.AREAMQZM3.k1 = 0.0
+        self.simulation.AREAMCHM1.angle = 0.0
+
+        # New random setup
+        misalignments = self.observation_space["misalignments"].sample()
         self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
         self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
         self.simulation.AREABSCR1.misalignment = misalignments[6:8]
 
-        # incoming_parameters = self.observation_space["incoming"].sample()
+        incoming_parameters = self.observation_space["incoming"].sample()
         self.incoming = cheetah.ParameterBeam.from_parameters(
             energy=incoming_parameters[0],
             mu_x=incoming_parameters[1],
@@ -67,16 +98,11 @@ class ARESEA(gym.Env):
             sigma_s=incoming_parameters[9],
             sigma_p=incoming_parameters[10],
         )
-    
-    def reset(self):
-        self.simulation.AREAMQZM1.k1 = 0.0
-        self.simulation.AREAMQZM2.k1 = -0.0     # NOTE the sign here
-        self.simulation.AREAMCVM1.angle = 0.0
-        self.simulation.AREAMQZM3.k1 = 0.0
-        self.simulation.AREAMCHM1.angle = 0.0
 
         # Run the simulation
         self.simulation(self.incoming)
+
+        self.initial_screen_beam = self.simulation.AREABSCR1.read_beam
 
         observation = {
             "beam": np.array([
@@ -87,7 +113,7 @@ class ARESEA(gym.Env):
             ], dtype=np.float32),
             "magnets": np.array([
                 self.simulation.AREAMQZM1.k1,
-                -self.simulation.AREAMQZM2.k1,  # NOTE the sign here
+                self.simulation.AREAMQZM2.k1,  # NOTE the sign here
                 self.simulation.AREAMCVM1.angle,
                 self.simulation.AREAMQZM3.k1,
                 self.simulation.AREAMCHM1.angle
@@ -125,7 +151,7 @@ class ARESEA(gym.Env):
 
         # Perform action
         self.simulation.AREAMQZM1.k1 = action[0]
-        self.simulation.AREAMQZM2.k1 = -action[1]  # NOTE the sign here
+        self.simulation.AREAMQZM2.k1 = action[1]  # NOTE the sign here
         self.simulation.AREAMCVM1.angle = action[2]
         self.simulation.AREAMQZM3.k1 = action[3]
         self.simulation.AREAMCHM1.angle = action[4]
@@ -143,7 +169,7 @@ class ARESEA(gym.Env):
             ], dtype=np.float32),
             "magnets": np.array([
                 self.simulation.AREAMQZM1.k1,
-                -self.simulation.AREAMQZM2.k1,  # NOTE the sign here
+                self.simulation.AREAMQZM2.k1,  # NOTE the sign here
                 self.simulation.AREAMCVM1.angle,
                 self.simulation.AREAMQZM3.k1,
                 self.simulation.AREAMCHM1.angle
@@ -178,11 +204,12 @@ class ARESEA(gym.Env):
 
         time_reward = -1
         on_screen_reward = -(not self.is_beam_on_screen())
-        mu_x_reward = abs(float(previous_beam.mu_x)) - abs(float(current_beam.mu_x))
-        sigma_x_reward = float(previous_beam.sigma_x - current_beam.sigma_x)
-        mu_y_reward = abs(float(previous_beam.mu_y)) - abs(float(current_beam.mu_y))
-        sigma_y_reward = float(previous_beam.sigma_y - current_beam.sigma_y)
-        reward = 1 * time_reward + 1 * on_screen_reward + 1e3 * mu_x_reward + 1e3 * sigma_x_reward + 1e3 * mu_y_reward + 1e3 * sigma_y_reward
+        mu_x_reward = (abs(float(previous_beam.mu_x) - float(self.initial_screen_beam.mu_x)) - abs(float(current_beam.mu_x) - float(self.initial_screen_beam.mu_x))) / abs(float(self.initial_screen_beam.mu_x))
+        sigma_x_reward = float(previous_beam.sigma_x - current_beam.sigma_x) / abs(float(self.initial_screen_beam.sigma_x))
+        mu_y_reward = (abs(float(previous_beam.mu_y) - float(self.initial_screen_beam.mu_y)) - abs(float(current_beam.mu_y) - float(self.initial_screen_beam.mu_y))) / abs(float(self.initial_screen_beam.mu_y))
+        sigma_y_reward = float(previous_beam.sigma_y - current_beam.sigma_y) / abs(float(self.initial_screen_beam.sigma_y))
+
+        reward = 1 * time_reward + 0 * on_screen_reward + 0 * mu_x_reward + 1 * sigma_x_reward + 0 * mu_y_reward + 1 * sigma_y_reward
 
         # Figure out if reach good enough beam (done)
         done = bool(np.all(observation["beam"] < 3.3198e-6))
@@ -198,11 +225,11 @@ class ARESEA(gym.Env):
             "misalignments": misalignments,
             "incoming": self.incoming.parameters,
             "time_reward": 1 * time_reward,
-            "on_screen_reward": 1 * on_screen_reward,
-            "mu_x_reward": 1e3 * mu_x_reward,
-            "sigma_x_reward": 1e3 * sigma_x_reward,
-            "mu_y_reward": 1e3 * mu_y_reward,
-            "sigma_y_reward": 1e3 * sigma_y_reward
+            "on_screen_reward": 0 * on_screen_reward,
+            "mu_x_reward": 0 * mu_x_reward,
+            "sigma_x_reward": 1 * sigma_x_reward,
+            "mu_y_reward": 0 * mu_y_reward,
+            "sigma_y_reward": 1 * sigma_y_reward
         }
 
         return observation, reward, done, info
@@ -212,7 +239,7 @@ class ARESEA(gym.Env):
 
         # Read screen image and make 8-bit RGB
         img = self.simulation.AREABSCR1.reading
-        img = img / 1e7 * 255
+        img = img / 1e9 * 255
         img = img.clip(0, 255).astype(np.uint8)
         img = np.repeat(img[:,:,np.newaxis], 3, axis=-1)
 

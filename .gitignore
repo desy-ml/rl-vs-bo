@@ -7,5 +7,7 @@ slurm-*.out
 wandb
 
 log
+models
 old
 recordings
+recordings_test
