@@ -31,7 +31,7 @@ class ARESEA(gym.Env):
     })
 
     action_space = spaces.Box(
-        low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
+        low=np.array([0, 0, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
         high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
     )
 
@@ -72,7 +72,7 @@ class ARESEA(gym.Env):
     
     def reset(self):
         self.simulation.AREAMQZM1.k1 = 0.0
-        self.simulation.AREAMQZM2.k1 = 0.0     # NOTE the sign here
+        self.simulation.AREAMQZM2.k1 = -0.0     # NOTE the sign here
         self.simulation.AREAMCVM1.angle = 0.0
         self.simulation.AREAMQZM3.k1 = 0.0
         self.simulation.AREAMCHM1.angle = 0.0
@@ -113,7 +113,7 @@ class ARESEA(gym.Env):
             ], dtype=np.float32),
             "magnets": np.array([
                 self.simulation.AREAMQZM1.k1,
-                self.simulation.AREAMQZM2.k1,  # NOTE the sign here
+                -self.simulation.AREAMQZM2.k1,  # NOTE the sign here
                 self.simulation.AREAMCVM1.angle,
                 self.simulation.AREAMQZM3.k1,
                 self.simulation.AREAMCHM1.angle
@@ -151,7 +151,7 @@ class ARESEA(gym.Env):
 
         # Perform action
         self.simulation.AREAMQZM1.k1 = action[0]
-        self.simulation.AREAMQZM2.k1 = action[1]  # NOTE the sign here
+        self.simulation.AREAMQZM2.k1 = -action[1]  # NOTE the sign here
         self.simulation.AREAMCVM1.angle = action[2]
         self.simulation.AREAMQZM3.k1 = action[3]
         self.simulation.AREAMCHM1.angle = action[4]
@@ -169,7 +169,7 @@ class ARESEA(gym.Env):
             ], dtype=np.float32),
             "magnets": np.array([
                 self.simulation.AREAMQZM1.k1,
-                self.simulation.AREAMQZM2.k1,  # NOTE the sign here
+                -self.simulation.AREAMQZM2.k1,  # NOTE the sign here
                 self.simulation.AREAMCVM1.angle,
                 self.simulation.AREAMQZM3.k1,
                 self.simulation.AREAMCHM1.angle
@@ -209,6 +209,7 @@ class ARESEA(gym.Env):
         mu_y_reward = (abs(float(previous_beam.mu_y) - float(self.initial_screen_beam.mu_y)) - abs(float(current_beam.mu_y) - float(self.initial_screen_beam.mu_y))) / abs(float(self.initial_screen_beam.mu_y))
         sigma_y_reward = float(previous_beam.sigma_y - current_beam.sigma_y) / abs(float(self.initial_screen_beam.sigma_y))
 
+        # TODO: Maybe add aspect ratio term
         reward = 1 * time_reward + 0 * on_screen_reward + 0 * mu_x_reward + 1 * sigma_x_reward + 0 * mu_y_reward + 1 * sigma_y_reward
 
         # Figure out if reach good enough beam (done)

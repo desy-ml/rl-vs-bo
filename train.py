@@ -1,7 +1,7 @@
 import pickle
 
-from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLimit
-from stable_baselines3 import PPO, SAC, TD3
+from gym.wrappers import FilterObservation, FlattenObservation, FrameStack, RecordVideo, RescaleAction, TimeLimit
+from stable_baselines3 import A2C, PPO, SAC, TD3
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 import wandb
@@ -11,26 +11,32 @@ from environment import ARESEA
 from utils import CheckpointCallback, FilterAction
 
 
-misalignments = ARESEA.observation_space["misalignments"].sample()
-incoming_parameters = ARESEA.observation_space["incoming"].sample()
+# misalignments = ARESEA.observation_space["misalignments"].sample()
+# incoming_parameters = ARESEA.observation_space["incoming"].sample()
 
 
 def make_env():
+    # env = ARESEA(misalignments=misalignments, incoming_parameters=incoming_parameters)
     env = ARESEA()
+    env = FilterObservation(env, ["beam","magnets"])
     env = FilterAction(env, [0,1,3], replace=0)
     env = TimeLimit(env, max_episode_steps=50)
     env = FlattenObservation(env)
+    env = FrameStack(env, 4)
     env = RescaleAction(env, -3, 3)
     env = Monitor(env, info_keywords=("time_reward",))
     return env
 
 
 def make_eval_env():
+    # env = ARESEA(misalignments=misalignments, incoming_parameters=incoming_parameters)
     env = ARESEA()
+    env = FilterObservation(env, ["beam","magnets"])
     env = FilterAction(env, [0,1,3], replace=0)
     env = TimeLimit(env, max_episode_steps=50)
     env = RecordVideo(env, video_folder=f"recordings/{wandb.run.name}")
     env = FlattenObservation(env)
+    env = FrameStack(env, 4)
     env = RescaleAction(env, -3, 3)
     env = Monitor(env, info_keywords=("time_reward",))
     return env
@@ -47,18 +53,18 @@ def main():
     model = PPO("MlpPolicy", env, tensorboard_log=f"log/{wandb.run.name}")
 
     model.learn(
-        total_timesteps=1000000,
+        total_timesteps=800000,
         eval_env=eval_env,
         eval_freq=4000,
         callback=WandbCallback()
     )
 
     model.save(f"models/{wandb.run.name}/model")
-    env.save(f"models/{wandb.run.name}/env.pkl")
-    with open(f"models/{wandb.run.name}/misalignments.pkl", "wb") as f:
-        pickle.dump(misalignments, f)
-    with open(f"models/{wandb.run.name}/incoming_parameters.pkl", "wb") as f:
-        pickle.dump(incoming_parameters, f)
+    # env.save(f"models/{wandb.run.name}/env.pkl")
+    # with open(f"models/{wandb.run.name}/misalignments.pkl", "wb") as f:
+    #     pickle.dump(misalignments, f)
+    # with open(f"models/{wandb.run.name}/incoming_parameters.pkl", "wb") as f:
+    #     pickle.dump(incoming_parameters, f)
 
 
 if __name__ == "__main__":
