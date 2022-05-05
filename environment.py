@@ -202,15 +202,16 @@ class ARESEA(gym.Env):
         # Compute reward
         current_beam = self.simulation.AREABSCR1.read_beam
 
-        time_reward = -1
         on_screen_reward = -(not self.is_beam_on_screen())
-        mu_x_reward = (abs(float(previous_beam.mu_x) - float(self.initial_screen_beam.mu_x)) - abs(float(current_beam.mu_x) - float(self.initial_screen_beam.mu_x))) / abs(float(self.initial_screen_beam.mu_x))
-        sigma_x_reward = float(previous_beam.sigma_x - current_beam.sigma_x) / abs(float(self.initial_screen_beam.sigma_x))
-        mu_y_reward = (abs(float(previous_beam.mu_y) - float(self.initial_screen_beam.mu_y)) - abs(float(current_beam.mu_y) - float(self.initial_screen_beam.mu_y))) / abs(float(self.initial_screen_beam.mu_y))
-        sigma_y_reward = float(previous_beam.sigma_y - current_beam.sigma_y) / abs(float(self.initial_screen_beam.sigma_y))
+        mu_x_reward = 0
+        sigma_x_reward = - current_beam.sigma_x / self.initial_screen_beam.sigma_x
+        mu_y_reward = 0
+        sigma_y_reward = - current_beam.sigma_y / self.initial_screen_beam.sigma_y
+        # aspect_ratio_reward = - abs(current_beam.sigma_x - current_beam.sigma_y)
 
         # TODO: Maybe add aspect ratio term
-        reward = 1 * time_reward + 0 * on_screen_reward + 0 * mu_x_reward + 1 * sigma_x_reward + 0 * mu_y_reward + 1 * sigma_y_reward
+        reward = 0 * on_screen_reward + 0 * mu_x_reward + 1 * sigma_x_reward + 0 * mu_y_reward + 1 * sigma_y_reward
+        reward = float(reward)
 
         # Figure out if reach good enough beam (done)
         done = bool(np.all(observation["beam"] < 3.3198e-6))
@@ -225,12 +226,11 @@ class ARESEA(gym.Env):
         info = {
             "misalignments": misalignments,
             "incoming": self.incoming.parameters,
-            "time_reward": 1 * time_reward,
             "on_screen_reward": 0 * on_screen_reward,
             "mu_x_reward": 0 * mu_x_reward,
             "sigma_x_reward": 1 * sigma_x_reward,
             "mu_y_reward": 0 * mu_y_reward,
-            "sigma_y_reward": 1 * sigma_y_reward
+            "sigma_y_reward": 1 * sigma_y_reward,
         }
 
         return observation, reward, done, info

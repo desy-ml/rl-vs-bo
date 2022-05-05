@@ -24,7 +24,7 @@ def make_env():
     env = FlattenObservation(env)
     env = FrameStack(env, 4)
     env = RescaleAction(env, -3, 3)
-    env = Monitor(env, info_keywords=("time_reward",))
+    env = Monitor(env)
     return env
 
 
@@ -38,7 +38,7 @@ def make_eval_env():
     env = FlattenObservation(env)
     env = FrameStack(env, 4)
     env = RescaleAction(env, -3, 3)
-    env = Monitor(env, info_keywords=("time_reward",))
+    env = Monitor(env)
     return env
 
 
