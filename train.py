@@ -18,11 +18,11 @@ from utils import CheckpointCallback, FilterAction
 def make_env():
     # env = ARESEA(misalignments=misalignments, incoming_parameters=incoming_parameters)
     env = ARESEA()
-    env = FilterObservation(env, ["beam","magnets"])
-    env = FilterAction(env, [0,1,3], replace=0)
+    # env = FilterObservation(env, ["beam","magnets"])
+    # env = FilterAction(env, [0,1,3], replace=0)
     env = TimeLimit(env, max_episode_steps=50)
     env = FlattenObservation(env)
-    env = FrameStack(env, 4)
+    # env = FrameStack(env, 4)
     env = RescaleAction(env, -3, 3)
     env = Monitor(env)
     return env
@@ -31,12 +31,12 @@ def make_env():
 def make_eval_env():
     # env = ARESEA(misalignments=misalignments, incoming_parameters=incoming_parameters)
     env = ARESEA()
-    env = FilterObservation(env, ["beam","magnets"])
-    env = FilterAction(env, [0,1,3], replace=0)
+    # env = FilterObservation(env, ["beam","magnets"])
+    # env = FilterAction(env, [0,1,3], replace=0)
     env = TimeLimit(env, max_episode_steps=50)
     env = RecordVideo(env, video_folder=f"recordings/{wandb.run.name}")
     env = FlattenObservation(env)
-    env = FrameStack(env, 4)
+    # env = FrameStack(env, 4)
     env = RescaleAction(env, -3, 3)
     env = Monitor(env)
     return env

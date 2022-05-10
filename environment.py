@@ -203,14 +203,14 @@ class ARESEA(gym.Env):
         current_beam = self.simulation.AREABSCR1.read_beam
 
         on_screen_reward = -(not self.is_beam_on_screen())
-        mu_x_reward = 0
+        mu_x_reward = - abs(current_beam.mu_x / self.initial_screen_beam.mu_x)
         sigma_x_reward = - current_beam.sigma_x / self.initial_screen_beam.sigma_x
-        mu_y_reward = 0
+        mu_y_reward = - abs(current_beam.mu_y / self.initial_screen_beam.mu_y)
         sigma_y_reward = - current_beam.sigma_y / self.initial_screen_beam.sigma_y
         # aspect_ratio_reward = - abs(current_beam.sigma_x - current_beam.sigma_y)
 
         # TODO: Maybe add aspect ratio term
-        reward = 0 * on_screen_reward + 0 * mu_x_reward + 1 * sigma_x_reward + 0 * mu_y_reward + 1 * sigma_y_reward
+        reward = 1 * on_screen_reward + 1 * mu_x_reward + 1 * sigma_x_reward + 1 * mu_y_reward + 1 * sigma_y_reward
         reward = float(reward)
 
         # Figure out if reach good enough beam (done)
@@ -227,9 +227,9 @@ class ARESEA(gym.Env):
             "misalignments": misalignments,
             "incoming": self.incoming.parameters,
             "on_screen_reward": 0 * on_screen_reward,
-            "mu_x_reward": 0 * mu_x_reward,
+            "mu_x_reward": 1 * mu_x_reward,
             "sigma_x_reward": 1 * sigma_x_reward,
-            "mu_y_reward": 0 * mu_y_reward,
+            "mu_y_reward": 1 * mu_y_reward,
             "sigma_y_reward": 1 * sigma_y_reward,
         }
 
