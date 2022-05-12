@@ -49,7 +49,8 @@ class ARESEA(gym.Env):
 
         beam_image = self.read_beam_image()
         pixel_size = self.read_pixel_size()
-        self.initial_screen_beam = self.compute_beam_parameters(beam_image, pixel_size)
+        binning = self.read_binning()
+        self.initial_screen_beam = self.compute_beam_parameters(beam_image, pixel_size*binning)
 
         magnet_readbacks = self.read_magnets()
 
@@ -88,7 +89,9 @@ class ARESEA(gym.Env):
         self.set_magnets(new_magnet_settings)
 
         beam_image = self.read_beam_image()
-        current_beam = self.compute_beam_parameters(beam_image, self.read_pixel_size())
+        pixel_size = self.read_pixel_size()
+        binning = self.read_binning()
+        current_beam = self.compute_beam_parameters(beam_image, pixel_size*binning)
 
         magnet_readbacks = self.read_magnets()
 
@@ -144,7 +147,7 @@ class ARESEA(gym.Env):
 
         # Read screen image and make 8-bit RGB
         img = self.current_beam_image
-        img = img / 1e9 * 255
+        img = img / 2**12 * 255
         img = img.clip(0, 255).astype(np.uint8)
         img = np.repeat(img[:,:,np.newaxis], 3, axis=-1)
 
@@ -204,9 +207,9 @@ class ARESEA(gym.Env):
 
         are_busy = [True] * 5
         are_ps_on = [True] * 5
-        while not any(are_busy) and all(are_ps_on):
+        while any(are_busy) or not all(are_ps_on):
             are_busy = [pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"] for magnet in magnets]
-            are_ps_on = [pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"] for magnet in magnets]
+            are_ps_on = [pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/PS_ON")["data"] for magnet in magnets]
     
     def read_beam_image(self, average=5):
         # Laser off
@@ -266,7 +269,10 @@ class ARESEA(gym.Env):
         return BeamParameters(**parameters)
 
     def read_pixel_size(self):
-        return np.array((3.3198e-6, 2.4469e-6))   # TODO Actually read from pydoocs
+        return np.array((
+            abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")["data"][2]),
+            abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/Y.POLY_SCALE")["data"][2])
+        ))
 
     def read_resolution(self):
         return np.array((2464, 2056)) # TODO Actually read from pydoocs
