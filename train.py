@@ -20,6 +20,7 @@ from utils import CheckpointCallback, FilterAction
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--action_type", type=str, default="direct", choices=["direct","delta"])
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--filter_action", nargs="+", type=int, default=[0,1,2,3,4])
     parser.add_argument("--filter_observation", nargs="+", type=str, default=["beam","incoming","magnets","misalignments"])
@@ -136,6 +137,7 @@ class ARESEA(gym.Env):
 
     def __init__(
         self,
+        action_type="direct",
         target_beam_tolerance=3.3198e-6,
         incoming="random",
         incoming_parameters=None,
@@ -151,6 +153,7 @@ class ARESEA(gym.Env):
         w_time=1.0,
         **kwargs
     ):
+        self.action_type = action_type
         self.incoming = incoming
         self.incoming_parameters = incoming_parameters
         self.misalignments = misalignments
@@ -167,24 +170,34 @@ class ARESEA(gym.Env):
 
         # Setup observation and action spaces
         if quad_action == "symmetric":
-            self.action_space = spaces.Box(
+            magnet_space = spaces.Box(
                 low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
                 high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
             )
         elif quad_action == "oneway":
-            self.action_space = spaces.Box(
+            magnet_space = spaces.Box(
                 low=np.array([0, -72, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
                 high=np.array([72, 0, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
             )
         else:
             raise ValueError(f"Invalid quad_action \"{self.quad_action}\"")
 
+        if self.action_type == "direct":
+            self.action_space = magnet_space
+        elif self.action_type == "deltas":
+            self.action_space = spaces.Box(
+                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32) * 0.1,
+                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32) * 0.1
+            )
+        else:
+            raise ValueError(f"Invalid action_type \"{self.action_type}\"")
+
         self.observation_space = spaces.Dict({
             "beam": spaces.Box(
                 low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                 high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
             ),
-            "magnets": self.action_space,
+            "magnets": magnet_space,
             "incoming": spaces.Box(
                 low=np.array([80e6, -1e-3, -1e-4, -1e-3, -1e-4, 1e-5, 1e-6, 1e-5, 1e-6, 1e-6, 1e-4], dtype=np.float32),
                 high=np.array([160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3], dtype=np.float32)
@@ -306,11 +319,20 @@ class ARESEA(gym.Env):
         previous_beam = self.simulation.AREABSCR1.read_beam
 
         # Perform action
-        self.simulation.AREAMQZM1.k1 = action[0]
-        self.simulation.AREAMQZM2.k1 = action[1]
-        self.simulation.AREAMCVM1.angle = action[2]
-        self.simulation.AREAMQZM3.k1 = action[3]
-        self.simulation.AREAMCHM1.angle = action[4]
+        if self.action_type == "direct":
+            self.simulation.AREAMQZM1.k1 = action[0]
+            self.simulation.AREAMQZM2.k1 = action[1]
+            self.simulation.AREAMCVM1.angle = action[2]
+            self.simulation.AREAMQZM3.k1 = action[3]
+            self.simulation.AREAMCHM1.angle = action[4]
+        elif self.action_type == "delta":
+            self.simulation.AREAMQZM1.k1 += action[0]
+            self.simulation.AREAMQZM2.k1 += action[1]
+            self.simulation.AREAMCVM1.angle += action[2]
+            self.simulation.AREAMQZM3.k1 += action[3]
+            self.simulation.AREAMCHM1.angle += action[4]
+        else:
+            raise ValueError(f"Invalid action_type \"{self.action_type}\"")
 
         # Run the simulation
         self.simulation(self.incoming)
