@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--filter_observation", nargs="+", type=str, default=["beam","incoming","magnets","misalignments"])
     parser.add_argument("--frame_stack", type=int, default=1)
     parser.add_argument("--incoming", type=str, default="constant", choices=["constant","random"])
-    parser.add_argument("--magnet_init", type=str, default="constant", choices=["zero","random"])
+    parser.add_argument("--magnet_init", type=str, default="zero", choices=["zero","random"])
     parser.add_argument("--misalignments", type=str, default="constant", choices=["constant","random"])
     parser.add_argument("--n_envs", type=int, default=1)
     parser.add_argument("--normalize_observation", action="store_true", default=False)
