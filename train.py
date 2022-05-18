@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--normalize_observation", action="store_true", default=False)
     parser.add_argument("--normalize_reward", action="store_true", default=False)
     parser.add_argument("--reward_method", type=str, default="differential", choices=["differential","feedback"])
+    parser.add_argument("--sb3_device", type=str, default="auto")
     parser.add_argument("--target_beam_mode", type=str, default="zero", choices=["zero","random"])
     parser.add_argument("--target_beam_tolerance", type=float, default=3.3198e-6)
     parser.add_argument("--time_limit", type=int, default=50)
@@ -89,8 +90,9 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        tensorboard_log=f"log/{wandb.run.name}",
+        device=config["sb3_device"],
         gamma=config["gamma"],
+        tensorboard_log=f"log/{wandb.run.name}",
     )
 
     model.learn(
