@@ -10,7 +10,7 @@ import numpy as np
 import yaml
 from stable_baselines3 import A2C, PPO, SAC, TD3
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 import wandb
 from wandb.integration.sb3 import WandbCallback
 
@@ -19,7 +19,6 @@ from utils import CheckpointCallback, FilterAction
 
 
 def parse_args():
-    # TODO Random magnet init
     parser = argparse.ArgumentParser()
     parser.add_argument("--action_type", type=str, default="direct", choices=["direct","delta"])
     parser.add_argument("--gamma", type=float, default=0.99)
@@ -39,6 +38,7 @@ def parse_args():
     parser.add_argument("--time_limit", type=int, default=50)
     parser.add_argument("--total_timesteps", type=int, default=800000)
     parser.add_argument("--quad_action", type=str, default="symmetric", choices=["symmetric","oneway"])
+    parser.add_argument("--vec_env", type=str, default="dummy", choices=["dummy","subproc"])
     parser.add_argument("--w_mu_x", type=float, default=1.0)
     parser.add_argument("--w_mu_y", type=float, default=1.0)
     parser.add_argument("--w_on_screen", type=float, default=1.0)
@@ -69,8 +69,15 @@ def main():
     config["wandb_run_name"] = wandb.run.name
 
     # Setup environment
-    env = SubprocVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
-    eval_env = SubprocVecEnv([partial(make_eval_env, config)])
+    if config["vec_env"] == "dummy":
+        env = DummyVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
+        eval_env = DummyVecEnv([partial(make_eval_env, config)])
+    elif config["vec_env"] == "subproc":
+        env = SubprocVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
+        eval_env = SubprocVecEnv([partial(make_eval_env, config)])
+    else:
+        raise ValueError(f"Invalid value \"{config['vec_env']}\" for dummy")
+
     if config["normalize_observation"] or config["normalize_reward"]:
         env = VecNormalize(
             env,
