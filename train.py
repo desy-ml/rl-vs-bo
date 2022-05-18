@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument("--filter_observation", nargs="+", type=str, default=["beam","incoming","magnets","misalignments"])
     parser.add_argument("--frame_stack", type=int, default=1)
     parser.add_argument("--incoming", type=str, default="constant", choices=["constant","random"])
+    parser.add_argument("--magnet_init", type=str, default="constant", choices=["zero","random"])
     parser.add_argument("--misalignments", type=str, default="constant", choices=["constant","random"])
     parser.add_argument("--n_envs", type=int, default=1)
     parser.add_argument("--normalize_observation", action="store_true", default=False)
@@ -142,6 +143,7 @@ class ARESEA(gym.Env):
         action_type="direct",
         incoming="random",
         incoming_parameters=None,
+        magnet_init="zero",
         misalignments="random",
         misalignment_values=None,
         reward_method="differential",
@@ -159,6 +161,7 @@ class ARESEA(gym.Env):
         self.action_type = action_type
         self.incoming = incoming
         self.incoming_parameters = incoming_parameters
+        self.magnet_init = magnet_init
         self.misalignments = misalignments
         self.misalignment_values = misalignment_values
         self.quad_action = quad_action
@@ -249,11 +252,21 @@ class ARESEA(gym.Env):
             self.target_beam = np.zeros(4, dtype=np.float32)
     
     def reset(self):
-        self.simulation.AREAMQZM1.k1 = 0.0
-        self.simulation.AREAMQZM2.k1 = 0.0
-        self.simulation.AREAMCVM1.angle = 0.0
-        self.simulation.AREAMQZM3.k1 = 0.0
-        self.simulation.AREAMCHM1.angle = 0.0
+        if self.magnet_init == "zero":
+            self.simulation.AREAMQZM1.k1 = 0.0
+            self.simulation.AREAMQZM2.k1 = 0.0
+            self.simulation.AREAMCVM1.angle = 0.0
+            self.simulation.AREAMQZM3.k1 = 0.0
+            self.simulation.AREAMCHM1.angle = 0.0
+        elif self.magnet_init == "random":
+            magnets = self.observation_space["magnets"].sample()
+            self.simulation.AREAMQZM1.k1 = magnets[0]
+            self.simulation.AREAMQZM2.k1 = magnets[1]
+            self.simulation.AREAMCVM1.angle = magnets[2]
+            self.simulation.AREAMQZM3.k1 = magnets[3]
+            self.simulation.AREAMCHM1.angle = magnets[4]
+        else:
+            raise ValueError(f"Invalid value for magnet_init \"{self.magnet_init}\"")
 
         # New domain randomisation
         if self.incoming == "random":
