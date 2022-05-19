@@ -425,10 +425,10 @@ class ARESEA(gym.Env):
         on_screen_reward = -(not self.is_beam_on_screen())
         time_reward = -1
         if self.reward_method == "differential":
-            mu_x_reward = abs(cb.mu_x - tb[0]) - abs(pb.mu_x - tb[0]) / abs(ib.mu_x - tb[0])
-            sigma_x_reward = abs(cb.sigma_x - tb[1]) - abs(pb.sigma_x - tb[1]) / abs(ib.sigma_x - tb[1])
-            mu_y_reward = abs(cb.mu_y - tb[2]) - abs(pb.mu_y - tb[2]) / abs(ib.mu_y - tb[2])
-            sigma_y_reward = abs(cb.sigma_y - tb[3]) - abs(pb.sigma_y - tb[3]) / abs(ib.sigma_y - tb[3])
+            mu_x_reward = (abs(cb.mu_x - tb[0]) - abs(pb.mu_x - tb[0])) / abs(ib.mu_x - tb[0])
+            sigma_x_reward = (abs(cb.sigma_x - tb[1]) - abs(pb.sigma_x - tb[1])) / abs(ib.sigma_x - tb[1])
+            mu_y_reward = (abs(cb.mu_y - tb[2]) - abs(pb.mu_y - tb[2])) / abs(ib.mu_y - tb[2])
+            sigma_y_reward = (abs(cb.sigma_y - tb[3]) - abs(pb.sigma_y - tb[3])) / abs(ib.sigma_y - tb[3])
         elif self.reward_method == "feedback":
             mu_x_reward = - abs((cb.mu_x - tb[0]) / (ib.mu_x - tb[0]))
             sigma_x_reward = - (cb.sigma_x - tb[1]) / (ib.sigma_x - tb[1])
