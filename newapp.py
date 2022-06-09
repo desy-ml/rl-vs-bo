@@ -328,7 +328,7 @@ class App(qtw.QWidget):
         hbox.addStretch()
         hbox.addWidget(self.measure_beam_button)
 
-        group_box = qtw.QGroupBox("1. Change magnet settings (optional)")
+        group_box = qtw.QGroupBox("1. Measure beam TODO move current beam values here")
         group_box.setLayout(hbox)
 
         return group_box
@@ -430,7 +430,7 @@ class App(qtw.QWidget):
         hbox.addWidget(self.experiment_name_field)
         hbox.addStretch()
 
-        group_box = qtw.QGroupBox("3. Setup the RL run")
+        group_box = qtw.QGroupBox("TODO move out of box and center selection")
         group_box.setLayout(hbox)
 
         return group_box
@@ -449,7 +449,7 @@ class App(qtw.QWidget):
         grid.addWidget(self.screen_view, 0, 0, 1, 2)
         grid.addWidget(self.start_stop_button, 1, 0, 1, 2)
 
-        group_box = qtw.QGroupBox("4. Run beam parameter optimisation")
+        group_box = qtw.QGroupBox("4. TODO dont have this in a box?")
         group_box.setLayout(grid)
 
         return group_box
