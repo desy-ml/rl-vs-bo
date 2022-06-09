@@ -7,7 +7,6 @@ import pickle
 import sys
 import time
 
-# from bayes_opt import BayesianOptimization, SequentialDomainReductionTransformer
 from gym.wrappers import FlattenObservation
 import numpy as np
 import PyQt5.QtCore as qtc
@@ -83,10 +82,6 @@ class ScreenView(pg.GraphicsLayoutWidget):
         max_level = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"].max()
         bar.setLevels(low=0, high=max_level)
         bar.setImageItem([self.i1,self.i2], insert_in=self.p2)
-
-        self.read_thread = LiveViewReadThread()
-        self.read_thread.screen_updated.connect(self.update_live_view)
-        self.read_thread.start()
     
     @qtc.pyqtSlot(np.ndarray)
     def update_agent_view(self, screen_data):
@@ -283,7 +278,7 @@ class App(qtw.QWidget):
 
         vbox = qtw.QVBoxLayout()
         vbox.addWidget(self.make_rl_setup())
-        vbox.addWidget(self.make_magnet_setting())   # TODO Make measure beam
+        vbox.addWidget(self.make_measure_beam())   # TODO Make measure beam
         vbox.addWidget(self.make_desired_selection())
         vbox.addWidget(self.make_run_agent())
         self.setLayout(vbox)
