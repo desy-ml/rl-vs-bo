@@ -9,9 +9,9 @@ import time
 
 from gym.wrappers import FlattenObservation
 import numpy as np
-import PyQt5.QtCore as qtc
-import PyQt5.QtGui as qtg
-import PyQt5.QtWidgets as qtw
+import PyQt6.QtCore as qtc
+import PyQt6.QtGui as qtg
+import PyQt6.QtWidgets as qtw
 import pyqtgraph as pg
 from stable_baselines3 import PPO, TD3
 import torch
@@ -328,7 +328,7 @@ class App(qtw.QWidget):
         hbox.addStretch()
         hbox.addWidget(self.measure_beam_button)
 
-        group_box = qtw.QGroupBox("1. Change magnet settings (optional)")
+        group_box = qtw.QGroupBox("1. Measure beam TODO move current beam values here")
         group_box.setLayout(hbox)
 
         return group_box
@@ -340,19 +340,19 @@ class App(qtw.QWidget):
         self.achieved_sigma_y_label = qtw.QLabel()
 
         self.target_delta_mu_x_label = qtw.QLabel()
-        self.target_delta_mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_mu_x_slider = qtw.QSlider()
         self.target_delta_mu_x_slider.setRange(0, 100)
         self.target_delta_mu_x_slider.valueChanged.connect(self.update_deltas)
         self.target_delta_mu_y_label = qtw.QLabel()
-        self.target_delta_mu_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_mu_y_slider = qtw.QSlider()
         self.target_delta_mu_y_slider.setRange(0, 100)
         self.target_delta_mu_y_slider.valueChanged.connect(self.update_deltas)
         self.target_delta_sigma_x_label = qtw.QLabel()
-        self.target_delta_sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_sigma_x_slider = qtw.QSlider()
         self.target_delta_sigma_x_slider.setRange(0, 100)
         self.target_delta_sigma_x_slider.valueChanged.connect(self.update_deltas)
         self.target_delta_sigma_y_label = qtw.QLabel()
-        self.target_delta_sigma_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.target_delta_sigma_y_slider = qtw.QSlider()
         self.target_delta_sigma_y_slider.setRange(0, 100)
         self.target_delta_sigma_y_slider.valueChanged.connect(self.update_deltas)
 
@@ -361,19 +361,19 @@ class App(qtw.QWidget):
         self.desired_sigma_x_label = qtw.QLabel()
         self.desired_sigma_y_label = qtw.QLabel()
 
-        self.mu_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.mu_x_slider = qtw.QSlider()
         self.mu_x_slider.setRange(-50, 50)
         self.mu_x_slider.valueChanged.connect(self.update_desired)
 
-        self.mu_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.mu_y_slider = qtw.QSlider()
         self.mu_y_slider.setRange(-50, 50)
         self.mu_y_slider.valueChanged.connect(self.update_desired)
 
-        self.sigma_x_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.sigma_x_slider = qtw.QSlider()
         self.sigma_x_slider.setRange(1, 100)
         self.sigma_x_slider.valueChanged.connect(self.update_desired)
 
-        self.sigma_y_slider = qtw.QSlider(qtc.Qt.Horizontal)
+        self.sigma_y_slider = qtw.QSlider()
         self.sigma_y_slider.setRange(1, 100)
         self.sigma_y_slider.valueChanged.connect(self.update_desired)
         
@@ -430,7 +430,7 @@ class App(qtw.QWidget):
         hbox.addWidget(self.experiment_name_field)
         hbox.addStretch()
 
-        group_box = qtw.QGroupBox("3. Setup the RL run")
+        group_box = qtw.QGroupBox("TODO move out of box and center selection")
         group_box.setLayout(hbox)
 
         return group_box
@@ -449,7 +449,7 @@ class App(qtw.QWidget):
         grid.addWidget(self.screen_view, 0, 0, 1, 2)
         grid.addWidget(self.start_stop_button, 1, 0, 1, 2)
 
-        group_box = qtw.QGroupBox("4. Run beam parameter optimisation")
+        group_box = qtw.QGroupBox("4. TODO dont have this in a box?")
         group_box.setLayout(grid)
 
         return group_box
@@ -643,25 +643,25 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
 
     # Now use a palette to switch to dark colors
-    palette = qtg.QPalette()
-    palette.setColor(qtg.QPalette.Window, qtg.QColor(53, 53, 53))
-    palette.setColor(qtg.QPalette.WindowText, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.Base, qtg.QColor(25, 25, 25))
-    palette.setColor(qtg.QPalette.AlternateBase, qtg.QColor(53, 53, 53))
-    palette.setColor(qtg.QPalette.ToolTipBase, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.ToolTipText, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.Text, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.Button, qtg.QColor(53, 53, 53))
-    palette.setColor(qtg.QPalette.ButtonText, qtc.Qt.white)
-    palette.setColor(qtg.QPalette.BrightText, qtc.Qt.red)
-    palette.setColor(qtg.QPalette.Link, qtg.QColor(42, 130, 218))
-    palette.setColor(qtg.QPalette.Highlight, qtg.QColor(42, 130, 218))
-    palette.setColor(qtg.QPalette.HighlightedText, qtc.Qt.black)
-    app.setPalette(palette)
+    # palette = qtg.QPalette()
+    # palette.setColor(qtg.QPalette.Window, qtg.QColor(53, 53, 53))
+    # palette.setColor(qtg.QPalette.WindowText, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.Base, qtg.QColor(25, 25, 25))
+    # palette.setColor(qtg.QPalette.AlternateBase, qtg.QColor(53, 53, 53))
+    # palette.setColor(qtg.QPalette.ToolTipBase, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.ToolTipText, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.Text, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.Button, qtg.QColor(53, 53, 53))
+    # palette.setColor(qtg.QPalette.ButtonText, qtc.Qt.white)
+    # palette.setColor(qtg.QPalette.BrightText, qtc.Qt.red)
+    # palette.setColor(qtg.QPalette.Link, qtg.QColor(42, 130, 218))
+    # palette.setColor(qtg.QPalette.Highlight, qtg.QColor(42, 130, 218))
+    # palette.setColor(qtg.QPalette.HighlightedText, qtc.Qt.black)
+    # app.setPalette(palette)
 
     window = App()
     window.show()
 
     app.aboutToQuit.connect(window.handle_application_exit)
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
