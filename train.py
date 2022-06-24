@@ -235,10 +235,10 @@ class ARESEA(gym.Env):
     
     def reset(self):
         if self.magnet_init == "zero":
-            self.set_magnets(*np.zeros(5))
+            self.set_magnets(np.zeros(5))
         elif self.magnet_init == "random":
             magnets = self.observation_space["magnets"].sample()
-            self.set_magnets(*magnets)
+            self.set_magnets(magnets)
         else:
             raise ValueError(f"Invalid value for magnet_init \"{self.magnet_init}\"")
 
@@ -267,10 +267,10 @@ class ARESEA(gym.Env):
     def step(self, action):
         # Perform action
         if self.action_type == "direct":
-            self.set_magnets(*action)
+            self.set_magnets(action)
         elif self.action_type == "delta":
             magnet_values = self.get_magnets()
-            self.set_magnets((magnet_values + action))
+            self.set_magnets(magnet_values + action)
         else:
             raise ValueError(f"Invalid action_type \"{self.action_type}\"")
 
@@ -376,6 +376,132 @@ class ARESEA(gym.Env):
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     def is_beam_on_screen(self):
+        """
+        Return `True` when the beam is on the screen and `False` when it isn't.
+
+        Override with backend-specific imlementation. Must be implemented!
+        """
+        raise NotImplementedError
+    
+    def setup_accelerator(self):
+        """
+        Prepare the accelerator for use with the environment. Should mostly be used for setting up
+        simulations.
+
+        Override with backend-specific imlementation. Optional.
+        """
+    
+    def get_magnets(self):
+        """
+        Return the magnet values as a NumPy array in order as the magnets appear in the accelerator.
+
+        Override with backend-specific imlementation. Must be implemented!
+        """
+        raise NotImplementedError
+
+    def set_magnets(self, magnets):
+        """
+        Set the magnets to the given values.
+
+        The argument `magnets` will be passed as a NumPy array in the order the magnets appear in
+        the accelerator.
+
+        When applicable, this method should block until the magnet values are acutally set!
+
+        Override with backend-specific imlementation. Must be implemented!
+        """
+        raise NotImplementedError
+
+    def reset_accelerator(self):
+        """
+        Code that should set the accelerator up for a new episode. Run when the `reset` is called.
+
+        Mostly meant for simulations to switch to a new incoming beam / misalignments or simular
+        things.
+
+        Override with backend-specific imlementation. Optional.
+        """
+    
+    def update_accelerator(self):
+        """
+        Update accelerator metrics for later use. Use this to run the simulation or cache the beam
+        image.
+
+        Override with backend-specific imlementation. Optional.
+        """
+    
+    def get_beam_parameters(self):
+        """
+        Get the beam parameters measured on the diagnostic screen as NumPy array grouped by
+        dimension (e.g. mu_x, sigma_x, mu_y, sigma_y).
+
+        Override with backend-specific imlementation. Must be implemented!
+        """
+        raise NotImplementedError
+    
+    def get_incoming_parameters(self):
+        """
+        Get all physical beam parameters of the incoming beam as NumPy array in order energy, mu_x,
+        mu_xp, mu_y, mu_yp, sigma_x, sigma_xp, sigma_y, sigma_yp, sigma_s, sigma_p.
+
+        Override with backend-specific imlementation. Optional.
+        """
+        raise NotImplementedError
+
+    def get_misalignments(self):
+        """
+        Get misalignments of the quadrupoles and the diagnostic screen as NumPy array in order
+        AREAMQZM1.misalignment.x, AREAMQZM1.misalignment.y, AREAMQZM2.misalignment.x,
+        AREAMQZM2.misalignment.y, AREAMQZM3.misalignment.x, AREAMQZM3.misalignment.y,
+        AREABSCR1.misalignment.x, AREABSCR1.misalignment.y.
+
+        Override with backend-specific imlementation. Optional.
+        """
+        raise NotImplementedError
+
+    def get_beam_image(self):
+        """
+        Retreive the beam image as a 2-dimensional NumPy array.
+
+        Note that if reading the beam image is expensive, it is best to cache the image in the
+        `update_accelerator` method and the read the cached variable here.
+
+        Ideally, the pixel values should look somewhat similar to the 12-bit values from the real
+        screen camera.
+
+        Override with backend-specific imlementation. Optional.
+        """
+        raise NotImplementedError
+
+    def get_binning(self):
+        """
+        Return binning currently set on the screen camera as NumPy array [x, y].
+
+        Override with backend-specific imlementation. Optional.
+        """
+        raise NotImplementedError
+    
+    def get_screen_resolution(self):
+        """
+        Return resolution of the screen camera without binning as NumPy array [x, y].
+
+        Override with backend-specific imlementation. Optional.
+        """
+        raise NotImplementedError
+    
+    def get_pixel_size(self):
+        """
+        Return the size of the area on the diagnostic screen covered by one pixel without binning
+        as NumPy array [x, y].
+
+        Override with backend-specific imlementation. Optional.
+        """
+        raise NotImplementedError
+
+
+class ARESEACheetah(ARESEA):
+
+    def is_beam_on_screen(self):
         screen = self.simulation.AREABSCR1
         beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
         limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
@@ -426,12 +552,12 @@ class ARESEA(gym.Env):
             self.simulation.AREAMCHM1.angle
         ])
 
-    def set_magnets(self, areamqzm1=0.0, areamqzm2=0.0, areamcvm1=0.0, areamqzm3=0.0, areamchm1=0.0):
-        self.simulation.AREAMQZM1.k1 = areamqzm1
-        self.simulation.AREAMQZM2.k1 = areamqzm2
-        self.simulation.AREAMCVM1.angle = areamcvm1
-        self.simulation.AREAMQZM3.k1 = areamqzm3
-        self.simulation.AREAMCHM1.angle = areamchm1
+    def set_magnets(self, magnets):
+        self.simulation.AREAMQZM1.k1 = magnets[0]
+        self.simulation.AREAMQZM2.k1 = magnets[1]
+        self.simulation.AREAMCVM1.angle = magnets[2]
+        self.simulation.AREAMQZM3.k1 = magnets[3]
+        self.simulation.AREAMCHM1.angle = magnets[4]
 
     def reset_accelerator(self):
         # New domain randomisation
