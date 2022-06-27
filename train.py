@@ -1,5 +1,6 @@
 import argparse
 from functools import partial
+import time
 
 import cheetah
 import cv2
@@ -8,6 +9,7 @@ from gym import spaces
 from gym.wrappers import FilterObservation, FlattenObservation, FrameStack, RecordVideo, RescaleAction, TimeLimit
 import numpy as np
 import yaml
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3 import A2C, PPO, SAC, TD3
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
@@ -230,6 +232,9 @@ class ARESEA(gym.Env):
             obs_space_dict["misalignments"] = spaces.Box(low=-400e-6, high=400e-6, shape=(8,))
         self.observation_space = spaces.Dict(obs_space_dict)
 
+        if self.target_beam_mode == "zero":
+            self.target_beam = np.zeros(4, dtype=np.float32)
+
         # Setup the accelerator (either simulation or the actual machine)
         self.setup_accelerator()
     
@@ -319,8 +324,6 @@ class ARESEA(gym.Env):
         done = bool(np.all(np.abs(cb) < self.target_beam_tolerance))
 
         info = {
-            "incoming": self.get_incoming_parameters(),
-            "misalignments": self.get_misalignments(),
             "mu_x_reward": mu_x_reward,
             "mu_y_reward": mu_y_reward,
             "on_screen_reward": on_screen_reward,
@@ -328,6 +331,9 @@ class ARESEA(gym.Env):
             "sigma_y_reward": sigma_y_reward,
             "time_reward": time_reward,
         }
+        if self.is_fully_observable:
+            info["incoming"] = self.get_incoming_parameters()
+            info["misalignments"] = self.get_misalignments()
         
         self.previous_beam = current_beam
 
@@ -483,7 +489,7 @@ class ARESEA(gym.Env):
     
     def get_screen_resolution(self):
         """
-        Return resolution of the screen camera without binning as NumPy array [x, y].
+        Return (binned) resolution of the screen camera as NumPy array [x, y].
 
         Override with backend-specific imlementation. Optional.
         """
@@ -491,8 +497,8 @@ class ARESEA(gym.Env):
     
     def get_pixel_size(self):
         """
-        Return the size of the area on the diagnostic screen covered by one pixel without binning
-        as NumPy array [x, y].
+        Return the (binned) size of the area on the diagnostic screen covered by one pixel as NumPy
+        array [x, y].
 
         Override with backend-specific imlementation. Optional.
         """
@@ -540,8 +546,6 @@ class ARESEACheetah(ARESEA):
             self.simulation.AREAMQZM2.misalignment = self.misalignment_values[2:4]
             self.simulation.AREAMQZM3.misalignment = self.misalignment_values[4:6]
             self.simulation.AREABSCR1.misalignment = self.misalignment_values[6:8]
-        if self.target_beam_mode == "zero":
-            self.target_beam = np.zeros(4, dtype=np.float32)
     
     def get_magnets(self):
         return np.array([
@@ -631,10 +635,188 @@ class ARESEACheetah(ARESEA):
         return np.array(self.simulation.AREABSCR1.binning)
     
     def get_screen_resolution(self):
-        return np.array(self.simulation.AREABSCR1.resolution)
+        return np.array(self.simulation.AREABSCR1.resolution) / self.get_binning()
     
     def get_pixel_size(self):
-        return np.array(self.simulation.AREABSCR1.pixel_size)
+        return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
+
+
+class ARESEADOOCS(ARESEA):
+    
+    def __init__(
+        self,
+        dummy=True,
+        action_type="direct",
+        incoming="random",
+        incoming_parameters=None,
+        magnet_init="zero",
+        misalignments="random",
+        misalignment_values=None,
+        reward_method="differential",
+        quad_action="symmetric",
+        target_beam_mode="zero",
+        target_beam_tolerance=0.0000033198,
+        w_mu_x=1,
+        w_mu_y=1,
+        w_on_screen=1,
+        w_sigma_x=1,
+        w_sigma_y=1,
+        w_time=1,
+    ):
+        # Import pydoocs only when this class is loaded and choose dummypydoocs if requested
+        global pydoocs
+        if dummy:
+            import dummypydoocs as pydoocs
+        else:
+            import pydoocs
+
+        super().__init__(
+            action_type=action_type,
+            incoming=incoming,
+            incoming_parameters=incoming_parameters,
+            is_fully_observable=False,  # TODO make this more top-down
+            magnet_init=magnet_init,
+            misalignments=misalignments,
+            misalignment_values=misalignment_values,
+            reward_method=reward_method,
+            quad_action=quad_action,
+            target_beam_mode=target_beam_mode,
+            target_beam_tolerance=target_beam_tolerance,
+            w_mu_x=w_mu_x,
+            w_mu_y=w_mu_y,
+            w_on_screen=w_on_screen,
+            w_sigma_x=w_sigma_x,
+            w_sigma_y=w_sigma_y,
+            w_time=w_time,
+        )
+
+    def is_beam_on_screen(self):
+        return True # TODO find better logic
+
+    def get_magnets(self):
+        return np.array([
+            pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.RBV")["data"],
+            pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.RBV")["data"],
+            pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.RBV")["data"] / 1000,
+            pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.RBV")["data"],
+            pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.RBV")["data"] / 1000
+        ])
+    
+    def set_magnets(self, magnets):
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP", magnets[0])
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP", magnets[1])
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.SP", magnets[2] * 1000)
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.SP", magnets[3])
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.SP", magnets[4] * 1000)
+
+        # Wait until magnets have reached their setpoints
+        
+        time.sleep(3.0) # Wait for magnets to realise they received a command
+
+        magnets = ["AREAMQZM1", "AREAMQZM2", "AREAMCVM1", "AREAMQZM3", "AREAMCHM1"]
+
+        are_busy = [True] * 5
+        are_ps_on = [True] * 5
+        while any(are_busy) or not all(are_ps_on):
+            are_busy = [pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"] for magnet in magnets]
+            are_ps_on = [pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/PS_ON")["data"] for magnet in magnets]
+
+    def update_accelerator(self):
+        self.beam_image = self.capture_clean_beam_image()
+
+    def get_beam_parameters(self):
+        img = self.get_beam_image()
+        pixel_size = self.get_pixel_size()
+
+        parameters = {}
+        for axis, direction in zip([0,1], ["x","y"]):
+            projection = img.sum(axis=axis)
+            minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
+            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
+
+            half_values, = np.where(filtered >= 0.5 * filtered.max())
+
+            if len(half_values) > 0:
+                fwhm_pixel = half_values[-1] - half_values[0]
+                center_pixel = half_values[0] + fwhm_pixel / 2
+            else:
+                fwhm_pixel = 42     # TODO figure out what to do with these
+                center_pixel = 42
+
+            parameters[f"mu_{direction}"] = (center_pixel - len(filtered) / 2) * pixel_size[axis]
+            parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
+            
+        parameters["mu_y"] = -parameters["mu_y"]
+
+        return np.array([
+            parameters["mu_x"],
+            parameters["sigma_x"],
+            parameters["mu_y"],
+            parameters["sigma_y"]
+        ])
+
+    def get_beam_image(self):
+        return self.beam_image
+
+    def get_binning(self):
+        return np.array((
+            pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL")["data"],
+            pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL")["data"]
+        ))
+
+    def get_screen_resolution(self):
+        return np.array([
+            pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/WIDTH")["data"],
+            pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/HEIGHT")["data"]
+        ])
+    
+    def get_pixel_size(self):
+        return np.array([
+            abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")["data"][2]) / 1000,
+            abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")["data"][2]) / 1000
+        ]) * self.get_binning()
+
+    def capture_clean_beam_image(self, average=5):
+        """
+        Capture a clean image of the beam from the screen using `average` images with beam on and
+        `average` images of the background and then removing the background.
+        
+        Saves the image to a property of the object.
+        """
+         # Laser off
+        self.set_cathode_laser(False)
+        background_images = self.capture_interval(n=average, dt=0.1)
+        median_background = np.median(background_images.astype("float64"), axis=0)
+
+        # Laser on
+        self.set_cathode_laser(True)
+        beam_images = self.capture_interval(n=average, dt=0.1)
+        median_beam = np.median(beam_images.astype("float64"), axis=0)
+
+        removed = (median_beam - median_background).clip(0, 2**16-1)
+        flipped = np.flipud(removed)
+        
+        return flipped
+    
+    def capture_interval(self, n, dt):
+        """Capture `n` images from the screen and wait `dt` seconds in between them."""
+        images = []
+        for _ in range(n):
+            images.append(self.capture_screen())
+            time.sleep(dt)
+        return np.array(images)
+    
+    def capture_screen(self):
+        """Capture and image from the screen."""
+        return pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"]
+
+    def set_cathode_laser(self, setto):
+        """Sets the bool switch of the cathode laser event to `setto` and waits a second."""
+        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
+        bits = pydoocs.read(address)["data"]
+        bits[0] = 1 if setto else 0
+        pydoocs.write(address, bits)
+        time.sleep(1)
 
 
 def save_to_yaml(data, path):
