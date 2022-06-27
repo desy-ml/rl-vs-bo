@@ -152,7 +152,6 @@ class ARESEA(gym.Env):
     def __init__(
         self,
         action_type="direct",
-        is_fully_observable=False,
         incoming="random",
         incoming_parameters=None,
         magnet_init="zero",
@@ -170,7 +169,6 @@ class ARESEA(gym.Env):
         w_time=1.0
     ):
         self.action_type = action_type
-        self.is_fully_observable = is_fully_observable
         self.incoming = incoming
         self.incoming_parameters = incoming_parameters
         self.magnet_init = magnet_init
@@ -224,12 +222,7 @@ class ARESEA(gym.Env):
                 high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
             )
         }
-        if self.is_fully_observable:
-            obs_space_dict["incoming"] = spaces.Box(
-                low=np.array([80e6, -1e-3, -1e-4, -1e-3, -1e-4, 1e-5, 1e-6, 1e-5, 1e-6, 1e-6, 1e-4], dtype=np.float32),
-                high=np.array([160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3], dtype=np.float32)
-            )
-            obs_space_dict["misalignments"] = spaces.Box(low=-400e-6, high=400e-6, shape=(8,))
+        obs_space_dict.update(self.get_accelerator_observation_space())
         self.observation_space = spaces.Dict(obs_space_dict)
 
         if self.target_beam_mode == "zero":
@@ -263,9 +256,7 @@ class ARESEA(gym.Env):
             "magnets": self.get_magnets().astype("float32"),
             "target": self.target_beam.astype("float32")
         }
-        if self.is_fully_observable:
-            observation["incoming"] = self.get_incoming_parameters()
-            observation["misalignments"] = self.get_misalignments()
+        observation.update(self.get_accelerator_observation())
 
         return observation
 
@@ -288,9 +279,7 @@ class ARESEA(gym.Env):
             "magnets": self.get_magnets().astype("float32"),
             "target": self.target_beam
         }
-        if self.is_fully_observable:
-            observation["incoming"] = self.get_incoming_parameters()
-            observation["misalignments"] = self.get_misalignments()
+        observation.update(self.get_accelerator_observation())
 
         # Compute reward
         current_beam = self.get_beam_parameters()
@@ -331,9 +320,7 @@ class ARESEA(gym.Env):
             "sigma_y_reward": sigma_y_reward,
             "time_reward": time_reward,
         }
-        if self.is_fully_observable:
-            info["incoming"] = self.get_incoming_parameters()
-            info["misalignments"] = self.get_misalignments()
+        info.update(self.get_accelerator_info())
         
         self.previous_beam = current_beam
 
@@ -504,6 +491,33 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
+    def get_accelerator_observation_space(self):
+        """
+        Return a dictionary of aditional observation spaces for observations from the accelerator
+        backend, e.g. incoming beam and misalignments in simulation.
+
+        Override with backend-specific imlementation. Optional.
+        """
+        return {}
+
+    def get_accelerator_observation(self):
+        """
+        Return a dictionary of aditional observations from the accelerator backend, e.g. incoming
+        beam and misalignments in simulation.
+
+        Override with backend-specific imlementation. Optional.
+        """
+        return {}
+
+    def get_accelerator_info(self):
+        """
+        Return a dictionary of aditional info from the accelerator backend, e.g. incoming beam and
+        misalignments in simulation.
+
+        Override with backend-specific imlementation. Optional.
+        """
+        return {}
+
 
 class ARESEACheetah(ARESEA):
 
@@ -640,6 +654,21 @@ class ARESEACheetah(ARESEA):
     def get_pixel_size(self):
         return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
 
+    def get_accelerator_observation_space(self):
+        return {
+            "incoming": spaces.Box(
+                low=np.array([80e6, -1e-3, -1e-4, -1e-3, -1e-4, 1e-5, 1e-6, 1e-5, 1e-6, 1e-6, 1e-4], dtype=np.float32),
+                high=np.array([160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3], dtype=np.float32)
+            ),
+            "misalignments": spaces.Box(low=-400e-6, high=400e-6, shape=(8,)),
+        }
+
+    def get_accelerator_observation(self):
+        return {
+            "incoming": self.get_incoming_parameters(),
+            "misalignments": self.get_misalignments(),
+        }
+
 
 class ARESEADOOCS(ARESEA):
     
@@ -674,7 +703,6 @@ class ARESEADOOCS(ARESEA):
             action_type=action_type,
             incoming=incoming,
             incoming_parameters=incoming_parameters,
-            is_fully_observable=False,  # TODO make this more top-down
             magnet_init=magnet_init,
             misalignments=misalignments,
             misalignment_values=misalignment_values,
