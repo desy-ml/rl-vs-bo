@@ -1,4 +1,3 @@
-import argparse
 from functools import partial
 import time
 
@@ -20,46 +19,40 @@ from ARESlatticeStage3v1_9 import cell as ares_lattice
 from utils import CheckpointCallback, FilterAction
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--action_type", type=str, default="direct", choices=["direct","delta"])
-    parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--filter_action", nargs="+", type=int, default=[0,1,2,3,4])
-    parser.add_argument("--filter_observation", nargs="+", type=str, default=["beam","incoming","magnets","misalignments"])
-    parser.add_argument("--frame_stack", type=int, default=1)
-    parser.add_argument("--incoming", type=str, default="constant", choices=["constant","random"])
-    parser.add_argument("--magnet_init", type=str, default="zero", choices=["zero","random"])
-    parser.add_argument("--misalignments", type=str, default="constant", choices=["constant","random"])
-    parser.add_argument("--n_envs", type=int, default=1)
-    parser.add_argument("--normalize_observation", action="store_true", default=False)
-    parser.add_argument("--normalize_reward", action="store_true", default=False)
-    parser.add_argument("--reward_method", type=str, default="differential", choices=["differential","feedback"])
-    parser.add_argument("--sb3_device", type=str, default="auto")
-    parser.add_argument("--target_beam_mode", type=str, default="zero", choices=["zero","random"])
-    parser.add_argument("--target_beam_tolerance", type=float, default=3.3198e-6)
-    parser.add_argument("--time_limit", type=int, default=50)
-    parser.add_argument("--total_timesteps", type=int, default=800000)
-    parser.add_argument("--quad_action", type=str, default="symmetric", choices=["symmetric","oneway"])
-    parser.add_argument("--vec_env", type=str, default="dummy", choices=["dummy","subproc"])
-    parser.add_argument("--w_mu_x", type=float, default=1.0)
-    parser.add_argument("--w_mu_y", type=float, default=1.0)
-    parser.add_argument("--w_on_screen", type=float, default=1.0)
-    parser.add_argument("--w_sigma_x", type=float, default=1.0)
-    parser.add_argument("--w_sigma_y", type=float, default=1.0)
-    parser.add_argument("--w_time", type=float, default=1.0)
-
-    args = parser.parse_args()
-    return vars(args)
-
-
 def main():
-    # Parse config and generate config elements that result from given arguments
-    config = parse_args()
-    if config["incoming"] == "constant":
-        config["incoming_parameters"] = ARESEA().observation_space["incoming"].sample()
-    if config["misalignments"] == "constant":
-        config["misalignment_values"] = ARESEA().observation_space["misalignments"].sample()
-    
+    config = {
+        "action_type": "direct",    # Choose "direct" and "delta"
+        "gamma": 0.99,
+        "filter_action": None,  # None for default action or list of indicies
+        "filter_observation": None, # Set to None or list of observation names to keep
+        "frame_stack": None,    # None or number of frames
+        "incoming": "random",   # "random" or parameters (`ARESEACheetah().observation_space["incoming"].sample()`)
+        "magnet_init": "random",    # "random" or settings
+        "misalignments": "random",  # "random" or misalignments (`ARESEACheetah().observation_space["misalignments"].sample()`)
+        "n_envs": 1,
+        "normalize_observation": True,
+        "normalize_reward": True,
+        "rescale_action": (-1, 1),
+        "reward_method": "feedback",    # "differential" or "feedback"
+        "sb3_device": "auto",
+        "target_beam_setting": "random",    # "random" or target
+        "target_beam_threshold": 3.3198e-6,
+        "time_limit": 50,
+        "total_timesteps": 800000,
+        "quad_action": "symmetric", # "symmetric" or "oneway"
+        "vec_env": "dummy", # "dummy" or "subproc"
+        "w_mu_x": 1.0,
+        "w_mu_y": 1.0,
+        "w_on_screen": 1.0,
+        "w_sigma_x": 1.0,
+        "w_sigma_y": 1.0,
+        "w_time": 1.0,
+    }
+
+    train(config)
+
+
+def train(config):
     # Setup wandb
     wandb.init(
         project="ares-ea-v2",
@@ -70,15 +63,14 @@ def main():
     )
     config["wandb_run_name"] = wandb.run.name
 
-    # Setup environment
+    # Setup environments
     if config["vec_env"] == "dummy":
         env = DummyVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
-        eval_env = DummyVecEnv([partial(make_eval_env, config)])
     elif config["vec_env"] == "subproc":
         env = SubprocVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
-        eval_env = SubprocVecEnv([partial(make_eval_env, config)])
     else:
         raise ValueError(f"Invalid value \"{config['vec_env']}\" for dummy")
+    eval_env = DummyVecEnv([partial(make_env, config, record_video=True)])
 
     if config["normalize_observation"] or config["normalize_reward"]:
         env = VecNormalize(
@@ -101,7 +93,7 @@ def main():
         env,
         device=config["sb3_device"],
         gamma=config["gamma"],
-        tensorboard_log=f"log/{wandb.run.name}",
+        tensorboard_log=f"log/{config['wandb_run_name']}",
     )
 
     model.learn(
@@ -117,28 +109,37 @@ def main():
     save_to_yaml(config, f"models/{wandb.run.name}/config")
 
 
-def make_env(config):
-    env = ARESEA(**config)
-    env = FilterObservation(env, config["filter_observation"])
-    env = FilterAction(env, config["filter_action"], replace=0)
-    env = TimeLimit(env, max_episode_steps=config["time_limit"])
+def make_env(config, record_video=False):
+    env = ARESEACheetah(
+        action_type=config["action_type"],
+        incoming=config["incoming"],
+        magnet_init=config["magnet_init"],
+        misalignments=config["misalignments"],
+        reward_method=config["reward_method"],
+        quad_action=config["quad_action"],
+        target_beam_setting=config["target_beam_setting"],
+        target_beam_threshold=config["target_beam_threshold"],
+        w_mu_x=config["w_mu_x"],
+        w_mu_y=config["w_mu_y"],
+        w_on_screen=config["w_on_screen"],
+        w_sigma_x=config["w_sigma_x"],
+        w_sigma_y=config["w_sigma_y"],
+        w_time=config["w_time"],
+    )
+    if config["filter_observation"] is not None:
+        env = FilterObservation(env, config["filter_observation"])
+    if config["filter_action"] is not None:
+        env = FilterAction(env, config["filter_action"], replace=0)
+    if config["time_limit"] is not None:
+        env = TimeLimit(env, config["time_limit"])
     env = FlattenObservation(env)
-    env = FrameStack(env, config["frame_stack"])
-    env = RescaleAction(env, -3, 3)
+    if config["frame_stack"] is not None:
+        env = FrameStack(env, config["frame_stack"])
+    if config["rescale_action"] is not None:
+        env = RescaleAction(env, config["rescale_action"][0], config["rescale_action"][1])
     env = Monitor(env)
-    return env
-
-
-def make_eval_env(config):
-    env = ARESEA(**config)
-    env = FilterObservation(env, config["filter_observation"])
-    env = FilterAction(env, config["filter_action"], replace=0)
-    env = TimeLimit(env, max_episode_steps=config["time_limit"])
-    env = RecordVideo(env, video_folder=f"recordings/{config['wandb_run_name']}")
-    env = FlattenObservation(env)
-    env = FrameStack(env, config["frame_stack"])
-    env = RescaleAction(env, -3, 3)
-    env = Monitor(env)
+    if record_video:
+        env = RecordVideo(env, video_folder=f"recordings/{config['wandb_run_name']}")
     return env
 
 
@@ -153,14 +154,12 @@ class ARESEA(gym.Env):
         self,
         action_type="direct",
         incoming="random",
-        incoming_parameters=None,
         magnet_init="zero",
         misalignments="random",
-        misalignment_values=None,
         reward_method="differential",
         quad_action="symmetric",
-        target_beam_mode="zero",
-        target_beam_tolerance=3.3198e-6,
+        target_beam_setting="zero",
+        target_beam_threshold=3.3198e-6,
         w_mu_x=1.0,
         w_mu_y=1.0,
         w_on_screen=1.0,
@@ -170,14 +169,12 @@ class ARESEA(gym.Env):
     ):
         self.action_type = action_type
         self.incoming = incoming
-        self.incoming_parameters = incoming_parameters
         self.magnet_init = magnet_init
         self.misalignments = misalignments
-        self.misalignment_values = misalignment_values
         self.quad_action = quad_action
         self.reward_method = reward_method
-        self.target_beam_mode = target_beam_mode
-        self.target_beam_tolerance = target_beam_tolerance
+        self.target_beam_setting = target_beam_setting
+        self.target_beam_threshold = target_beam_threshold
         self.w_mu_x = w_mu_x
         self.w_mu_y = w_mu_y
         self.w_on_screen = w_on_screen
@@ -225,8 +222,8 @@ class ARESEA(gym.Env):
         obs_space_dict.update(self.get_accelerator_observation_space())
         self.observation_space = spaces.Dict(obs_space_dict)
 
-        if self.target_beam_mode == "zero":
-            self.target_beam = np.zeros(4, dtype=np.float32)
+        if isinstance(self.target_beam_setting, np.ndarray):
+            self.target_beam = self.target_beam_setting
 
         # Setup the accelerator (either simulation or the actual machine)
         self.setup_accelerator()
@@ -242,7 +239,7 @@ class ARESEA(gym.Env):
 
         self.reset_accelerator()
 
-        if self.target_beam_mode == "random":
+        if self.target_beam_setting == "random":
             self.target_beam = self.observation_space["target"].sample()
 
         # Update anything in the accelerator (mainly for running simulations)
@@ -310,7 +307,7 @@ class ARESEA(gym.Env):
         reward = float(reward)
 
         # Figure out if reach good enough beam (done)
-        done = bool(np.all(np.abs(cb) < self.target_beam_tolerance))
+        done = bool(np.all(np.abs(cb) < self.target_beam_threshold))
 
         info = {
             "mu_x_reward": mu_x_reward,
@@ -683,8 +680,8 @@ class ARESEADOOCS(ARESEA):
         misalignment_values=None,
         reward_method="differential",
         quad_action="symmetric",
-        target_beam_mode="zero",
-        target_beam_tolerance=0.0000033198,
+        target_beam_setting="zero",
+        target_beam_threshold=0.0000033198,
         w_mu_x=1,
         w_mu_y=1,
         w_on_screen=1,
@@ -708,8 +705,8 @@ class ARESEADOOCS(ARESEA):
             misalignment_values=misalignment_values,
             reward_method=reward_method,
             quad_action=quad_action,
-            target_beam_mode=target_beam_mode,
-            target_beam_tolerance=target_beam_tolerance,
+            target_beam_setting=target_beam_setting,
+            target_beam_threshold=target_beam_threshold,
             w_mu_x=w_mu_x,
             w_mu_y=w_mu_y,
             w_on_screen=w_on_screen,
