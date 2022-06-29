@@ -16,7 +16,7 @@ import wandb
 from wandb.integration.sb3 import WandbCallback
 
 from ARESlatticeStage3v1_9 import cell as ares_lattice
-from utils import CheckpointCallback, FilterAction
+from utils import FilterAction, PolishedDonkeyCompatibility
 
 
 def main():
@@ -107,6 +107,55 @@ def train(config):
     if config["normalize_observation"] or config["normalize_reward"]:
         env.save(f"models/{wandb.run.name}/normalizer")
     save_to_yaml(config, f"models/{wandb.run.name}/config")
+
+
+def optimize(
+    target_mu_x,
+    target_sigma_x,
+    target_mu_y,
+    target_sigma_y,
+    max_steps=50,
+    model="polished-donkey-996",
+    logbook=False,
+    callback=None,
+):
+    """
+    Function used for optimisation during operation.
+
+    Note: Current version only works for polished-donkey-996.
+    """
+    # config = read_from_yaml(f"models/{model}/config")
+    assert model == "polished-donkey-996", "Current version only works for polished-donkey-996."
+    
+    # Load the model
+    model = TD3.load(f"models/{model}/model")
+    
+    # Create the environment
+    def make_env_polished():
+        env = ARESEADOOCS(
+            dummy=True,
+            action_type="delta",
+            magnet_init=np.array([10, -10, 0, 10, 0]),
+            reward_method="differential",
+            quad_action="symmetrics",
+            target_beam_setting=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y])
+        )
+        if max_steps is not None:
+            env = TimeLimit(env, max_episode_steps=50)
+        env = FlattenObservation(env)
+        env = PolishedDonkeyCompatibility(env)
+        env = RescaleAction(env, -1, 1)
+    env = DummyVecEnv([make_env_polished])
+    env = VecNormalize.load(f"models/{model}/vec_normalize.pkl")
+    env.training = False
+
+    # Actual optimisation
+    observation = env.reset()
+    done = False
+    while not done:
+        action, _ = model.predict(observation, deterministic=True)
+        observation, reward, done, info = env.step(action)
+        env.render()
 
 
 def make_env(config, record_video=False):
@@ -234,6 +283,8 @@ class ARESEA(gym.Env):
         elif self.magnet_init == "random":
             magnets = self.observation_space["magnets"].sample()
             self.set_magnets(magnets)
+        elif isinstance(self.magnet_init, np.ndarray) and len(self.magnet_init) == 5:
+            self.set_magnets(self.magnet_init)
         else:
             raise ValueError(f"Invalid value for magnet_init \"{self.magnet_init}\"")
 
@@ -842,6 +893,12 @@ class ARESEADOOCS(ARESEA):
         bits[0] = 1 if setto else 0
         pydoocs.write(address, bits)
         time.sleep(1)
+
+
+def read_from_yaml(path):
+    with open(f"{path}.yaml", "r") as f:
+        data = yaml.parse(f.read())
+    return data
 
 
 def save_to_yaml(data, path):

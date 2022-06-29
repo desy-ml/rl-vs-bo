@@ -160,3 +160,42 @@ class RecordData(gym.Wrapper):
         self.actions.append(action)
 
         return observation, reward, done, info
+
+
+class PolishedDonkeyCompatibility(gym.Wrapper):
+
+    def __init__(self, env):
+        super().__init__(env)
+
+    def reset(self):
+        return self.observation(super().reset())
+    
+    def step(self, action):
+        observation, reward, done, info = super().step(self.action(action))
+        return self.observation(observation), reward, done, info
+    
+    def observation(self, observation):
+        return np.array(
+            observation[4],
+            observation[5],
+            observation[7],
+            observation[6],
+            observation[8],
+            observation[9],
+            observation[11],
+            observation[10],
+            observation[12],
+            observation[0],
+            observation[2],
+            observation[1],
+            observation[3],
+        )
+    
+    def action(self, action):
+        return np.array(
+            action[0],
+            action[1],
+            action[3],
+            action[2],
+            action[4],
+        )
