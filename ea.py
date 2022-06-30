@@ -114,6 +114,7 @@ def optimize(
     target_sigma_x,
     target_mu_y,
     target_sigma_y,
+    threshold=3.3198e-6,
     max_steps=50,
     model_name="polished-donkey-996",
     logbook=False,
@@ -132,7 +133,8 @@ def optimize(
     
     # Create the environment
     def make_env_polished():
-        env = ARESEACheetah(
+        env = ARESEADOOCS(
+            dummy=False,
             action_mode="delta",
             magnet_init_mode="constant",
             magnet_init_values=np.array([10, -10, 0, 10, 0]),
@@ -142,7 +144,7 @@ def optimize(
             target_beam_threshold=3.3198e-6,
         )
         if max_steps is not None:
-            env = TimeLimit(env, max_episode_steps=50)
+            env = TimeLimit(env, max_episode_steps=max_steps)
         env = FlattenObservation(env)
         env = PolishedDonkeyCompatibility(env)
         env = RescaleAction(env, -1, 1)
