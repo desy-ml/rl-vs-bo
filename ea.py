@@ -115,7 +115,7 @@ def optimize(
     target_mu_y,
     target_sigma_y,
     max_steps=50,
-    model="polished-donkey-996",
+    model_name="polished-donkey-996",
     logbook=False,
     callback=None,
 ):
@@ -125,28 +125,33 @@ def optimize(
     Note: Current version only works for polished-donkey-996.
     """
     # config = read_from_yaml(f"models/{model}/config")
-    assert model == "polished-donkey-996", "Current version only works for polished-donkey-996."
+    assert model_name == "polished-donkey-996", "Current version only works for polished-donkey-996."
     
     # Load the model
-    model = TD3.load(f"models/{model}/model")
+    model = TD3.load(f"models/{model_name}/model")
     
     # Create the environment
     def make_env_polished():
-        env = ARESEADOOCS(
-            dummy=True,
-            action_type="delta",
-            magnet_init=np.array([10, -10, 0, 10, 0]),
-            reward_method="differential",
-            quad_action="symmetrics",
-            target_beam_setting=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y])
+        env = ARESEACheetah(
+            action_mode="delta",
+            magnet_init_mode="constant",
+            magnet_init_values=np.array([10, -10, 0, 10, 0]),
+            reward_mode="differential",
+            target_beam_mode="constant",
+            target_beam_values=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]),
+            target_beam_threshold=3.3198e-6,
         )
         if max_steps is not None:
             env = TimeLimit(env, max_episode_steps=50)
         env = FlattenObservation(env)
         env = PolishedDonkeyCompatibility(env)
         env = RescaleAction(env, -1, 1)
+        env = RecordVideo(env, "recordings_function_test")
+        
+        return env
+
     env = DummyVecEnv([make_env_polished])
-    env = VecNormalize.load(f"models/{model}/vec_normalize.pkl")
+    env = VecNormalize.load(f"models/{model_name}/vec_normalize.pkl", env)
     env.training = False
 
     # Actual optimisation
@@ -155,7 +160,7 @@ def optimize(
     while not done:
         action, _ = model.predict(observation, deterministic=True)
         observation, reward, done, info = env.step(action)
-        env.render()
+    env.close()
 
 
 def make_env(config, record_video=False):
@@ -193,6 +198,25 @@ def make_env(config, record_video=False):
 
 
 class ARESEA(gym.Env):
+    """
+    Base class for beam positioning and focusing on AREABSCR1 in the ARES EA.
+
+    Parameters
+    ----------
+    action_mode : str
+        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or `"delta"`.
+    magnet_init_mode : str
+        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
+        `"constant"` setting requires `magnet_init_values` to be set.
+    magnet_init_values : np.ndarray
+        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is set to 
+        `"constant"`.
+    reward_mode : str
+        How to compute the reward. Choose from `"feedback"` or `"differential"`.
+    target_beam_mode : str
+        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The `"constant"`
+        setting requires `target_beam_values` to be set.
+    """
 
     metadata = {
         "render.modes": ["rgb_array"],
@@ -201,13 +225,12 @@ class ARESEA(gym.Env):
 
     def __init__(
         self,
-        action_type="direct",
-        incoming="random",
-        magnet_init="zero",
-        misalignments="random",
-        reward_method="differential",
-        quad_action="symmetric",
-        target_beam_setting="zero",
+        action_mode="direct",
+        magnet_init_mode=None,
+        magnet_init_values=None,
+        reward_mode="differential",
+        target_beam_mode="random",
+        target_beam_values=None,
         target_beam_threshold=3.3198e-6,
         w_mu_x=1.0,
         w_mu_y=1.0,
@@ -216,13 +239,12 @@ class ARESEA(gym.Env):
         w_sigma_y=1.0,
         w_time=1.0
     ):
-        self.action_type = action_type
-        self.incoming = incoming
-        self.magnet_init = magnet_init
-        self.misalignments = misalignments
-        self.quad_action = quad_action
-        self.reward_method = reward_method
-        self.target_beam_setting = target_beam_setting
+        self.action_mode = action_mode
+        self.magnet_init_mode = magnet_init_mode
+        self.magnet_init_values = magnet_init_values
+        self.reward_mode = reward_mode
+        self.target_beam_mode = target_beam_mode
+        self.target_beam_values = target_beam_values
         self.target_beam_threshold = target_beam_threshold
         self.w_mu_x = w_mu_x
         self.w_mu_y = w_mu_y
@@ -231,30 +253,22 @@ class ARESEA(gym.Env):
         self.w_sigma_y = w_sigma_y
         self.w_time = w_time
 
-        # Setup observation and action spaces
-        if quad_action == "symmetric":
-            magnet_space = spaces.Box(
+        # Create action space
+        if self.action_mode == "direct":
+            self.action_space = spaces.Box(
                 low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
                 high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
             )
-        elif quad_action == "oneway":
-            magnet_space = spaces.Box(
+        elif self.action_mode == "direct_unidirectional_quads":
+            self.action_space = spaces.Box(
                 low=np.array([0, -72, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
                 high=np.array([72, 0, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
             )
-        else:
-            raise ValueError(f"Invalid quad_action \"{self.quad_action}\"")
-
-        # Create action space
-        if self.action_type == "direct":
-            self.action_space = magnet_space
-        elif self.action_type == "delta":
+        elif self.action_mode == "delta":
             self.action_space = spaces.Box(
                 low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32) * 0.1,
                 high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32) * 0.1
             )
-        else:
-            raise ValueError(f"Invalid action_type \"{self.action_type}\"")
 
         # Create observation space
         obs_space_dict = {
@@ -262,7 +276,10 @@ class ARESEA(gym.Env):
                 low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                 high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
             ),
-            "magnets": magnet_space,
+            "magnets": self.action_space if self.action_mode.startswith("direct") else spaces.Box(
+                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
+                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
+            ),
             "target": spaces.Box(
                 low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                 high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
@@ -271,26 +288,20 @@ class ARESEA(gym.Env):
         obs_space_dict.update(self.get_accelerator_observation_space())
         self.observation_space = spaces.Dict(obs_space_dict)
 
-        if isinstance(self.target_beam_setting, np.ndarray):
-            self.target_beam = self.target_beam_setting
-
         # Setup the accelerator (either simulation or the actual machine)
         self.setup_accelerator()
     
     def reset(self):
-        if self.magnet_init == "zero":
-            self.set_magnets(np.zeros(5))
-        elif self.magnet_init == "random":
-            magnets = self.observation_space["magnets"].sample()
-            self.set_magnets(magnets)
-        elif isinstance(self.magnet_init, np.ndarray) and len(self.magnet_init) == 5:
-            self.set_magnets(self.magnet_init)
-        else:
-            raise ValueError(f"Invalid value for magnet_init \"{self.magnet_init}\"")
-
         self.reset_accelerator()
 
-        if self.target_beam_setting == "random":
+        if self.magnet_init_mode == "constant":
+            self.set_magnets(self.magnet_init_values)
+        elif self.magnet_init_mode == "random":
+            self.set_magnets(self.observation_space["magnets"].sample())
+
+        if self.target_beam_mode == "constant":
+            self.target_beam = self.target_beam_values
+        elif self.target_beam_mode == "random":
             self.target_beam = self.observation_space["target"].sample()
 
         # Update anything in the accelerator (mainly for running simulations)
@@ -310,13 +321,11 @@ class ARESEA(gym.Env):
 
     def step(self, action):
         # Perform action
-        if self.action_type == "direct":
+        if self.action_mode.startswith("direct"):
             self.set_magnets(action)
-        elif self.action_type == "delta":
+        elif self.action_mode == "delta":
             magnet_values = self.get_magnets()
             self.set_magnets(magnet_values + action)
-        else:
-            raise ValueError(f"Invalid action_type \"{self.action_type}\"")
 
         # Run the simulation
         self.update_accelerator()
@@ -340,18 +349,16 @@ class ARESEA(gym.Env):
 
         on_screen_reward = -(not self.is_beam_on_screen())
         time_reward = -1
-        if self.reward_method == "differential":
+        if self.reward_mode == "differential":
             mu_x_reward = (abs(cb[0] - tb[0]) - abs(pb[0] - tb[0])) / abs(ib[0] - tb[0])
             sigma_x_reward = (abs(cb[1] - tb[1]) - abs(pb[1] - tb[1])) / abs(ib[1] - tb[1])
             mu_y_reward = (abs(cb[2] - tb[2]) - abs(pb[2] - tb[2])) / abs(ib[2] - tb[2])
             sigma_y_reward = (abs(cb[3] - tb[3]) - abs(pb[3] - tb[3])) / abs(ib[3] - tb[3])
-        elif self.reward_method == "feedback":
+        elif self.reward_mode == "feedback":
             mu_x_reward = - abs((cb[0] - tb[0]) / (ib[0] - tb[0]))
             sigma_x_reward = - (cb[1] - tb[1]) / (ib[1] - tb[1])
             mu_y_reward = - abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
             sigma_y_reward = - (cb[3] - tb[3]) / (ib[3] - tb[3])
-        else:
-            raise ValueError(f"Invalid reward method \"{self.reward_method}\"")
 
         reward = 1 * on_screen_reward + 1 * mu_x_reward + 1 * sigma_x_reward + 1 * mu_y_reward + 1 * sigma_y_reward
         reward = self.w_on_screen * on_screen_reward + self.w_mu_x * mu_x_reward + self.w_sigma_x * sigma_x_reward + self.w_mu_y * mu_y_reward + self.w_sigma_y * sigma_y_reward * self.w_time * time_reward
@@ -569,13 +576,47 @@ class ARESEA(gym.Env):
 
 class ARESEACheetah(ARESEA):
 
-    def is_beam_on_screen(self):
-        screen = self.simulation.AREABSCR1
-        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
-        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
-        return np.all(np.abs(beam_position) < limits)
-    
-    def setup_accelerator(self):
+    def __init__(
+        self,
+        incoming_mode="random",
+        incoming_values=None,
+        misalignment_mode="random",
+        misalignment_values=None,
+        action_mode="direct",
+        magnet_init_mode="zero",
+        magnet_init_values=None,
+        reward_mode="differential",
+        target_beam_mode="random",
+        target_beam_values=None,
+        target_beam_threshold=3.3198e-6,
+        w_mu_x=1.0,
+        w_mu_y=1.0,
+        w_on_screen=1.0,
+        w_sigma_x=1.0,
+        w_sigma_y=1.0,
+        w_time=1.0,
+    ):
+        super().__init__(
+            action_mode,
+            magnet_init_mode,
+            magnet_init_values,
+            reward_mode,
+            target_beam_mode,
+            target_beam_values,
+            target_beam_threshold,
+            w_mu_x,
+            w_mu_y,
+            w_on_screen,
+            w_sigma_x,
+            w_sigma_y,
+            w_time
+        )
+
+        self.incoming_mode = incoming_mode
+        self.incoming_values = incoming_values
+        self.misalignment_mode = misalignment_mode
+        self.magnet_init_values = misalignment_values
+
         # Create particle simulation
         self.simulation = cheetah.Segment.from_ocelot(
             ares_lattice,
@@ -588,26 +629,11 @@ class ARESEACheetah(ARESEA):
         self.simulation.AREABSCR1.binning = 4
         self.simulation.AREABSCR1.is_active = True
 
-        # If constant, set misalignments and incoming beam to passed values
-        if self.incoming == "constant":
-            self.incoming = cheetah.ParameterBeam.from_parameters(
-                energy=self.incoming_parameters[0],
-                mu_x=self.incoming_parameters[1],
-                mu_xp=self.incoming_parameters[2],
-                mu_y=self.incoming_parameters[3],
-                mu_yp=self.incoming_parameters[4],
-                sigma_x=self.incoming_parameters[5],
-                sigma_xp=self.incoming_parameters[6],
-                sigma_y=self.incoming_parameters[7],
-                sigma_yp=self.incoming_parameters[8],
-                sigma_s=self.incoming_parameters[9],
-                sigma_p=self.incoming_parameters[10],
-            )
-        if self.misalignments == "constant":
-            self.simulation.AREAMQZM1.misalignment = self.misalignment_values[0:2]
-            self.simulation.AREAMQZM2.misalignment = self.misalignment_values[2:4]
-            self.simulation.AREAMQZM3.misalignment = self.misalignment_values[4:6]
-            self.simulation.AREABSCR1.misalignment = self.misalignment_values[6:8]
+    def is_beam_on_screen(self):
+        screen = self.simulation.AREABSCR1
+        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
+        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
+        return np.all(np.abs(beam_position) < limits)
     
     def get_magnets(self):
         return np.array([
@@ -619,6 +645,7 @@ class ARESEACheetah(ARESEA):
         ])
 
     def set_magnets(self, magnets):
+        print(f"Setting magnets {magnets}")
         self.simulation.AREAMQZM1.k1 = magnets[0]
         self.simulation.AREAMQZM2.k1 = magnets[1]
         self.simulation.AREAMCVM1.angle = magnets[2]
@@ -627,27 +654,32 @@ class ARESEACheetah(ARESEA):
 
     def reset_accelerator(self):
         # New domain randomisation
-        if self.incoming == "random":
+        if self.incoming_mode == "constant":
+            incoming_parameters = self.incoming_values
+        elif self.incoming_mode == "random":
             incoming_parameters = self.observation_space["incoming"].sample()
-            self.incoming = cheetah.ParameterBeam.from_parameters(
-                energy=incoming_parameters[0],
-                mu_x=incoming_parameters[1],
-                mu_xp=incoming_parameters[2],
-                mu_y=incoming_parameters[3],
-                mu_yp=incoming_parameters[4],
-                sigma_x=incoming_parameters[5],
-                sigma_xp=incoming_parameters[6],
-                sigma_y=incoming_parameters[7],
-                sigma_yp=incoming_parameters[8],
-                sigma_s=incoming_parameters[9],
-                sigma_p=incoming_parameters[10],
-            )
-        if self.misalignments == "random":
+        self.incoming = cheetah.ParameterBeam.from_parameters(
+            energy=incoming_parameters[0],
+            mu_x=incoming_parameters[1],
+            mu_xp=incoming_parameters[2],
+            mu_y=incoming_parameters[3],
+            mu_yp=incoming_parameters[4],
+            sigma_x=incoming_parameters[5],
+            sigma_xp=incoming_parameters[6],
+            sigma_y=incoming_parameters[7],
+            sigma_yp=incoming_parameters[8],
+            sigma_s=incoming_parameters[9],
+            sigma_p=incoming_parameters[10],
+        )
+
+        if self.misalignment_mode == "constant":
+            misalignments = self.misalignment_values
+        if self.misalignment_mode == "random":
             misalignments = self.observation_space["misalignments"].sample()
-            self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
-            self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
-            self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
-            self.simulation.AREABSCR1.misalignment = misalignments[6:8]
+        self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
+        self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
+        self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
+        self.simulation.AREABSCR1.misalignment = misalignments[6:8]
     
     def update_accelerator(self):
         self.simulation(self.incoming)
@@ -723,22 +755,19 @@ class ARESEADOOCS(ARESEA):
     def __init__(
         self,
         dummy=True,
-        action_type="direct",
-        incoming="random",
-        incoming_parameters=None,
-        magnet_init="zero",
-        misalignments="random",
-        misalignment_values=None,
-        reward_method="differential",
-        quad_action="symmetric",
-        target_beam_setting="zero",
-        target_beam_threshold=0.0000033198,
-        w_mu_x=1,
-        w_mu_y=1,
-        w_on_screen=1,
-        w_sigma_x=1,
-        w_sigma_y=1,
-        w_time=1,
+        action_mode="direct",
+        magnet_init_mode="zero",
+        magnet_init_values=None,
+        reward_mode="differential",
+        target_beam_mode="random",
+        target_beam_values=None,
+        target_beam_threshold=3.3198e-6,
+        w_mu_x=1.0,
+        w_mu_y=1.0,
+        w_on_screen=1.0,
+        w_sigma_x=1.0,
+        w_sigma_y=1.0,
+        w_time=1.0,
     ):
         # Import pydoocs only when this class is loaded and choose dummypydoocs if requested
         global pydoocs
@@ -748,22 +777,19 @@ class ARESEADOOCS(ARESEA):
             import pydoocs
 
         super().__init__(
-            action_type=action_type,
-            incoming=incoming,
-            incoming_parameters=incoming_parameters,
-            magnet_init=magnet_init,
-            misalignments=misalignments,
-            misalignment_values=misalignment_values,
-            reward_method=reward_method,
-            quad_action=quad_action,
-            target_beam_setting=target_beam_setting,
-            target_beam_threshold=target_beam_threshold,
-            w_mu_x=w_mu_x,
-            w_mu_y=w_mu_y,
-            w_on_screen=w_on_screen,
-            w_sigma_x=w_sigma_x,
-            w_sigma_y=w_sigma_y,
-            w_time=w_time,
+            action_mode,
+            magnet_init_mode,
+            magnet_init_values,
+            reward_mode,
+            target_beam_mode,
+            target_beam_values,
+            target_beam_threshold,
+            w_mu_x,
+            w_mu_y,
+            w_on_screen,
+            w_sigma_x,
+            w_sigma_y,
+            w_time
         )
 
     def is_beam_on_screen(self):

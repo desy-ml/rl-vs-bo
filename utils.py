@@ -167,6 +167,56 @@ class PolishedDonkeyCompatibility(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
 
+        self.observation_space = spaces.Box(
+            low=np.array([
+                super().observation_space.low[4],
+                super().observation_space.low[5],
+                super().observation_space.low[7],
+                super().observation_space.low[6],
+                super().observation_space.low[8],
+                super().observation_space.low[9],
+                super().observation_space.low[11],
+                super().observation_space.low[10],
+                super().observation_space.low[12],
+                super().observation_space.low[0],
+                super().observation_space.low[2],
+                super().observation_space.low[1],
+                super().observation_space.low[3],
+            ]),
+            high=np.array([
+                super().observation_space.high[4],
+                super().observation_space.high[5],
+                super().observation_space.high[7],
+                super().observation_space.high[6],
+                super().observation_space.high[8],
+                super().observation_space.high[9],
+                super().observation_space.high[11],
+                super().observation_space.high[10],
+                super().observation_space.high[12],
+                super().observation_space.high[0],
+                super().observation_space.high[2],
+                super().observation_space.high[1],
+                super().observation_space.high[3],
+            ])
+        )
+
+        self.action_space = spaces.Box(
+            low=np.array([
+                super().action_space.low[0],
+                super().action_space.low[1],
+                super().action_space.low[3],
+                super().action_space.low[2],
+                super().action_space.low[4],
+            ]),
+            high=np.array([
+                super().action_space.high[0],
+                super().action_space.high[1],
+                super().action_space.high[3],
+                super().action_space.high[2],
+                super().action_space.high[4],
+            ])
+        )
+
     def reset(self):
         return self.observation(super().reset())
     
@@ -175,7 +225,7 @@ class PolishedDonkeyCompatibility(gym.Wrapper):
         return self.observation(observation), reward, done, info
     
     def observation(self, observation):
-        return np.array(
+        return np.array([
             observation[4],
             observation[5],
             observation[7],
@@ -189,13 +239,13 @@ class PolishedDonkeyCompatibility(gym.Wrapper):
             observation[2],
             observation[1],
             observation[3],
-        )
+        ])
     
     def action(self, action):
-        return np.array(
+        return np.array([
             action[0],
             action[1],
             action[3],
             action[2],
             action[4],
-        )
+        ])
