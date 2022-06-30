@@ -398,19 +398,20 @@ class ARESEA(gym.Env):
 
         # Redraw beam image as if it were binning = 4
         render_resolution = (resolution * binning / 4).astype("int")
-        img = cv2.resize(img, (render_resolution[0],render_resolution[1]))
+        img = cv2.resize(img, render_resolution)
 
         # Draw beam ellipse
         beam = self.get_beam_parameters()
-        e_pos_x = int(beam[0] / pixel_size[0] + resolution[0] / 2)
-        e_width_x = int(beam[1] / pixel_size[0])
-        e_pos_y = int(-beam[2] / pixel_size[1] + resolution[1] / 2)
-        e_width_y = int(beam[3] / pixel_size[1])
+        pixel_size_b4 = pixel_size / binning * 4
+        e_pos_x = int(beam[0] / pixel_size_b4[0] + render_resolution[0] / 2)
+        e_width_x = int(beam[1] / pixel_size_b4[0])
+        e_pos_y = int(-beam[2] / pixel_size_b4[1] + render_resolution[1] / 2)
+        e_width_y = int(beam[3] / pixel_size_b4[1])
         red = (0, 0, 255)
         img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, red, 2)
         
         # Adjust aspect ratio
-        new_width = int(img.shape[1] * pixel_size[0] / pixel_size[1])
+        new_width = int(img.shape[1] * pixel_size_b4[0] / pixel_size_b4[1])
         img = cv2.resize(img, (new_width,img.shape[0]))
 
         # Add magnet values
