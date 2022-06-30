@@ -386,17 +386,22 @@ class ARESEA(gym.Env):
     def render(self, mode="human"):
         assert mode == "rgb_array" or mode == "human"
 
+        binning = self.get_binning()
+        pixel_size = self.get_pixel_size()
+        resolution = self.get_screen_resolution()
+        
         # Read screen image and make 8-bit RGB
         img = self.get_beam_image()
         img = img / 2**12 * 255
         img = img.clip(0, 255).astype(np.uint8)
         img = np.repeat(img[:,:,np.newaxis], 3, axis=-1)
 
+        # Redraw beam image as if it were binning = 4
+        render_resolution = (resolution * binning / 4).astype("int")
+        img = cv2.resize(img, (render_resolution[0],render_resolution[1]))
+
         # Draw beam ellipse
         beam = self.get_beam_parameters()
-        binning = self.get_binning()
-        pixel_size = self.get_pixel_size() * binning
-        resolution = self.get_screen_resolution() / binning
         e_pos_x = int(beam[0] / pixel_size[0] + resolution[0] / 2)
         e_width_x = int(beam[1] / pixel_size[0])
         e_pos_y = int(-beam[2] / pixel_size[1] + resolution[1] / 2)
@@ -404,7 +409,7 @@ class ARESEA(gym.Env):
         red = (0, 0, 255)
         img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, red, 2)
         
-        # Adjust aspect ration
+        # Adjust aspect ratio
         new_width = int(img.shape[1] * pixel_size[0] / pixel_size[1])
         img = cv2.resize(img, (new_width,img.shape[0]))
 
@@ -877,7 +882,7 @@ class ARESEADOOCS(ARESEA):
     def get_pixel_size(self):
         return np.array([
             abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")["data"][2]) / 1000,
-            abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")["data"][2]) / 1000
+            abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/Y.POLY_SCALE")["data"][2]) / 1000
         ]) * self.get_binning()
 
     def capture_clean_beam_image(self, average=5):
