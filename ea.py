@@ -813,6 +813,8 @@ class ARESEADOOCS(ARESEA):
         ])
     
     def set_magnets(self, magnets):
+        print(f"Setting magnets to {magnets}")
+
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP", magnets[0])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP", magnets[1])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.SP", magnets[2] * 1000)

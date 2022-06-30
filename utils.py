@@ -201,20 +201,8 @@ class PolishedDonkeyCompatibility(gym.Wrapper):
         )
 
         self.action_space = spaces.Box(
-            low=np.array([
-                super().action_space.low[0],
-                super().action_space.low[1],
-                super().action_space.low[3],
-                super().action_space.low[2],
-                super().action_space.low[4],
-            ]),
-            high=np.array([
-                super().action_space.high[0],
-                super().action_space.high[1],
-                super().action_space.high[3],
-                super().action_space.high[2],
-                super().action_space.high[4],
-            ])
+            low=np.array([-30, -30, -30, -3e-3, -6e-3], dtype=np.float32) * 0.1,
+            high=np.array([30, 30, 30, 3e-3, 6e-3], dtype=np.float32) * 0.1,
         )
 
     def reset(self):
