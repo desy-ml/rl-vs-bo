@@ -21,26 +21,29 @@ from utils import FilterAction, PolishedDonkeyCompatibility
 
 def main():
     config = {
-        "action_type": "direct",    # Choose "direct" and "delta"
+        "action_mode": "direct",
         "gamma": 0.99,
-        "filter_action": None,  # None for default action or list of indicies
-        "filter_observation": None, # Set to None or list of observation names to keep
-        "frame_stack": None,    # None or number of frames
-        "incoming": "random",   # "random" or parameters (`ARESEACheetah().observation_space["incoming"].sample()`)
-        "magnet_init": "random",    # "random" or settings
-        "misalignments": "random",  # "random" or misalignments (`ARESEACheetah().observation_space["misalignments"].sample()`)
+        "filter_action": None,  
+        "filter_observation": None,
+        "frame_stack": None,
+        "incoming_mode": "random",
+        "incoming_values": None,
+        "magnet_init_mode": "random",
+        "magnet_init_values": None,
+        "misalignment_mode": "random",
+        "misalignment_values": None,
         "n_envs": 1,
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
-        "reward_method": "feedback",    # "differential" or "feedback"
+        "reward_mode": "feedback",
         "sb3_device": "auto",
-        "target_beam_setting": "random",    # "random" or target
+        "target_beam_mode": "random",
+        "target_beam_values": None,
         "target_beam_threshold": 3.3198e-6,
         "time_limit": 50,
-        "total_timesteps": 800000,
-        "quad_action": "symmetric", # "symmetric" or "oneway"
-        "vec_env": "dummy", # "dummy" or "subproc"
+        "total_timesteps": 10000,
+        "vec_env": "dummy",
         "w_mu_x": 1.0,
         "w_mu_y": 1.0,
         "w_on_screen": 1.0,
@@ -167,13 +170,16 @@ def optimize(
 
 def make_env(config, record_video=False):
     env = ARESEACheetah(
-        action_type=config["action_type"],
-        incoming=config["incoming"],
-        magnet_init=config["magnet_init"],
-        misalignments=config["misalignments"],
-        reward_method=config["reward_method"],
-        quad_action=config["quad_action"],
-        target_beam_setting=config["target_beam_setting"],
+        incoming_mode=config["incoming_mode"],
+        incoming_values=config["incoming_values"],
+        misalignment_mode=config["misalignment_mode"],
+        misalignment_values=config["misalignment_values"],
+        action_mode=config["action_mode"],
+        magnet_init_mode=config["magnet_init_mode"],
+        magnet_init_values=config["magnet_init_values"],
+        reward_mode=config["reward_mode"],
+        target_beam_mode=config["target_beam_mode"],
+        target_beam_values=config["target_beam_values"],
         target_beam_threshold=config["target_beam_threshold"],
         w_mu_x=config["w_mu_x"],
         w_mu_y=config["w_mu_y"],
@@ -653,7 +659,6 @@ class ARESEACheetah(ARESEA):
         ])
 
     def set_magnets(self, magnets):
-        print(f"Setting magnets {magnets}")
         self.simulation.AREAMQZM1.k1 = magnets[0]
         self.simulation.AREAMQZM2.k1 = magnets[1]
         self.simulation.AREAMCVM1.angle = magnets[2]
@@ -813,8 +818,6 @@ class ARESEADOOCS(ARESEA):
         ])
     
     def set_magnets(self, magnets):
-        print(f"Setting magnets to {magnets}")
-
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP", magnets[0])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP", magnets[1])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.SP", magnets[2] * 1000)
