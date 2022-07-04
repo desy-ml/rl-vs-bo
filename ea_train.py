@@ -31,7 +31,6 @@ def main():
         "misalignment_mode": "random",
         "misalignment_values": None,
         "n_envs": 20,
-        "n_steps": 50,
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
@@ -96,7 +95,7 @@ def train(config):
         device=config["sb3_device"],
         gamma=config["gamma"],
         tensorboard_log=f"log/{config['wandb_run_name']}",
-        n_steps=config["n_steps"],
+        n_steps=50,
     )
 
     model.learn(
@@ -697,7 +696,7 @@ class ARESEACheetah(ARESEA):
                 low=np.array([80e6, -1e-3, -1e-4, -1e-3, -1e-4, 1e-5, 1e-6, 1e-5, 1e-6, 1e-6, 1e-4], dtype=np.float32),
                 high=np.array([160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3], dtype=np.float32)
             ),
-            "misalignments": spaces.Box(low=-400e-6, high=400e-6, shape=(8,)),
+            "misalignments": spaces.Box(low=-2e-3, high=2e-3, shape=(8,)),
         }
 
     def get_accelerator_observation(self):
