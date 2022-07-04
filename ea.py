@@ -32,7 +32,8 @@ def main():
         "magnet_init_values": None,
         "misalignment_mode": "random",
         "misalignment_values": None,
-        "n_envs": 1,
+        "n_envs": 20,
+        "n_steps": 50,
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
@@ -97,6 +98,7 @@ def train(config):
         device=config["sb3_device"],
         gamma=config["gamma"],
         tensorboard_log=f"log/{config['wandb_run_name']}",
+        n_steps=config["n_steps"],
     )
 
     model.learn(
