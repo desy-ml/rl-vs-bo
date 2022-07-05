@@ -38,8 +38,8 @@ def main():
         "sb3_device": "auto",
         "target_beam_mode": "constant",
         "target_beam_values": np.zeros(4),
-        "target_mu_x_threshold": 1e-4,
-        "target_mu_y_threshold": 1e-4,
+        "target_mu_x_threshold": np.inf,
+        "target_mu_y_threshold": np.inf,
         "target_sigma_x_threshold": 1e-4,
         "target_sigma_y_threshold": 1e-4,
         "threshold_hold": 5,
@@ -352,7 +352,8 @@ class ARESEA(gym.Env):
         ])
         is_in_threshold = np.abs(cb) < threshold
         self.is_in_threshold_history.append(is_in_threshold)
-        done = bool(np.array(self.is_in_threshold_history[-self.threshold_hold:]).all())
+        is_stable_in_threshold = bool(np.array(self.is_in_threshold_history[-self.threshold_hold:]).all())
+        done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
 
         info = {
             "mu_x_reward": mu_x_reward,
