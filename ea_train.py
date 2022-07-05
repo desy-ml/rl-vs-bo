@@ -26,19 +26,22 @@ def main():
         "frame_stack": None,
         "incoming_mode": "random",
         "incoming_values": None,
-        "magnet_init_mode": "random",
-        "magnet_init_values": None,
+        "magnet_init_mode": "constant",
+        "magnet_init_values": np.array([10, -10, 0, 10, 0]),
         "misalignment_mode": "constant",
         "misalignment_values": np.zeros(8),
         "n_envs": 40,
         "normalize_observation": True,
-        "normalize_reward": False,
+        "normalize_reward": True,
         "rescale_action": (-3, 3),
         "reward_mode": "feedback",
         "sb3_device": "auto",
-        "target_beam_mode": "random",
-        "target_beam_values": None,
-        "target_beam_threshold": 3.3198e-6,
+        "target_beam_mode": "constant",
+        "target_beam_values": np.zeros(4),
+        "target_mu_x_threshold": 1e-4,
+        "target_mu_y_threshold": 1e-4,
+        "target_sigma_x_threshold": 1e-4,
+        "target_sigma_y_threshold": 1e-4,
         "time_limit": 25,
         "vec_env": "subproc",
         "w_mu_x": 0.0,
@@ -101,7 +104,7 @@ def train(config):
     model.learn(
         total_timesteps=int(2e6),
         eval_env=eval_env,
-        eval_freq=4000,
+        eval_freq=500,
         callback=WandbCallback()
     )
 
@@ -123,7 +126,10 @@ def make_env(config, record_video=False):
         reward_mode=config["reward_mode"],
         target_beam_mode=config["target_beam_mode"],
         target_beam_values=config["target_beam_values"],
-        target_beam_threshold=config["target_beam_threshold"],
+        target_mu_x_threshold=config["target_mu_x_threshold"],
+        target_mu_y_threshold=config["target_mu_y_threshold"],
+        target_sigma_x_threshold=config["target_sigma_x_threshold"],
+        target_sigma_y_threshold=config["target_sigma_y_threshold"],
         w_mu_x=config["w_mu_x"],
         w_mu_y=config["w_mu_y"],
         w_on_screen=config["w_on_screen"],
@@ -182,7 +188,10 @@ class ARESEA(gym.Env):
         reward_mode="differential",
         target_beam_mode="random",
         target_beam_values=None,
-        target_beam_threshold=3.3198e-6,
+        target_mu_x_threshold=3.3198e-6,
+        target_mu_y_threshold=2.4469e-6,
+        target_sigma_x_threshold=3.3198e-6,
+        target_sigma_y_threshold=2.4469e-6,
         w_mu_x=1.0,
         w_mu_y=1.0,
         w_on_screen=1.0,
@@ -196,7 +205,10 @@ class ARESEA(gym.Env):
         self.reward_mode = reward_mode
         self.target_beam_mode = target_beam_mode
         self.target_beam_values = target_beam_values
-        self.target_beam_threshold = target_beam_threshold
+        self.target_mu_x_threshold = target_mu_x_threshold
+        self.target_mu_y_threshold = target_mu_y_threshold
+        self.target_sigma_x_threshold = target_sigma_x_threshold
+        self.target_sigma_y_threshold = target_sigma_y_threshold
         self.w_mu_x = w_mu_x
         self.w_mu_y = w_mu_y
         self.w_on_screen = w_on_screen
@@ -327,7 +339,14 @@ class ARESEA(gym.Env):
         reward = float(reward)
 
         # Figure out if reach good enough beam (done)
-        done = bool(np.all(np.abs(cb) < self.target_beam_threshold))
+        threshold = np.array([
+            self.target_mu_x_threshold,
+            self.target_sigma_x_threshold,
+            self.target_mu_y_threshold,
+            self.target_sigma_y_threshold,
+        ])
+        is_in_threshold = np.abs(cb) < threshold
+        done = bool(all(is_in_threshold))
 
         info = {
             "mu_x_reward": mu_x_reward,
@@ -556,7 +575,10 @@ class ARESEACheetah(ARESEA):
         reward_mode="differential",
         target_beam_mode="random",
         target_beam_values=None,
-        target_beam_threshold=3.3198e-6,
+        target_mu_x_threshold=3.3198e-6,
+        target_mu_y_threshold=2.4469e-6,
+        target_sigma_x_threshold=3.3198e-6,
+        target_sigma_y_threshold=2.4469e-6,
         w_mu_x=1.0,
         w_mu_y=1.0,
         w_on_screen=1.0,
@@ -565,19 +587,22 @@ class ARESEACheetah(ARESEA):
         w_time=1.0,
     ):
         super().__init__(
-            action_mode,
-            magnet_init_mode,
-            magnet_init_values,
-            reward_mode,
-            target_beam_mode,
-            target_beam_values,
-            target_beam_threshold,
-            w_mu_x,
-            w_mu_y,
-            w_on_screen,
-            w_sigma_x,
-            w_sigma_y,
-            w_time
+            action_mode=action_mode,
+            magnet_init_mode=magnet_init_mode,
+            magnet_init_values=magnet_init_values,
+            reward_mode=reward_mode,
+            target_beam_mode=target_beam_mode,
+            target_beam_values=target_beam_values,
+            target_mu_x_threshold=target_mu_x_threshold,
+            target_mu_y_threshold=target_mu_y_threshold,
+            target_sigma_x_threshold=target_sigma_x_threshold,
+            target_sigma_y_threshold=target_sigma_y_threshold,
+            w_mu_x=w_mu_x,
+            w_mu_y=w_mu_y,
+            w_on_screen=w_on_screen,
+            w_sigma_x=w_sigma_x,
+            w_sigma_y=w_sigma_y,
+            w_time=w_time,
         )
 
         self.incoming_mode = incoming_mode
@@ -643,7 +668,7 @@ class ARESEACheetah(ARESEA):
 
         if self.misalignment_mode == "constant":
             misalignments = self.misalignment_values
-        if self.misalignment_mode == "random":
+        elif self.misalignment_mode == "random":
             misalignments = self.observation_space["misalignments"].sample()
         else:
             raise ValueError(f"Invalid value \"{self.misalignment_mode}\" for misalignment_mode")
