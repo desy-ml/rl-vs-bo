@@ -405,15 +405,29 @@ class ARESEA(gym.Env):
         padding = np.full((int(img.shape[0]*0.27),img.shape[1],3), fill_value=255, dtype=np.uint8)
         img = np.vstack([img, padding])
         black = (0, 0, 0)
+        red = (0, 0, 255)
+        green = (0, 255, 0)
         img = cv2.putText(img, f"Q1={magnets[0]:.2f}", (15,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         img = cv2.putText(img, f"Q2={magnets[1]:.2f}", (215,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         img = cv2.putText(img, f"CV={magnets[2]*1e3:.2f}", (415,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         img = cv2.putText(img, f"Q3={magnets[3]:.2f}", (615,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         img = cv2.putText(img, f"CH={magnets[4]*1e3:.2f}", (15,585), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"mx={beam[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"sx={beam[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"my={beam[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"sy={beam[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
+        mu_x_color = black
+        if self.target_mu_x_threshold != np.inf:
+            mu_x_color = green if beam[0] < self.target_mu_x_threshold else red
+        img = cv2.putText(img, f"mx={beam[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_x_color)
+        sigma_x_color = black
+        if self.target_sigma_x_threshold != np.inf:
+            sigma_x_color = green if beam[1] < self.target_sigma_x_threshold else red
+        img = cv2.putText(img, f"sx={beam[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_x_color)
+        mu_y_color = black
+        if self.target_mu_y_threshold != np.inf:
+            mu_y_color = green if beam[2] < self.target_mu_y_threshold else red
+        img = cv2.putText(img, f"my={beam[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_y_color)
+        sigma_y_color = black
+        if self.target_sigma_y_threshold != np.inf:
+            sigma_y_color = green if beam[3] < self.target_sigma_y_threshold else red
+        img = cv2.putText(img, f"sy={beam[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_y_color)
 
         if mode == "human":
             cv2.imshow("ARES EA", img)
