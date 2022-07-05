@@ -15,7 +15,10 @@ def optimize(
     target_sigma_x,
     target_mu_y,
     target_sigma_y,
-    threshold=3.3198e-6,
+    target_mu_x_thresold=1e-4,
+    target_mu_y_thresold=1e-4,
+    target_sigma_x_thresold=1e-4,
+    target_sigma_y_thresold=1e-4,
     max_steps=50,
     model_name="polished-donkey-996",
     logbook=False,
@@ -42,7 +45,10 @@ def optimize(
             reward_mode="differential",
             target_beam_mode="constant",
             target_beam_values=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]),
-            target_beam_threshold=3.3198e-6,
+            target_mu_x_thresold=target_mu_x_thresold,
+            target_mu_y_thresold=target_mu_y_thresold,
+            target_sigma_x_thresold=target_sigma_x_thresold,
+            target_sigma_y_thresold=target_sigma_y_thresold,
         )
         if max_steps is not None:
             env = TimeLimit(env, max_episode_steps=max_steps)
