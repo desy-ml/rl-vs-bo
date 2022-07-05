@@ -267,6 +267,8 @@ class ARESEA(gym.Env):
             self.set_magnets(self.magnet_init_values)
         elif self.magnet_init_mode == "random":
             self.set_magnets(self.observation_space["magnets"].sample())
+        elif self.magnet_init_mode == None:
+            pass    # This really is intended to do nothing
         else:
             raise ValueError(f"Invalid value \"{self.magnet_init_mode}\" for magnet_init_mode")
 
@@ -312,7 +314,7 @@ class ARESEA(gym.Env):
         observation = {
             "beam": self.get_beam_parameters().astype("float32"),
             "magnets": self.get_magnets().astype("float32"),
-            "target": self.target_beam
+            "target": self.target_beam.astype("float32")
         }
         observation.update(self.get_accelerator_observation())
 
@@ -350,7 +352,7 @@ class ARESEA(gym.Env):
             self.target_mu_y_threshold,
             self.target_sigma_y_threshold,
         ])
-        is_in_threshold = np.abs(cb) < threshold
+        is_in_threshold = np.abs(cb - tb) < threshold
         self.is_in_threshold_history.append(is_in_threshold)
         is_stable_in_threshold = bool(np.array(self.is_in_threshold_history[-self.threshold_hold:]).all())
         done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
@@ -424,19 +426,19 @@ class ARESEA(gym.Env):
         img = cv2.putText(img, f"CH={magnets[4]*1e3:.2f}", (15,585), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         mu_x_color = black
         if self.target_mu_x_threshold != np.inf:
-            mu_x_color = green if cb[0] < self.target_mu_x_threshold else red
+            mu_x_color = green if abs(cb[0] - tb[0]) < self.target_mu_x_threshold else red
         img = cv2.putText(img, f"mx={cb[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_x_color)
         sigma_x_color = black
         if self.target_sigma_x_threshold != np.inf:
-            sigma_x_color = green if cb[1] < self.target_sigma_x_threshold else red
+            sigma_x_color = green if abs(cb[1] - tb[1]) < self.target_sigma_x_threshold else red
         img = cv2.putText(img, f"sx={cb[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_x_color)
         mu_y_color = black
         if self.target_mu_y_threshold != np.inf:
-            mu_y_color = green if cb[2] < self.target_mu_y_threshold else red
+            mu_y_color = green if abs(cb[2] - tb[2]) < self.target_mu_y_threshold else red
         img = cv2.putText(img, f"my={cb[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_y_color)
         sigma_y_color = black
         if self.target_sigma_y_threshold != np.inf:
-            sigma_y_color = green if cb[3] < self.target_sigma_y_threshold else red
+            sigma_y_color = green if abs(cb[3] - tb[3]) < self.target_sigma_y_threshold else red
         img = cv2.putText(img, f"sy={cb[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_y_color)
 
         if mode == "human":
