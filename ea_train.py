@@ -37,7 +37,7 @@ def main():
         "reward_mode": "feedback",
         "sb3_device": "auto",
         "target_beam_mode": "constant",
-        "target_beam_values": np.zeros(4),
+        "target_beam_values": np.array([-0.5e-3, 0, 0, 1e-3]),
         "target_mu_x_threshold": np.inf,
         "target_mu_y_threshold": np.inf,
         "target_sigma_x_threshold": 1e-4,
@@ -386,13 +386,23 @@ class ARESEA(gym.Env):
         render_resolution = (resolution * binning / 4).astype("int")
         img = cv2.resize(img, render_resolution)
 
-        # Draw beam ellipse
-        beam = self.get_beam_parameters()
+        # Draw desired ellipse
+        tb = self.target_beam
         pixel_size_b4 = pixel_size / binning * 4
-        e_pos_x = int(beam[0] / pixel_size_b4[0] + render_resolution[0] / 2)
-        e_width_x = int(beam[1] / pixel_size_b4[0])
-        e_pos_y = int(-beam[2] / pixel_size_b4[1] + render_resolution[1] / 2)
-        e_width_y = int(beam[3] / pixel_size_b4[1])
+        e_pos_x = int(tb[0] / pixel_size_b4[0] + render_resolution[0] / 2)
+        e_width_x = int(tb[1] / pixel_size_b4[0])
+        e_pos_y = int(-tb[2] / pixel_size_b4[1] + render_resolution[1] / 2)
+        e_width_y = int(tb[3] / pixel_size_b4[1])
+        blue = (255, 204, 79)
+        img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, blue, 2)
+
+        # Draw beam ellipse
+        cb = self.get_beam_parameters()
+        pixel_size_b4 = pixel_size / binning * 4
+        e_pos_x = int(cb[0] / pixel_size_b4[0] + render_resolution[0] / 2)
+        e_width_x = int(cb[1] / pixel_size_b4[0])
+        e_pos_y = int(-cb[2] / pixel_size_b4[1] + render_resolution[1] / 2)
+        e_width_y = int(cb[3] / pixel_size_b4[1])
         red = (0, 0, 255)
         img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, red, 2)
         
@@ -400,7 +410,7 @@ class ARESEA(gym.Env):
         new_width = int(img.shape[1] * pixel_size_b4[0] / pixel_size_b4[1])
         img = cv2.resize(img, (new_width,img.shape[0]))
 
-        # Add magnet values
+        # Add magnet values and beam parameters
         magnets = self.get_magnets()
         padding = np.full((int(img.shape[0]*0.27),img.shape[1],3), fill_value=255, dtype=np.uint8)
         img = np.vstack([img, padding])
@@ -414,20 +424,20 @@ class ARESEA(gym.Env):
         img = cv2.putText(img, f"CH={magnets[4]*1e3:.2f}", (15,585), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         mu_x_color = black
         if self.target_mu_x_threshold != np.inf:
-            mu_x_color = green if beam[0] < self.target_mu_x_threshold else red
-        img = cv2.putText(img, f"mx={beam[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_x_color)
+            mu_x_color = green if cb[0] < self.target_mu_x_threshold else red
+        img = cv2.putText(img, f"mx={cb[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_x_color)
         sigma_x_color = black
         if self.target_sigma_x_threshold != np.inf:
-            sigma_x_color = green if beam[1] < self.target_sigma_x_threshold else red
-        img = cv2.putText(img, f"sx={beam[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_x_color)
+            sigma_x_color = green if cb[1] < self.target_sigma_x_threshold else red
+        img = cv2.putText(img, f"sx={cb[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_x_color)
         mu_y_color = black
         if self.target_mu_y_threshold != np.inf:
-            mu_y_color = green if beam[2] < self.target_mu_y_threshold else red
-        img = cv2.putText(img, f"my={beam[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_y_color)
+            mu_y_color = green if cb[2] < self.target_mu_y_threshold else red
+        img = cv2.putText(img, f"my={cb[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_y_color)
         sigma_y_color = black
         if self.target_sigma_y_threshold != np.inf:
-            sigma_y_color = green if beam[3] < self.target_sigma_y_threshold else red
-        img = cv2.putText(img, f"sy={beam[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_y_color)
+            sigma_y_color = green if cb[3] < self.target_sigma_y_threshold else red
+        img = cv2.putText(img, f"sy={cb[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_y_color)
 
         if mode == "human":
             cv2.imshow("ARES EA", img)
