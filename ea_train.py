@@ -402,7 +402,7 @@ class ARESEA(gym.Env):
 
         # Add magnet values
         magnets = self.get_magnets()
-        padding = np.full((int(img.shape[0]*0.18),img.shape[1],3), fill_value=255, dtype=np.uint8)
+        padding = np.full((int(img.shape[0]*0.27),img.shape[1],3), fill_value=255, dtype=np.uint8)
         img = np.vstack([img, padding])
         black = (0, 0, 0)
         img = cv2.putText(img, f"Q1={magnets[0]:.2f}", (15,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
@@ -410,6 +410,10 @@ class ARESEA(gym.Env):
         img = cv2.putText(img, f"CV={magnets[2]*1e3:.2f}", (415,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         img = cv2.putText(img, f"Q3={magnets[3]:.2f}", (615,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
         img = cv2.putText(img, f"CH={magnets[4]*1e3:.2f}", (15,585), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
+        img = cv2.putText(img, f"mx={beam[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
+        img = cv2.putText(img, f"sx={beam[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
+        img = cv2.putText(img, f"my={beam[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
+        img = cv2.putText(img, f"sy={beam[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
 
         if mode == "human":
             cv2.imshow("ARES EA", img)
