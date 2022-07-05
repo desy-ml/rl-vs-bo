@@ -1,7 +1,10 @@
+import time
+
 import numpy as np
 from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLimit
-from stable_baselines3 import TD3
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3 import TD3
 
 from ea_train import ARESEA
 from utils import PolishedDonkeyCompatibility
@@ -15,10 +18,10 @@ def optimize(
     target_sigma_x,
     target_mu_y,
     target_sigma_y,
-    target_mu_x_thresold=1e-4,
-    target_mu_y_thresold=1e-4,
-    target_sigma_x_thresold=1e-4,
-    target_sigma_y_thresold=1e-4,
+    target_mu_x_threshold=1e-4,
+    target_mu_y_threshold=1e-4,
+    target_sigma_x_threshold=1e-4,
+    target_sigma_y_threshold=1e-4,
     max_steps=50,
     model_name="polished-donkey-996",
     logbook=False,
@@ -38,17 +41,16 @@ def optimize(
     # Create the environment
     def make_env_polished():
         env = ARESEADOOCS(
-            dummy=False,
             action_mode="delta",
             magnet_init_mode="constant",
             magnet_init_values=np.array([10, -10, 0, 10, 0]),
             reward_mode="differential",
             target_beam_mode="constant",
             target_beam_values=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]),
-            target_mu_x_thresold=target_mu_x_thresold,
-            target_mu_y_thresold=target_mu_y_thresold,
-            target_sigma_x_thresold=target_sigma_x_thresold,
-            target_sigma_y_thresold=target_sigma_y_thresold,
+            target_mu_x_threshold=target_mu_x_threshold,
+            target_mu_y_threshold=target_mu_y_threshold,
+            target_sigma_x_threshold=target_sigma_x_threshold,
+            target_sigma_y_threshold=target_sigma_y_threshold,
         )
         if max_steps is not None:
             env = TimeLimit(env, max_episode_steps=max_steps)
@@ -82,7 +84,10 @@ class ARESEADOOCS(ARESEA):
         reward_mode="differential",
         target_beam_mode="random",
         target_beam_values=None,
-        target_beam_threshold=3.3198e-6,
+        target_mu_x_threshold=3.3198e-6,
+        target_mu_y_threshold=2.4469e-6,
+        target_sigma_x_threshold=3.3198e-6,
+        target_sigma_y_threshold=2.4469e-6,
         w_mu_x=1.0,
         w_mu_y=1.0,
         w_on_screen=1.0,
@@ -91,19 +96,22 @@ class ARESEADOOCS(ARESEA):
         w_time=1.0,
     ):
         super().__init__(
-            action_mode,
-            magnet_init_mode,
-            magnet_init_values,
-            reward_mode,
-            target_beam_mode,
-            target_beam_values,
-            target_beam_threshold,
-            w_mu_x,
-            w_mu_y,
-            w_on_screen,
-            w_sigma_x,
-            w_sigma_y,
-            w_time
+            action_mode=action_mode,
+            magnet_init_mode=magnet_init_mode,
+            magnet_init_values=magnet_init_values,
+            reward_mode=reward_mode,
+            target_beam_mode=target_beam_mode,
+            target_beam_values=target_beam_values,
+            target_mu_x_threshold=target_mu_x_threshold,
+            target_mu_y_threshold=target_mu_y_threshold,
+            target_sigma_x_threshold=target_sigma_x_threshold,
+            target_sigma_y_threshold=target_sigma_y_threshold,
+            w_mu_x=w_mu_x,
+            w_mu_y=w_mu_y,
+            w_on_screen=w_on_screen,
+            w_sigma_x=w_sigma_x,
+            w_sigma_y=w_sigma_y,
+            w_time=w_time,
         )
 
     def is_beam_on_screen(self):
