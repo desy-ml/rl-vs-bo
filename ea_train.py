@@ -220,6 +220,8 @@ class ARESEA(gym.Env):
                 low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32) * 0.1,
                 high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32) * 0.1
             )
+        else:
+            raise ValueError(f"Invalid value \"{self.action_mode}\" for action_mode")
 
         # Create observation space
         obs_space_dict = {
@@ -249,11 +251,15 @@ class ARESEA(gym.Env):
             self.set_magnets(self.magnet_init_values)
         elif self.magnet_init_mode == "random":
             self.set_magnets(self.observation_space["magnets"].sample())
+        else:
+            raise ValueError(f"Invalid value \"{self.magnet_init_mode}\" for magnet_init_mode")
 
         if self.target_beam_mode == "constant":
             self.target_beam = self.target_beam_values
         elif self.target_beam_mode == "random":
             self.target_beam = self.observation_space["target"].sample()
+        else:
+            raise ValueError(f"Invalid value \"{self.target_beam_mode}\" for target_beam_mode")
 
         # Update anything in the accelerator (mainly for running simulations)
         self.update_accelerator()
@@ -272,11 +278,15 @@ class ARESEA(gym.Env):
 
     def step(self, action):
         # Perform action
-        if self.action_mode.startswith("direct"):
+        if self.action_mode == "direct":
+            self.set_magnets(action)
+        elif self.action_mode == "direct_unidirectional_quads":
             self.set_magnets(action)
         elif self.action_mode == "delta":
             magnet_values = self.get_magnets()
             self.set_magnets(magnet_values + action)
+        else:
+            raise ValueError(f"Invalid value \"{self.action_mode}\" for action_mode")
 
         # Run the simulation
         self.update_accelerator()
@@ -310,6 +320,8 @@ class ARESEA(gym.Env):
             sigma_x_reward = - abs((cb[1] - tb[1]) / (ib[1] - tb[1]))
             mu_y_reward = - abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
             sigma_y_reward = - abs((cb[3] - tb[3]) / (ib[3] - tb[3]))
+        else:
+            raise ValueError(f"Invalid value \"{self.reward_mode}\" for reward_mode")
 
         reward = self.w_on_screen * on_screen_reward + self.w_mu_x * mu_x_reward + self.w_sigma_x * sigma_x_reward + self.w_mu_y * mu_y_reward + self.w_sigma_y * sigma_y_reward * self.w_time * time_reward
         reward = float(reward)
@@ -613,6 +625,8 @@ class ARESEACheetah(ARESEA):
             incoming_parameters = self.incoming_values
         elif self.incoming_mode == "random":
             incoming_parameters = self.observation_space["incoming"].sample()
+        else:
+            raise ValueError(f"Invalid value \"{self.incoming_mode}\" for incoming_mode")
         self.incoming = cheetah.ParameterBeam.from_parameters(
             energy=incoming_parameters[0],
             mu_x=incoming_parameters[1],
@@ -631,6 +645,8 @@ class ARESEACheetah(ARESEA):
             misalignments = self.misalignment_values
         if self.misalignment_mode == "random":
             misalignments = self.observation_space["misalignments"].sample()
+        else:
+            raise ValueError(f"Invalid value \"{self.misalignment_mode}\" for misalignment_mode")
         self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
         self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
