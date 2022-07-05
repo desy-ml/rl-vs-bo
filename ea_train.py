@@ -42,6 +42,7 @@ def main():
         "target_mu_y_threshold": 1e-4,
         "target_sigma_x_threshold": 1e-4,
         "target_sigma_y_threshold": 1e-4,
+        "threshold_hold": 5,
         "time_limit": 25,
         "vec_env": "subproc",
         "w_mu_x": 0.0,
@@ -130,6 +131,7 @@ def make_env(config, record_video=False):
         target_mu_y_threshold=config["target_mu_y_threshold"],
         target_sigma_x_threshold=config["target_sigma_x_threshold"],
         target_sigma_y_threshold=config["target_sigma_y_threshold"],
+        threshold_hold=config["threshold_hold"],
         w_mu_x=config["w_mu_x"],
         w_mu_y=config["w_mu_y"],
         w_on_screen=config["w_on_screen"],
@@ -192,6 +194,7 @@ class ARESEA(gym.Env):
         target_mu_y_threshold=2.4469e-6,
         target_sigma_x_threshold=3.3198e-6,
         target_sigma_y_threshold=2.4469e-6,
+        threshold_hold=1,
         w_mu_x=1.0,
         w_mu_y=1.0,
         w_on_screen=1.0,
@@ -209,6 +212,7 @@ class ARESEA(gym.Env):
         self.target_mu_y_threshold = target_mu_y_threshold
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
+        self.threshold_hold = threshold_hold
         self.w_mu_x = w_mu_x
         self.w_mu_y = w_mu_y
         self.w_on_screen = w_on_screen
@@ -278,6 +282,7 @@ class ARESEA(gym.Env):
 
         self.initial_screen_beam = self.get_beam_parameters()
         self.previous_beam = self.initial_screen_beam
+        self.is_in_threshold_history = []
 
         observation = {
             "beam": self.initial_screen_beam.astype("float32"),
@@ -346,7 +351,8 @@ class ARESEA(gym.Env):
             self.target_sigma_y_threshold,
         ])
         is_in_threshold = np.abs(cb) < threshold
-        done = bool(all(is_in_threshold))
+        self.is_in_threshold_history.append(is_in_threshold)
+        done = bool(np.array(self.is_in_threshold_history[-self.threshold_hold:]).all())
 
         info = {
             "mu_x_reward": mu_x_reward,
@@ -579,6 +585,7 @@ class ARESEACheetah(ARESEA):
         target_mu_y_threshold=2.4469e-6,
         target_sigma_x_threshold=3.3198e-6,
         target_sigma_y_threshold=2.4469e-6,
+        threshold_hold=1,
         w_mu_x=1.0,
         w_mu_y=1.0,
         w_on_screen=1.0,
@@ -597,6 +604,7 @@ class ARESEACheetah(ARESEA):
             target_mu_y_threshold=target_mu_y_threshold,
             target_sigma_x_threshold=target_sigma_x_threshold,
             target_sigma_y_threshold=target_sigma_y_threshold,
+            threshold_hold=threshold_hold,
             w_mu_x=w_mu_x,
             w_mu_y=w_mu_y,
             w_on_screen=w_on_screen,
