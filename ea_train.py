@@ -21,33 +21,32 @@ def main():
     config = {
         "action_mode": "direct",
         "gamma": 0.99,
-        "filter_action": None,  
+        "filter_action": [0, 1, 3],  
         "filter_observation": None,
         "frame_stack": None,
         "incoming_mode": "random",
         "incoming_values": None,
         "magnet_init_mode": "random",
         "magnet_init_values": None,
-        "misalignment_mode": "random",
-        "misalignment_values": None,
-        "n_envs": 20,
+        "misalignment_mode": "constant",
+        "misalignment_values": np.zeros(8),
+        "n_envs": 40,
         "normalize_observation": True,
-        "normalize_reward": True,
-        "rescale_action": (-1, 1),
+        "normalize_reward": False,
+        "rescale_action": (-3, 3),
         "reward_mode": "feedback",
         "sb3_device": "auto",
         "target_beam_mode": "random",
         "target_beam_values": None,
         "target_beam_threshold": 3.3198e-6,
-        "time_limit": 50,
-        "total_timesteps": 10000,
-        "vec_env": "dummy",
-        "w_mu_x": 1.0,
-        "w_mu_y": 1.0,
-        "w_on_screen": 1.0,
+        "time_limit": 25,
+        "vec_env": "subproc",
+        "w_mu_x": 0.0,
+        "w_mu_y": 0.0,
+        "w_on_screen": 0.0,
         "w_sigma_x": 1.0,
         "w_sigma_y": 1.0,
-        "w_time": 1.0,
+        "w_time": 0.0,
     }
 
     train(config)
@@ -95,11 +94,12 @@ def train(config):
         device=config["sb3_device"],
         gamma=config["gamma"],
         tensorboard_log=f"log/{config['wandb_run_name']}",
-        n_steps=50,
+        n_steps=100,
+        batch_size=100,
     )
 
     model.learn(
-        total_timesteps=config["total_timesteps"],
+        total_timesteps=int(2e6),
         eval_env=eval_env,
         eval_freq=4000,
         callback=WandbCallback()
@@ -301,17 +301,16 @@ class ARESEA(gym.Env):
         on_screen_reward = -(not self.is_beam_on_screen())
         time_reward = -1
         if self.reward_mode == "differential":
-            mu_x_reward = (abs(cb[0] - tb[0]) - abs(pb[0] - tb[0])) / abs(ib[0] - tb[0])
-            sigma_x_reward = (abs(cb[1] - tb[1]) - abs(pb[1] - tb[1])) / abs(ib[1] - tb[1])
-            mu_y_reward = (abs(cb[2] - tb[2]) - abs(pb[2] - tb[2])) / abs(ib[2] - tb[2])
-            sigma_y_reward = (abs(cb[3] - tb[3]) - abs(pb[3] - tb[3])) / abs(ib[3] - tb[3])
+            mu_x_reward = (abs(pb[0] - tb[0]) - abs(cb[0] - tb[0])) / abs(ib[0] - tb[0])
+            sigma_x_reward = (abs(pb[1] - tb[1]) - abs(cb[1] - tb[1])) / abs(ib[1] - tb[1])
+            mu_y_reward = (abs(pb[2] - tb[2]) - abs(cb[2] - tb[2])) / abs(ib[2] - tb[2])
+            sigma_y_reward = (abs(pb[3] - tb[3]) - abs(cb[3] - tb[3])) / abs(ib[3] - tb[3])
         elif self.reward_mode == "feedback":
             mu_x_reward = - abs((cb[0] - tb[0]) / (ib[0] - tb[0]))
-            sigma_x_reward = - (cb[1] - tb[1]) / (ib[1] - tb[1])
+            sigma_x_reward = - abs((cb[1] - tb[1]) / (ib[1] - tb[1]))
             mu_y_reward = - abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
-            sigma_y_reward = - (cb[3] - tb[3]) / (ib[3] - tb[3])
+            sigma_y_reward = - abs((cb[3] - tb[3]) / (ib[3] - tb[3]))
 
-        reward = 1 * on_screen_reward + 1 * mu_x_reward + 1 * sigma_x_reward + 1 * mu_y_reward + 1 * sigma_y_reward
         reward = self.w_on_screen * on_screen_reward + self.w_mu_x * mu_x_reward + self.w_sigma_x * sigma_x_reward + self.w_mu_y * mu_y_reward + self.w_sigma_y * sigma_y_reward * self.w_time * time_reward
         reward = float(reward)
 
@@ -572,7 +571,7 @@ class ARESEACheetah(ARESEA):
         self.incoming_mode = incoming_mode
         self.incoming_values = incoming_values
         self.misalignment_mode = misalignment_mode
-        self.magnet_init_values = misalignment_values
+        self.misalignment_values = misalignment_values
 
         # Create particle simulation
         self.simulation = cheetah.Segment.from_ocelot(
