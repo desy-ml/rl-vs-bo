@@ -12,7 +12,7 @@ from stable_baselines3.common.env_util import unwrap_wrapper
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from ea_train import ARESEA
-from utils import PolishedDonkeyCompatibility, RecordEpisode, send_to_elog
+from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode, send_to_elog
 
 # import pydoocs
 import dummypydoocs as pydoocs
@@ -44,53 +44,50 @@ def optimize(
     model = TD3.load(f"models/{model_name}/model")
     
     # Create the environment
-    def make_env_polished():
-        env = ARESEADOOCS(
-            action_mode="delta",
-            magnet_init_mode="constant",
-            magnet_init_values=np.array([10, -10, 0, 10, 0]),
-            reward_mode="differential",
-            target_beam_mode="constant",
-            target_beam_values=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]),
-            target_mu_x_threshold=target_mu_x_threshold,
-            target_mu_y_threshold=target_mu_y_threshold,
-            target_sigma_x_threshold=target_sigma_x_threshold,
-            target_sigma_y_threshold=target_sigma_y_threshold,
-        )
-        if max_steps is not None:
-            env = TimeLimit(env, max_episode_steps=max_steps)
-        env = RecordEpisode(env)
-        env = FlattenObservation(env)
-        env = PolishedDonkeyCompatibility(env)
-        env = RescaleAction(env, -1, 1)
-        env = RecordVideo(env, "recordings_function_test")
-        
-        return env
-
-    venv = DummyVecEnv([make_env_polished])
-    venv = VecNormalize.load(f"models/{model_name}/vec_normalize.pkl", venv)
-    venv.training = False
+    env = ARESEADOOCS(
+        action_mode="delta",
+        magnet_init_mode="constant",
+        magnet_init_values=np.array([10, -10, 0, 10, 0]),
+        reward_mode="differential",
+        target_beam_mode="constant",
+        target_beam_values=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]),
+        target_mu_x_threshold=target_mu_x_threshold,
+        target_mu_y_threshold=target_mu_y_threshold,
+        target_sigma_x_threshold=target_sigma_x_threshold,
+        target_sigma_y_threshold=target_sigma_y_threshold,
+    )
+    if max_steps is not None:
+        env = TimeLimit(env, max_episode_steps=max_steps)
+    env = RecordEpisode(env)
+    env = RecordVideo(env, "recordings_function_test")
+    env = FlattenObservation(env)
+    env = PolishedDonkeyCompatibility(env)
+    env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
+    env = RescaleAction(env, -1, 1)
 
     # Actual optimisation
-    observation = venv.reset()
+    t_start = datetime.now()
+    observation = env.reset()
     done = False
     while not done:
         action, _ = model.predict(observation, deterministic=True)
-        observation, reward, done, info = venv.step(action)
-    venv.close()
+        observation, reward, done, info = env.step(action)
+    t_end = datetime.now()
 
-    record_episode_wrapper = unwrap_wrapper(venv.envs[0], RecordEpisode)
+    recording = unwrap_wrapper(env, RecordEpisode)
     report_ea_optimization_to_logbook(
         model_name,
-        record_episode_wrapper.previous_t_start,
-        record_episode_wrapper.previous_t_end,
-        record_episode_wrapper.previous_observations,
-        record_episode_wrapper.previous_infos,
+        t_start,
+        t_end,
+        recording.observations,
+        recording.infos,
         target_mu_x_threshold,
         target_sigma_x_threshold,
         target_mu_y_threshold,
         target_sigma_y_threshold,
     )
+
+    env.close()
 
 
 class ARESEADOOCS(ARESEA):
