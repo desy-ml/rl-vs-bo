@@ -310,31 +310,45 @@ class ARESEARecorder(gym.Wrapper):
         # Create text message
         beam_before = self.observations[0]["beam"]
         beam_after = self.observations[-1]["beam"]
+        target_beam = self.observations[0]["target"]
+        target_threshold = np.array([
+            self.env.target_mu_x_threshold,
+            self.env.target_sigma_x_threshold,
+            self.env.target_mu_y_threshold,
+            self.env.target_sigma_y_threshold,
+        ])
         final_magnets = self.observations[-1]["magnets"]
         msg = f"""Reinforcement learning agent optimised beam on AREABSCR1
         
         Agent: {self.model_name}
-        No. of steps: {self.steps_taken}
+        Start time: {self.t_start}
         Time taken: {self.t_end - self.t_start}
+        No. of steps: {self.steps_taken}
 
         Beam before:
-            mu_x    = {beam_before[0] * 1e3} mm
-            sigma_x = {beam_before[1] * 1e3} mm
-            mu_y    = {beam_before[2] * 1e3} mm
-            sigma_y = {beam_before[3] * 1e3} mm
+            mu_x    = {beam_before[0] * 1e3:-5.4f} mm
+            sigma_x = {beam_before[1] * 1e3:-5.4f} mm
+            mu_y    = {beam_before[2] * 1e3:-5.4f} mm
+            sigma_y = {beam_before[3] * 1e3:-5.4f} mm
 
         Beam after:
-            mu_x    = {beam_after[0] * 1e3} mm
-            sigma_x = {beam_after[1] * 1e3} mm
-            mu_y    = {beam_after[2] * 1e3} mm
-            sigma_y = {beam_after[3] * 1e3} mm
+            mu_x    = {beam_after[0] * 1e3:-5.4f} mm
+            sigma_x = {beam_after[1] * 1e3:-5.4f} mm
+            mu_y    = {beam_after[2] * 1e3:-5.4f} mm
+            sigma_y = {beam_after[3] * 1e3:-5.4f} mm
+        
+        Target beam:
+            mu_x    = {target_beam[0] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) ✅
+            sigma_x = {target_beam[1] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) ❌
+            mu_y    = {target_beam[2] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) 🟢🔴
+            sigma_y = {target_beam[3] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) !
 
         Final magnet settings:
-            AREAMQZM1 strength = {final_magnets[0]} 1/m
-            AREAMQZM2 strength = {final_magnets[1]} 1/m
-            AREAMCVM1 kick     = {final_magnets[2] * 1e3} mrad
-            AREAMQZM3 strength = {final_magnets[3]} 1/m
-            AREAMCHM1 kick     = {final_magnets[4] * 1e3} mrad
+            AREAMQZM1 strength = {final_magnets[0]:-6.4f} 1/m^2
+            AREAMQZM2 strength = {final_magnets[1]:-6.4f} 1/m^2
+            AREAMCVM1 kick     = {final_magnets[2] * 1e3:-6.4f} mrad
+            AREAMQZM3 strength = {final_magnets[3]:-6.4f} 1/m^2
+            AREAMCHM1 kick     = {final_magnets[4] * 1e3:-6.4f} mrad
         """
 
         # Create plot as jpg
@@ -374,7 +388,7 @@ class ARESEARecorder(gym.Wrapper):
         ax.set_title("Quadrupoles")
         ax.set_xlim([0, self.steps_taken+1])
         ax.set_xlabel("Step")
-        ax.set_ylabel("Strength (1/m)")
+        ax.set_ylabel("Strength (1/m^2)")
         ax.plot(steps, areamqzm1, label="AREAMQZM1")
         ax.plot(steps, areamqzm2, label="AREAMQZM2")
         ax.plot(steps, areamqzm3, label="AREAMQZM3")
