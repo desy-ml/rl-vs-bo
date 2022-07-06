@@ -358,9 +358,13 @@ class ARESEA(gym.Env):
         done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
 
         info = {
+            "beam_image": self.get_beam_image(),
+            "binning": self.get_binning(),
             "mu_x_reward": mu_x_reward,
             "mu_y_reward": mu_y_reward,
             "on_screen_reward": on_screen_reward,
+            "pixel_size": self.get_pixel_size(),
+            "screen_resolution": self.get_screen_resolution(),
             "sigma_x_reward": sigma_x_reward,
             "sigma_y_reward": sigma_y_reward,
             "time_reward": time_reward,

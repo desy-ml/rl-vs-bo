@@ -128,21 +128,23 @@ class FilterAction(gym.ActionWrapper):
         return unfiltered
 
 
-class RecordData(gym.Wrapper):
+class RecordEpisode(gym.Wrapper):
+    """Wrapper for recording epsiode data such as observations, rewards, infos and actions."""
 
     def __init__(self, env):
         super().__init__(env)
-
-        self.observations = None
-        self.rewards = None
-        self.infos = None
-        self.actions = None
+        
+        self.has_previously_run = False
 
     def reset(self):
-        self.previous_observations = self.observations
-        self.previous_rewards = self.rewards
-        self.previous_infos = self.infos
-        self.previous_actions = self.actions
+        if self.has_previously_run:
+            self.previous_observations = self.observations
+            self.previous_rewards = self.rewards
+            self.previous_infos = self.infos
+            self.previous_actions = self.actions
+            self.previous_t_start = self.t_start
+            self.previous_t_end = datetime.now()
+            self.previous_steps_taken = self.steps_taken
 
         observation = self.env.reset()
 
@@ -150,6 +152,11 @@ class RecordData(gym.Wrapper):
         self.rewards = []
         self.infos = []
         self.actions = []
+        self.t_start = datetime.now()
+        self.t_end = None
+        self.steps_taken = 0
+
+        self.has_previously_run = True
 
         return observation
 
@@ -160,6 +167,7 @@ class RecordData(gym.Wrapper):
         self.rewards.append(reward)
         self.infos.append(info)
         self.actions.append(action)
+        self.steps_taken += 1
 
         return observation, reward, done, info
 
