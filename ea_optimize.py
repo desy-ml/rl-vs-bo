@@ -341,9 +341,6 @@ def report_ea_optimization_to_logbook(
         text=msg,
         image=img,
     )
-    # If logbook not reachable just show everything
-    
-    print(msg)
 
 
 def plot_quadrupole_history(ax, observations):
