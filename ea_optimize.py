@@ -287,6 +287,7 @@ def report_ea_optimization_to_logbook(
     ])
     final_magnets = observations[-1]["magnets"]
     steps_taken = len(observations) - 1
+    success = np.abs(beam_after - target_beam) < target_threshold
 
     msg = f"""Reinforcement learning agent optimised beam on AREABSCR1
     
@@ -308,10 +309,10 @@ def report_ea_optimization_to_logbook(
         sigma_y = {beam_after[3] * 1e3:-5.4f} mm
     
     Target beam:
-        mu_x    = {target_beam[0] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) ✅
-        sigma_x = {target_beam[1] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) ❌
-        mu_y    = {target_beam[2] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) 🟢🔴
-        sigma_y = {target_beam[3] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) !
+        mu_x    = {target_beam[0] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) {'✅' if success[0] else '❌'}
+        sigma_x = {target_beam[1] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) {'✅' if success[1] else '❌'}
+        mu_y    = {target_beam[2] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) {'✅' if success[2] else '❌'}
+        sigma_y = {target_beam[3] * 1e3:-5.4f} mm    (ε = {target_threshold[0] * 1e3:5.4f} mm) {'✅' if success[3] else '❌'}
 
     Final magnet settings:
         AREAMQZM1 strength = {final_magnets[0]:-6.4f} 1/m^2
