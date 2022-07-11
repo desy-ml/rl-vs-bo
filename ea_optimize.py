@@ -68,6 +68,7 @@ def optimize(
     # Actual optimisation
     t_start = datetime.now()
     observation = env.reset()
+    beam_image_before = env.get_beam_image()
     done = False
     while not done:
         action, _ = model.predict(observation, deterministic=True)
@@ -81,6 +82,7 @@ def optimize(
         t_end,
         recording.observations,
         recording.infos,
+        beam_image_before,
         target_mu_x_threshold,
         target_sigma_x_threshold,
         target_mu_y_threshold,
@@ -267,6 +269,7 @@ def report_ea_optimization_to_logbook(
     t_end,
     observations,
     infos,
+    beam_image_before,
     target_mu_x_threshold,
     target_sigma_x_threshold,
     target_mu_y_threshold,
@@ -323,8 +326,10 @@ def report_ea_optimization_to_logbook(
     plot_quadrupole_history(axs[0], observations)
     plot_steerer_history(axs[1], observations)
     plot_beam_history(axs[2], observations)
-    plot_beam_before(axs[3], infos)
-    plot_beam_after(axs[4], infos)
+    plot_beam_image(axs[3], beam_image_before, screen_resolution=infos[0]["screen_resolution"],
+                    pixel_size=infos[0]["pixel_size"], title="Beam at Reset (Background Removed)")
+    plot_beam_image(axs[4], infos[-1]["beam_image"], screen_resolution=infos[-1]["screen_resolution"],
+                    pixel_size=infos[-1]["pixel_size"], title="Beam After (Background Removed)")
     fig.tight_layout()
     
     buf = BytesIO()
@@ -403,32 +408,10 @@ def plot_beam_history(ax, observations):
     ax.grid(True)
     
 
-def plot_beam_before(ax, infos):
-    img = infos[0]["beam_image"]
-    screen_size = infos[0]["screen_resolution"] * infos[0]["pixel_size"]
+def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
+    screen_size = screen_resolution * pixel_size
 
-    ax.set_title("Beam Before (Background Removed)")
-    ax.set_xlabel("(mm)")
-    ax.set_ylabel("(mm)")
-    ax.imshow(
-        img,
-        vmin=0,
-        aspect="equal",
-        interpolation="none",
-        extent=(
-            -screen_size[0] / 2 * 1e3,
-            screen_size[0] / 2 * 1e3,
-            -screen_size[1] / 2 * 1e3,
-            screen_size[1] / 2 * 1e3,
-        ),
-    )
-
-
-def plot_beam_after(ax, infos):
-    img = infos[-1]["beam_image"]
-    screen_size = infos[-1]["screen_resolution"] * infos[-1]["pixel_size"]
-
-    ax.set_title("Beam Before (Background Removed)")
+    ax.set_title(title)
     ax.set_xlabel("(mm)")
     ax.set_ylabel("(mm)")
     ax.imshow(
