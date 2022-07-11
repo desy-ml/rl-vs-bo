@@ -108,10 +108,14 @@ class ARESEADOOCS(ARESEA):
         target_sigma_y_threshold=2.4469e-6,
         threshold_hold=1,
         w_mu_x=1.0,
+        w_mu_x_in_threshold=1.0,
         w_mu_y=1.0,
+        w_mu_y_in_threshold=1.0,
         w_on_screen=1.0,
         w_sigma_x=1.0,
+        w_sigma_x_in_threshold=1.0,
         w_sigma_y=1.0,
+        w_sigma_y_in_threshold=1.0,
         w_time=1.0,
     ):
         super().__init__(
@@ -127,10 +131,14 @@ class ARESEADOOCS(ARESEA):
             target_sigma_y_threshold=target_sigma_y_threshold,
             threshold_hold=threshold_hold,
             w_mu_x=w_mu_x,
+            w_mu_x_in_threshold=w_mu_x_in_threshold,
             w_mu_y=w_mu_y,
+            w_mu_y_in_threshold=w_mu_y_in_threshold,
             w_on_screen=w_on_screen,
             w_sigma_x=w_sigma_x,
+            w_sigma_x_in_threshold=w_sigma_x_in_threshold,
             w_sigma_y=w_sigma_y,
+            w_sigma_y_in_threshold=w_sigma_y_in_threshold,
             w_time=w_time,
         )
 
