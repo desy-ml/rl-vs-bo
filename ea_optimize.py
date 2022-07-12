@@ -76,18 +76,19 @@ def optimize(
     t_end = datetime.now()
 
     recording = unwrap_wrapper(env, RecordEpisode)
-    report_ea_optimization_to_logbook(
-        model_name,
-        t_start,
-        t_end,
-        recording.observations,
-        recording.infos,
-        beam_image_before,
-        target_mu_x_threshold,
-        target_sigma_x_threshold,
-        target_mu_y_threshold,
-        target_sigma_y_threshold,
-    )
+    if logbook:
+        report_ea_optimization_to_logbook(
+            model_name,
+            t_start,
+            t_end,
+            recording.observations,
+            recording.infos,
+            beam_image_before,
+            target_mu_x_threshold,
+            target_sigma_x_threshold,
+            target_mu_y_threshold,
+            target_sigma_y_threshold,
+        )
 
     env.close()
 
