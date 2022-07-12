@@ -59,7 +59,7 @@ def optimize(
     if max_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_steps)
     env = RecordEpisode(env)
-    env = RecordVideo(env, "recordings_function_test")
+    env = RecordVideo(env, f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = FlattenObservation(env)
     env = PolishedDonkeyCompatibility(env)
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
