@@ -45,6 +45,7 @@ def main():
         "threshold_hold": 5,
         "time_limit": 25,
         "vec_env": "subproc",
+        "w_done": 1.0,
         "w_mu_x": 0.0,
         "w_mu_x_in_threshold": 0.0,
         "w_mu_y": 0.0,
@@ -203,6 +204,7 @@ class ARESEA(gym.Env):
         target_sigma_x_threshold=3.3198e-6,
         target_sigma_y_threshold=2.4469e-6,
         threshold_hold=1,
+        w_done=1.0,
         w_mu_x=1.0,
         w_mu_x_in_threshold=1.0,
         w_mu_y=1.0,
@@ -225,6 +227,7 @@ class ARESEA(gym.Env):
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
         self.threshold_hold = threshold_hold
+        self.w_done = w_done
         self.w_mu_x = w_mu_x
         self.w_mu_x_in_threshold = w_mu_x_in_threshold
         self.w_mu_y = w_mu_y
@@ -301,6 +304,7 @@ class ARESEA(gym.Env):
         self.initial_screen_beam = self.get_beam_parameters()
         self.previous_beam = self.initial_screen_beam
         self.is_in_threshold_history = []
+        self.steps_taken = 0
 
         observation = {
             "beam": self.initial_screen_beam.astype("float32"),
@@ -326,16 +330,16 @@ class ARESEA(gym.Env):
         # Run the simulation
         self.update_accelerator()
 
+        current_beam = self.get_beam_parameters()
+        self.steps_taken += 1
+
         # Build observation
         observation = {
-            "beam": self.get_beam_parameters().astype("float32"),
+            "beam": current_beam.astype("float32"),
             "magnets": self.get_magnets().astype("float32"),
             "target": self.target_beam.astype("float32")
         }
         observation.update(self.get_accelerator_observation())
-
-        # Compute reward
-        current_beam = self.get_beam_parameters()
 
         # For readibility in computations below
         cb = current_beam
@@ -358,6 +362,7 @@ class ARESEA(gym.Env):
         # Compute reward
         on_screen_reward = -(not self.is_beam_on_screen())
         time_reward = -1
+        done_reward = done * (25 - self.steps_taken) / 25
         if self.reward_mode == "differential":
             mu_x_reward = (abs(pb[0] - tb[0]) - abs(cb[0] - tb[0])) / abs(ib[0] - tb[0])
             sigma_x_reward = (abs(pb[1] - tb[1]) - abs(cb[1] - tb[1])) / abs(ib[1] - tb[1])
@@ -381,6 +386,7 @@ class ARESEA(gym.Env):
         reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
         reward += self.w_mu_y_in_threshold * is_in_threshold[2]
         reward += self.w_sigma_y_in_threshold * is_in_threshold[3]
+        reward += self.w_done * done_reward
         reward = float(reward)
 
         # Put together info
@@ -648,6 +654,7 @@ class ARESEACheetah(ARESEA):
         target_sigma_x_threshold=3.3198e-6,
         target_sigma_y_threshold=2.4469e-6,
         threshold_hold=1,
+        w_done=1.0,
         w_mu_x=1.0,
         w_mu_x_in_threshold=1.0,
         w_mu_y=1.0,
@@ -671,6 +678,7 @@ class ARESEACheetah(ARESEA):
             target_sigma_x_threshold=target_sigma_x_threshold,
             target_sigma_y_threshold=target_sigma_y_threshold,
             threshold_hold=threshold_hold,
+            w_done=w_done,
             w_mu_x=w_mu_x,
             w_mu_x_in_threshold=w_mu_x_in_threshold,
             w_mu_y=w_mu_y,
