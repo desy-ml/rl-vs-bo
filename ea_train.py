@@ -45,7 +45,7 @@ def main():
         "threshold_hold": 5,
         "time_limit": 25,
         "vec_env": "subproc",
-        "w_done": 1.0,
+        "w_done": 10.0,
         "w_mu_x": 0.0,
         "w_mu_x_in_threshold": 0.0,
         "w_mu_y": 0.0,
@@ -194,6 +194,7 @@ class ARESEA(gym.Env):
     def __init__(
         self,
         action_mode="direct",
+        include_beam_image_in_info=True,
         magnet_init_mode=None,
         magnet_init_values=None,
         reward_mode="differential",
@@ -217,6 +218,7 @@ class ARESEA(gym.Env):
         w_time=1.0
     ):
         self.action_mode = action_mode
+        self.include_beam_image_in_info = include_beam_image_in_info
         self.magnet_init_mode = magnet_init_mode
         self.magnet_init_values = magnet_init_values
         self.reward_mode = reward_mode
@@ -391,7 +393,6 @@ class ARESEA(gym.Env):
 
         # Put together info
         info = {
-            "beam_image": self.get_beam_image(),
             "binning": self.get_binning(),
             "mu_x_reward": mu_x_reward,
             "mu_y_reward": mu_y_reward,
@@ -402,6 +403,8 @@ class ARESEA(gym.Env):
             "sigma_y_reward": sigma_y_reward,
             "time_reward": time_reward,
         }
+        if self.include_beam_image_in_info:
+            info["beam_image"] = self.get_beam_image()
         info.update(self.get_accelerator_info())
         
         self.previous_beam = current_beam
@@ -644,6 +647,7 @@ class ARESEACheetah(ARESEA):
         misalignment_mode="random",
         misalignment_values=None,
         action_mode="direct",
+        include_beam_image_in_info=False,
         magnet_init_mode="zero",
         magnet_init_values=None,
         reward_mode="differential",
@@ -668,6 +672,7 @@ class ARESEACheetah(ARESEA):
     ):
         super().__init__(
             action_mode=action_mode,
+            include_beam_image_in_info=include_beam_image_in_info,
             magnet_init_mode=magnet_init_mode,
             magnet_init_values=magnet_init_values,
             reward_mode=reward_mode,

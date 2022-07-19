@@ -98,6 +98,7 @@ class ARESEADOOCS(ARESEA):
     def __init__(
         self,
         action_mode="direct",
+        include_beam_image_in_info=True,
         magnet_init_mode="zero",
         magnet_init_values=None,
         reward_mode="differential",
@@ -122,6 +123,7 @@ class ARESEADOOCS(ARESEA):
     ):
         super().__init__(
             action_mode=action_mode,
+            include_beam_image_in_info=include_beam_image_in_info,
             magnet_init_mode=magnet_init_mode,
             magnet_init_values=magnet_init_values,
             reward_mode=reward_mode,
