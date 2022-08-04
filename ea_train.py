@@ -19,7 +19,7 @@ from utils import FilterAction
 
 def main():
     config = {
-        "action_mode": "direct",
+        "action_mode": "delta",
         "gamma": 0.99,
         "filter_action": [0, 1, 3],  
         "filter_observation": None,
@@ -40,8 +40,8 @@ def main():
         "target_beam_values": np.zeros(4),
         "target_mu_x_threshold": np.inf,
         "target_mu_y_threshold": np.inf,
-        "target_sigma_x_threshold": 1e-4,
-        "target_sigma_y_threshold": 1e-4,
+        "target_sigma_x_threshold": 1e-5,
+        "target_sigma_y_threshold": 1e-5,
         "threshold_hold": 5,
         "time_limit": 25,
         "vec_env": "subproc",
@@ -52,9 +52,9 @@ def main():
         "w_mu_y_in_threshold": 0.0,
         "w_on_screen": 0.0,
         "w_sigma_x": 1.0,
-        "w_sigma_x_in_threshold": 1.0,
+        "w_sigma_x_in_threshold": 0.0,
         "w_sigma_y": 1.0,
-        "w_sigma_y_in_threshold": 1.0,
+        "w_sigma_y_in_threshold": 0.0,
         "w_time": 0.0,
     }
 
@@ -383,7 +383,8 @@ class ARESEA(gym.Env):
         reward += self.w_mu_x * mu_x_reward
         reward += self.w_sigma_x * sigma_x_reward
         reward += self.w_mu_y * mu_y_reward
-        reward += self.w_sigma_y * sigma_y_reward * self.w_time * time_reward
+        reward += self.w_sigma_y * sigma_y_reward
+        reward += self.w_time * time_reward
         reward += self.w_mu_x_in_threshold * is_in_threshold[0]
         reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
         reward += self.w_mu_y_in_threshold * is_in_threshold[2]
