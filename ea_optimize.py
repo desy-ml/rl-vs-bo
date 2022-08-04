@@ -9,13 +9,12 @@ import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3 import PPO, TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from ea_train import ARESEA, read_from_yaml
 from utils import FilterAction, NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode, send_to_elog
 
-import pydoocs
-# import dummypydoocs as pydoocs
+# import pydoocs
+import dummypydoocs as pydoocs
 
 
 def optimize(
@@ -112,7 +111,6 @@ def optimize_ablation(
 
     Note: This is a temporary version of this function for direct vs. delta action ablation studies.
     """
-    assert model_name in ["autumn-plasma-244","quiet-dawn-245"], "Current version only works for autumn-plasma-244 and quiet-dawn-245."
     config = read_from_yaml(f"models/{model_name}/config")
 
     # Load the model
@@ -143,13 +141,18 @@ def optimize_ablation(
         w_sigma_y_in_threshold=config["w_sigma_y_in_threshold"],
         w_time=config["w_time"],
     )
-    env = TimeLimit(env, max_steps) if max_steps is not None else env
+    if max_steps is not None:
+        env = TimeLimit(env, max_steps)
     env = RecordEpisode(env)
-    env = FilterObservation(env, config["filter_observation"]) is not None if config["filter_observation"] else env
-    env = FilterAction(env, config["filter_action"], replace=0) if config["filter_action"] is not None else env
+    if config["filter_observation"] is not None:
+        env = FilterObservation(env, config["filter_observation"])
+    if config["filter_action"] is not None:
+        env = FilterAction(env, config["filter_action"], replace=0)
     env = FlattenObservation(env)
-    env = FrameStack(env, config["frame_stack"]) if config["frame_stack"] is not None else env
-    env = RescaleAction(env, config["rescale_action"][0], config["rescale_action"][1]) if config["rescale_action"] is not None else env
+    if config["frame_stack"] is not None:
+        env = FrameStack(env, config["frame_stack"])
+    if config["rescale_action"] is not None:
+        env = RescaleAction(env, config["rescale_action"][0], config["rescale_action"][1])
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
 

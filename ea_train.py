@@ -21,7 +21,7 @@ def main():
     config = {
         "action_mode": "delta",
         "gamma": 0.99,
-        "filter_action": [0, 1, 3],  
+        "filter_action": [0, 1, 3],
         "filter_observation": None,
         "frame_stack": None,
         "incoming_mode": "random",
@@ -116,7 +116,7 @@ def train(config):
 
     model.save(f"models/{wandb.run.name}/model")
     if config["normalize_observation"] or config["normalize_reward"]:
-        env.save(f"models/{wandb.run.name}/normalizer")
+        env.save(f"models/{wandb.run.name}/vec_normalize.pkl")
     save_to_yaml(config, f"models/{wandb.run.name}/config")
 
 
@@ -177,7 +177,7 @@ class ARESEA(gym.Env):
         Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
         `"constant"` setting requires `magnet_init_values` to be set.
     magnet_init_values : np.ndarray
-        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is set to 
+        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is set to
         `"constant"`.
     reward_mode : str
         How to compute the reward. Choose from `"feedback"` or `"differential"`.
@@ -280,7 +280,7 @@ class ARESEA(gym.Env):
 
         # Setup the accelerator (either simulation or the actual machine)
         self.setup_accelerator()
-    
+
     def reset(self):
         self.reset_accelerator()
 
@@ -407,18 +407,18 @@ class ARESEA(gym.Env):
         if self.include_beam_image_in_info:
             info["beam_image"] = self.get_beam_image()
         info.update(self.get_accelerator_info())
-        
+
         self.previous_beam = current_beam
 
         return observation, reward, done, info
-    
+
     def render(self, mode="human"):
         assert mode == "rgb_array" or mode == "human"
 
         binning = self.get_binning()
         pixel_size = self.get_pixel_size()
         resolution = self.get_screen_resolution()
-        
+
         # Read screen image and make 8-bit RGB
         img = self.get_beam_image()
         img = img / 2**12 * 255
@@ -448,7 +448,7 @@ class ARESEA(gym.Env):
         e_width_y = int(cb[3] / pixel_size_b4[1])
         red = (0, 0, 255)
         img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, red, 2)
-        
+
         # Adjust aspect ratio
         new_width = int(img.shape[1] * pixel_size_b4[0] / pixel_size_b4[1])
         img = cv2.resize(img, (new_width,img.shape[0]))
@@ -495,7 +495,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Must be implemented!
         """
         raise NotImplementedError
-    
+
     def setup_accelerator(self):
         """
         Prepare the accelerator for use with the environment. Should mostly be used for setting up
@@ -503,7 +503,7 @@ class ARESEA(gym.Env):
 
         Override with backend-specific imlementation. Optional.
         """
-    
+
     def get_magnets(self):
         """
         Return the magnet values as a NumPy array in order as the magnets appear in the accelerator.
@@ -534,7 +534,7 @@ class ARESEA(gym.Env):
 
         Override with backend-specific imlementation. Optional.
         """
-    
+
     def update_accelerator(self):
         """
         Update accelerator metrics for later use. Use this to run the simulation or cache the beam
@@ -542,7 +542,7 @@ class ARESEA(gym.Env):
 
         Override with backend-specific imlementation. Optional.
         """
-    
+
     def get_beam_parameters(self):
         """
         Get the beam parameters measured on the diagnostic screen as NumPy array grouped by
@@ -551,7 +551,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Must be implemented!
         """
         raise NotImplementedError
-    
+
     def get_incoming_parameters(self):
         """
         Get all physical beam parameters of the incoming beam as NumPy array in order energy, mu_x,
@@ -593,7 +593,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Optional.
         """
         raise NotImplementedError
-    
+
     def get_screen_resolution(self):
         """
         Return (binned) resolution of the screen camera as NumPy array [x, y].
@@ -601,7 +601,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Optional.
         """
         raise NotImplementedError
-    
+
     def get_pixel_size(self):
         """
         Return the (binned) size of the area on the diagnostic screen covered by one pixel as NumPy
@@ -719,7 +719,7 @@ class ARESEACheetah(ARESEA):
         beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
         limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
         return np.all(np.abs(beam_position) < limits)
-    
+
     def get_magnets(self):
         return np.array([
             self.simulation.AREAMQZM1.k1,
@@ -768,10 +768,10 @@ class ARESEACheetah(ARESEA):
         self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
         self.simulation.AREABSCR1.misalignment = misalignments[6:8]
-    
+
     def update_accelerator(self):
         self.simulation(self.incoming)
-    
+
     def get_beam_parameters(self):
         return np.array([
             self.simulation.AREABSCR1.read_beam.mu_x,
@@ -779,7 +779,7 @@ class ARESEACheetah(ARESEA):
             self.simulation.AREABSCR1.read_beam.mu_y,
             self.simulation.AREABSCR1.read_beam.sigma_y
         ])
-    
+
     def get_incoming_parameters(self):
         # Parameters of incoming are typed out to guarantee their order, as the
         # order would not be guaranteed creating np.array from dict.
@@ -815,10 +815,10 @@ class ARESEACheetah(ARESEA):
 
     def get_binning(self):
         return np.array(self.simulation.AREABSCR1.binning)
-    
+
     def get_screen_resolution(self):
         return np.array(self.simulation.AREABSCR1.resolution) / self.get_binning()
-    
+
     def get_pixel_size(self):
         return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
 
@@ -840,7 +840,7 @@ class ARESEACheetah(ARESEA):
 
 def read_from_yaml(path):
     with open(f"{path}.yaml", "r") as f:
-        data = yaml.parse(f.read())
+        data = yaml.load(f.read(), Loader=yaml.Loader)
     return data
 
 
