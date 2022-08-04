@@ -13,8 +13,8 @@ from stable_baselines3.common.env_util import unwrap_wrapper
 from ea_train import ARESEA, read_from_yaml
 from utils import FilterAction, NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode, send_to_elog
 
-# import pydoocs
-import dummypydoocs as pydoocs
+import pydoocs
+# import dummypydoocs as pydoocs
 
 
 def optimize(
