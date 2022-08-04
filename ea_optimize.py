@@ -3,16 +3,16 @@ from io import BytesIO
 import time
 
 import gym
-from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLimit
+from gym.wrappers import FilterObservation, FlattenObservation, FrameStack, RecordVideo, RescaleAction, TimeLimit
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
-from stable_baselines3 import TD3
+from stable_baselines3 import PPO, TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-from ea_train import ARESEA
-from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode, send_to_elog
+from ea_train import ARESEA, read_from_yaml
+from utils import FilterAction, NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode, send_to_elog
 
 import pydoocs
 # import dummypydoocs as pydoocs
@@ -39,10 +39,10 @@ def optimize(
     """
     # config = read_from_yaml(f"models/{model}/config")
     assert model_name == "polished-donkey-996", "Current version only works for polished-donkey-996."
-    
+
     # Load the model
     model = TD3.load(f"models/{model_name}/model")
-    
+
     # Create the environment
     env = ARESEADOOCS(
         action_mode="delta",
@@ -93,8 +93,96 @@ def optimize(
     env.close()
 
 
+def optimize_ablation(
+    target_mu_x,
+    target_sigma_x,
+    target_mu_y,
+    target_sigma_y,
+    target_mu_x_threshold=3.3198e-6,
+    target_mu_y_threshold=3.3198e-6,
+    target_sigma_x_threshold=3.3198e-6,
+    target_sigma_y_threshold=3.3198e-6,
+    max_steps=50,
+    model_name="polished-donkey-996",
+    logbook=False,
+    callback=None,
+):
+    """
+    Function used for optimisation during operation.
+
+    Note: This is a temporary version of this function for direct vs. delta action ablation studies.
+    """
+    assert model_name in ["autumn-plasma-244","quiet-dawn-245"], "Current version only works for autumn-plasma-244 and quiet-dawn-245."
+    config = read_from_yaml(f"models/{model_name}/config")
+
+    # Load the model
+    model = PPO.load(f"models/{model_name}/model")
+
+    # Create the environment
+    env = ARESEADOOCS(
+        action_mode=config["action_mode"],
+        magnet_init_mode=config["magnet_init_mode"],
+        magnet_init_values=config["magnet_init_values"],
+        reward_mode=config["reward_mode"],
+        target_beam_mode=config["target_beam_mode"],
+        target_beam_values=np.array([target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]),
+        target_mu_x_threshold=target_mu_x_threshold,
+        target_mu_y_threshold=target_mu_y_threshold,
+        target_sigma_x_threshold=target_sigma_x_threshold,
+        target_sigma_y_threshold=target_sigma_y_threshold,
+        threshold_hold=1,
+        w_done=config["w_done"],
+        w_mu_x=config["w_mu_x"],
+        w_mu_x_in_threshold=config["w_mu_x_in_threshold"],
+        w_mu_y=config["w_mu_y"],
+        w_mu_y_in_threshold=config["w_mu_y_in_threshold"],
+        w_on_screen=config["w_on_screen"],
+        w_sigma_x=config["w_sigma_x"],
+        w_sigma_x_in_threshold=config["w_sigma_x_in_threshold"],
+        w_sigma_y=config["w_sigma_y"],
+        w_sigma_y_in_threshold=config["w_sigma_y_in_threshold"],
+        w_time=config["w_time"],
+    )
+    env = TimeLimit(env, max_steps) if max_steps is not None else env
+    env = RecordEpisode(env)
+    env = FilterObservation(env, config["filter_observation"]) is not None if config["filter_observation"] else env
+    env = FilterAction(env, config["filter_action"], replace=0) if config["filter_action"] is not None else env
+    env = FlattenObservation(env)
+    env = FrameStack(env, config["frame_stack"]) if config["frame_stack"] is not None else env
+    env = RescaleAction(env, config["rescale_action"][0], config["rescale_action"][1]) if config["rescale_action"] is not None else env
+    env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
+    env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
+
+    # Actual optimisation
+    t_start = datetime.now()
+    observation = env.reset()
+    beam_image_before = env.get_beam_image()
+    done = False
+    while not done:
+        action, _ = model.predict(observation, deterministic=True)
+        observation, reward, done, info = env.step(action)
+    t_end = datetime.now()
+
+    recording = unwrap_wrapper(env, RecordEpisode)
+    if logbook:
+        report_ea_optimization_to_logbook(
+            model_name,
+            t_start,
+            t_end,
+            recording.observations,
+            recording.infos,
+            beam_image_before,
+            target_mu_x_threshold,
+            target_sigma_x_threshold,
+            target_mu_y_threshold,
+            target_sigma_y_threshold,
+        )
+
+    env.close()
+
+
 class ARESEADOOCS(ARESEA):
-    
+
     def __init__(
         self,
         action_mode="direct",
@@ -158,7 +246,7 @@ class ARESEADOOCS(ARESEA):
             pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.RBV")["data"],
             pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.RBV")["data"] / 1000
         ])
-    
+
     def set_magnets(self, magnets):
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP", magnets[0])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP", magnets[1])
@@ -167,7 +255,7 @@ class ARESEADOOCS(ARESEA):
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.SP", magnets[4] * 1000)
 
         # Wait until magnets have reached their setpoints
-        
+
         time.sleep(3.0) # Wait for magnets to realise they received a command
 
         magnets = ["AREAMQZM1", "AREAMQZM2", "AREAMCVM1", "AREAMQZM3", "AREAMCHM1"]
@@ -202,7 +290,7 @@ class ARESEADOOCS(ARESEA):
 
             parameters[f"mu_{direction}"] = (center_pixel - len(filtered) / 2) * pixel_size[axis]
             parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
-            
+
         parameters["mu_y"] = -parameters["mu_y"]
 
         return np.array([
@@ -226,7 +314,7 @@ class ARESEADOOCS(ARESEA):
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/WIDTH")["data"],
             pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/HEIGHT")["data"]
         ])
-    
+
     def get_pixel_size(self):
         return np.array([
             abs(pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")["data"][2]) / 1000,
@@ -237,7 +325,7 @@ class ARESEADOOCS(ARESEA):
         """
         Capture a clean image of the beam from the screen using `average` images with beam on and
         `average` images of the background and then removing the background.
-        
+
         Saves the image to a property of the object.
         """
          # Laser off
@@ -252,9 +340,9 @@ class ARESEADOOCS(ARESEA):
 
         removed = (median_beam - median_background).clip(0, 2**16-1)
         flipped = np.flipud(removed)
-        
+
         return flipped
-    
+
     def capture_interval(self, n, dt):
         """Capture `n` images from the screen and wait `dt` seconds in between them."""
         images = []
@@ -262,7 +350,7 @@ class ARESEADOOCS(ARESEA):
             images.append(self.capture_screen())
             time.sleep(dt)
         return np.array(images)
-    
+
     def capture_screen(self):
         """Capture and image from the screen."""
         return pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"]
@@ -303,7 +391,7 @@ def report_ea_optimization_to_logbook(
     success = np.abs(beam_after - target_beam) < target_threshold
 
     msg = f"""Reinforcement learning agent optimised beam on AREABSCR1
-    
+
 Agent: {model_name}
 Start time: {t_start}
 Time taken: {t_end - t_start}
@@ -345,7 +433,7 @@ Final magnet settings:
     plot_beam_image(axs[4], infos[-1]["beam_image"], screen_resolution=infos[-1]["screen_resolution"],
                     pixel_size=infos[-1]["pixel_size"], title="Beam After (Background Removed)")
     fig.tight_layout()
-    
+
     buf = BytesIO()
     fig.savefig(buf, dpi=300, format="jpg")
     buf.seek(0)
@@ -420,7 +508,7 @@ def plot_beam_history(ax, observations):
     ax.plot(steps, [target_beam[3]*1e3]*len(steps), ls="--", c="tab:red")
     ax.legend()
     ax.grid(True)
-    
+
 
 def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
     screen_size = screen_resolution * pixel_size
