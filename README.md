@@ -22,10 +22,26 @@ Whilst most of the environment are fixed to the problem, some things can be chan
 
 To get a sense for how the environments are used for RL training, we recommend a look at `train.py`. What is particularly important is the `FlattenObservation` wrapper. Without it most RL algorithm implementations will not work with the environment.
 
-### Gym Environments
+## Gym Environments
 
 The gym environments are built on a base class `ARESEA`, where the basic RL problem is defined.
 There are two derived classes: `ARESEACheetah` in `ea_train.py` for training in simulation and `ARESEADOOCS` in `ea_optimzie.py` for interacting with `DOOCS` at ARES.
+
+### Observation
+
+The default observation is a dictionary
+
+```python
+keys = ["beams","incoming","magnets", "misalignments", "target"]
+```
+
+After using `FlattenObservation` wrapper, the observation shape becomes `(32,)`, given that no `filter_observation` is used:
+
+- `size= (4,)`, `ind = (0, 1, 2, 3)`, observed beam (mu_x, sigma_x, mu_y, sigma_y)
+- `size= (11,)`, `ind = (4,5,6,7,8,9,10,11,12,13,14)`, incoming beam parameters by `get_incoming_parameters` (energy, mu_x, mu_xp, mu_y, mu_yp, sigma_x, sigma_xp, sigma_y, sigma_yp, sigma_s, sigma_p)
+- `size= (5,)`, `ind = (15,16,17,18,19,)`, magnet values (Q1, Q2, CV1, Q3, CH1)
+- `size= (8,)`,  `ind = (20,21,22,23,24,25,26,27)`, misalignment of the components by `get_misalignments` (Q1.x, Q1.y, Q2.x, Q2.y, Q3.x, Q3.y, Screen.x, Screen.y)
+- `size= (4,)` ,  `ind = (28,29,30,31)`,  target (mu_x, sigma_x, mu_y, sigma_y)
 
 ### Reward definition
 
