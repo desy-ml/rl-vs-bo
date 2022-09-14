@@ -33,14 +33,20 @@ class ScreenView(pg.GraphicsLayoutWidget):
             -resolution[0] * pixel_size[0] / 2 * 1e3,
             -resolution[1] * pixel_size[1] / 2 * 1e3,
             resolution[0] * pixel_size[0] * 1e3,
-            resolution[1] * pixel_size[1] * 1e3
+            resolution[1] * pixel_size[1] * 1e3,
         )
 
         self.i1 = pg.ImageItem()
         self.update_agent_view(np.zeros((resolution[1], resolution[0])))
 
-        self.desired_ellipse = pg.EllipseROI((0,0), (0,0), pen=pg.mkPen("w",width=2),
-                                             rotatable=False, movable=False, resizable=False)
+        self.desired_ellipse = pg.EllipseROI(
+            (0, 0),
+            (0, 0),
+            pen=pg.mkPen("w", width=2),
+            rotatable=False,
+            movable=False,
+            resizable=False,
+        )
         # self.desired_ellipse.sigRegionChanged.connect(self.desired_ellipse_interaction)
         self.was_desired_set_programmatically = False
 
@@ -49,9 +55,9 @@ class ScreenView(pg.GraphicsLayoutWidget):
         self.p1.addItem(self.desired_ellipse)
         self.p1.setMouseEnabled(x=False, y=False)
         self.p1.setRange(
-            xRange=(self.screen_rect[0],self.screen_rect[0]+self.screen_rect[2]),
-            yRange=(self.screen_rect[1],self.screen_rect[1]+self.screen_rect[3]),
-            padding=0
+            xRange=(self.screen_rect[0], self.screen_rect[0] + self.screen_rect[2]),
+            yRange=(self.screen_rect[1], self.screen_rect[1] + self.screen_rect[3]),
+            padding=0,
         )
         self.p1.getAxis("bottom").setLabel("x (mm)")
         self.p1.getAxis("left").setLabel("y (mm)")
@@ -68,9 +74,9 @@ class ScreenView(pg.GraphicsLayoutWidget):
         self.p2.addItem(self.i2)
         self.p2.setMouseEnabled(x=False, y=False)
         self.p2.setRange(
-            xRange=(self.screen_rect[0],self.screen_rect[0]+self.screen_rect[2]),
-            yRange=(self.screen_rect[1],self.screen_rect[1]+self.screen_rect[3]),
-            padding=0
+            xRange=(self.screen_rect[0], self.screen_rect[0] + self.screen_rect[2]),
+            yRange=(self.screen_rect[1], self.screen_rect[1] + self.screen_rect[3]),
+            padding=0,
         )
         self.p2.getAxis("bottom").setLabel("x (mm)")
         self.p2.getAxis("left").setLabel("y (mm)")
@@ -79,37 +85,39 @@ class ScreenView(pg.GraphicsLayoutWidget):
 
         cmap = pg.colormap.get("CET-L9")
         bar = pg.ColorBarItem(cmap=cmap, width=10)
-        max_level = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"].max()
+        max_level = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")[
+            "data"
+        ].max()
         bar.setLevels(low=0, high=max_level)
-        bar.setImageItem([self.i1,self.i2], insert_in=self.p2)
-    
+        bar.setImageItem([self.i1, self.i2], insert_in=self.p2)
+
     @qtc.pyqtSlot(np.ndarray)
     def update_agent_view(self, screen_data):
         self.i1.setImage(
             np.flipud(screen_data),
             axisOrder="row-major",
             rect=self.screen_rect,
-            autoLevels=False
+            autoLevels=False,
         )
-    
+
     @qtc.pyqtSlot(np.ndarray)
     def update_live_view(self, screen_data):
         self.i2.setImage(
             np.flipud(screen_data),
             axisOrder="row-major",
             rect=self.screen_rect,
-            autoLevels=False
+            autoLevels=False,
         )
-    
+
     @qtc.pyqtSlot(float, float, float, float)
     def move_desired_ellipse(self, mu_x, mu_y, sigma_x, sigma_y):
         mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
 
-        self.desired_ellipse.setPos((mu_x-sigma_x, mu_y-sigma_y))
-        self.desired_ellipse.setSize((2*sigma_x, 2*sigma_y))
+        self.desired_ellipse.setPos((mu_x - sigma_x, mu_y - sigma_y))
+        self.desired_ellipse.setSize((2 * sigma_x, 2 * sigma_y))
 
         self.was_desired_set_programmatically = True
-    
+
     @qtc.pyqtSlot(float, float, float, float)
     def move_achieved_ellipse(self, mu_x, mu_y, sigma_x, sigma_y):
         if math.isnan(mu_x):
@@ -127,7 +135,7 @@ class ScreenView(pg.GraphicsLayoutWidget):
                 pen=pg.mkPen("r", width=2),
                 rotatable=False,
                 movable=False,
-                resizable=False
+                resizable=False,
             )
             self.p1.addItem(self.achieved_ellipse)
             for handle in self.achieved_ellipse.getHandles():
@@ -146,8 +154,7 @@ class MeasureBeamThread(qtc.QThread):
         accelerator = machine.ExperimentalArea()
         screen_data = accelerator.capture_clean_beam()
         beam_parameters = utils.compute_beam_parameters(
-            screen_data,
-            accelerator.pixel_size * accelerator.binning
+            screen_data, accelerator.pixel_size * accelerator.binning
         )
 
         self.agent_screen_updated.emit(screen_data)
@@ -155,7 +162,7 @@ class MeasureBeamThread(qtc.QThread):
 
 
 class AgentThread(qtc.QThread):
-    
+
     started = qtc.pyqtSignal()
     done = qtc.pyqtSignal(tuple)
     agent_screen_updated = qtc.pyqtSignal(np.ndarray)
@@ -186,7 +193,7 @@ class AgentThread(qtc.QThread):
         self.env = FlattenObservation(self.env)
 
         self.actuators_updated.emit(*self.env.accelerator.actuators)
-        
+
         self.env.unwrapped.target_delta = self.target_delta
 
         model = TD3.load(f"models/{self.model_name}")
@@ -200,7 +207,7 @@ class AgentThread(qtc.QThread):
             "screen_data": [self.env.unwrapped.screen_data],
             "observation": [self.env.unwrapped.observation],
             "action": [],
-            "time": [time.time()]
+            "time": [time.time()],
         }
         self.log_channels(log, auxiliary_channels)
         self.agent_screen_updated.emit(self.env.screen_data)
@@ -228,7 +235,7 @@ class AgentThread(qtc.QThread):
 
             if self.stop_requested:
                 break
-        
+
         self.took_step.emit(50)
 
         self.env.close()
@@ -243,13 +250,13 @@ class AgentThread(qtc.QThread):
         logfilename = logpath + "log.pkl"
         with open(logfilename, "wb") as f:
             pickle.dump(log, f)
-            print(f"Log file saved as \"{logfilename}\"")
-        
+            print(f'Log file saved as "{logfilename}"')
+
         desired = self.env.unwrapped.observation["desired_goal"]
         achieved = self.env.unwrapped.observation["achieved_goal"]
         delta = np.abs(desired - achieved)
         self.done.emit(i, delta)
-    
+
     def log_channels(self, log, channels):
         for channel in channels:
             sample = pydoocs.read(channel)["data"]
@@ -278,7 +285,7 @@ class App(qtw.QWidget):
 
         vbox = qtw.QVBoxLayout()
         vbox.addWidget(self.make_rl_setup())
-        vbox.addWidget(self.make_measure_beam())   # TODO Make measure beam
+        vbox.addWidget(self.make_measure_beam())  # TODO Make measure beam
         vbox.addWidget(self.make_desired_selection())
         vbox.addWidget(self.make_run_agent())
         self.setLayout(vbox)
@@ -299,16 +306,18 @@ class App(qtw.QWidget):
         self.deltas_updated.emit(*self.deltas)
 
         self.resize(1200, 800)
-    
+
     def make_measure_beam(self):
         self.magnet_dropdown = qtw.QComboBox()
-        self.magnet_dropdown.addItems([
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD"
-        ])
+        self.magnet_dropdown.addItems(
+            [
+                "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH",
+                "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH",
+                "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH",
+                "SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD",
+                "SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD",
+            ]
+        )
         self.magnet_dropdown.currentTextChanged.connect(self.read_magnet)
 
         self.magnet_value_field = qtw.QLineEdit()
@@ -332,7 +341,7 @@ class App(qtw.QWidget):
         group_box.setLayout(hbox)
 
         return group_box
-    
+
     def make_desired_selection(self):
         self.achieved_mu_x_label = qtw.QLabel()
         self.achieved_mu_y_label = qtw.QLabel()
@@ -376,7 +385,7 @@ class App(qtw.QWidget):
         self.sigma_y_slider = qtw.QSlider()
         self.sigma_y_slider.setRange(1, 100)
         self.sigma_y_slider.valueChanged.connect(self.update_desired)
-        
+
         grid = qtw.QGridLayout()
         grid.addWidget(self.achieved_mu_x_label, 0, 0, 1, 1)
         grid.addWidget(self.achieved_mu_y_label, 0, 2, 1, 1)
@@ -403,9 +412,11 @@ class App(qtw.QWidget):
         group_box.setLayout(grid)
 
         return group_box
-    
+
     def make_rl_setup(self):
-        model_files = glob.glob("models/*/*-*-*.zip") + glob.glob("models/onestep_vpg/onestep-model-*.pkl")
+        model_files = glob.glob("models/*/*-*-*.zip") + glob.glob(
+            "models/onestep_vpg/onestep-model-*.pkl"
+        )
         models = [filename[7:-4] for filename in model_files]
         models.append("Bayesian Optimisation")
         models = sorted(models)
@@ -434,7 +445,7 @@ class App(qtw.QWidget):
         group_box.setLayout(hbox)
 
         return group_box
-    
+
     def make_run_agent(self):
         self.screen_view = ScreenView()
         # self.screen_view.user_moved_desired_ellipse.connect(self.update_desired)
@@ -442,7 +453,9 @@ class App(qtw.QWidget):
         self.start_stop_button = qtw.QPushButton("Optimise")
         self.start_stop_button.setStyleSheet("background-color: darkgreen")
         self.start_stop_button.clicked.connect(self.start_agent)
-        self.experiment_name_field.textChanged.connect(self.check_is_start_agent_allowed)
+        self.experiment_name_field.textChanged.connect(
+            self.check_is_start_agent_allowed
+        )
         self.check_is_start_agent_allowed(self.experiment_name_field.text())
 
         grid = qtw.QGridLayout()
@@ -453,22 +466,22 @@ class App(qtw.QWidget):
         group_box.setLayout(grid)
 
         return group_box
-    
+
     @qtc.pyqtSlot(str)
     def switch_agent(self, agent_name):
         self.agent_name = agent_name
-    
+
     @qtc.pyqtSlot()
     def update_desired(self):
         self.desired = (
             self.mu_x_slider.value() / 50 * 2.5e-3,
             self.mu_y_slider.value() / 50 * 2.0e-3,
             self.sigma_x_slider.value() / 100 * 1.0e-3,
-            self.sigma_y_slider.value() / 100 * 1.0e-3
+            self.sigma_y_slider.value() / 100 * 1.0e-3,
         )
 
         self.desired_updated.emit(*self.desired)
-    
+
     @qtc.pyqtSlot(float, float, float, float)
     def update_desired_labels(self, mu_x, mu_y, sigma_x, sigma_y):
         mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
@@ -477,21 +490,27 @@ class App(qtw.QWidget):
         self.desired_mu_y_label.setText(f"µ_y' = {mu_y:4.3f} mm")
         self.desired_sigma_x_label.setText(f"σ\u2093' = {sigma_x:4.3f} mm")
         self.desired_sigma_y_label.setText(f"σ_y' = {sigma_y:4.3f} mm")
-    
+
     @qtc.pyqtSlot()
     def measure_beam(self):
         self.measure_beam_thread = MeasureBeamThread()
-        self.measure_beam_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
+        self.measure_beam_thread.agent_screen_updated.connect(
+            self.screen_view.update_agent_view
+        )
         self.measure_beam_thread.achieved_updated.connect(self.update_achieved)
         self.measure_beam_thread.run()
-    
-    def start_agent(self):
-        self.agent_thread = AgentThread(self.agent_name,
-                                        np.array(self.desired),
-                                        np.array(self.deltas),
-                                        self.experiment_name_field.text())
 
-        self.agent_thread.agent_screen_updated.connect(self.screen_view.update_agent_view)
+    def start_agent(self):
+        self.agent_thread = AgentThread(
+            self.agent_name,
+            np.array(self.desired),
+            np.array(self.deltas),
+            self.experiment_name_field.text(),
+        )
+
+        self.agent_thread.agent_screen_updated.connect(
+            self.screen_view.update_agent_view
+        )
         self.agent_thread.achieved_updated.connect(self.update_achieved)
         self.agent_thread.done.connect(self.agent_finished_popup)
         self.agent_thread.started.connect(self.stop_user_interaction)
@@ -501,10 +520,10 @@ class App(qtw.QWidget):
         self.agent_thread.actuators_updated.connect(self.actuator_plot.update)
 
         self.agent_thread.start()
-    
+
     def stop_agent(self):
         self.agent_thread.stop_requested = True
-    
+
     def set_user_interaction_allowed(self, is_allowed):
         self.magnet_dropdown.setEnabled(is_allowed)
         self.magnet_value_field.setEnabled(is_allowed)
@@ -522,7 +541,7 @@ class App(qtw.QWidget):
 
         self.model_dropdown.setEnabled(is_allowed)
         self.experiment_name_field.setEnabled(is_allowed)
-    
+
     def stop_user_interaction(self):
         self.set_user_interaction_allowed(False)
 
@@ -530,7 +549,7 @@ class App(qtw.QWidget):
         self.start_stop_button.clicked.connect(self.stop_agent)
         self.start_stop_button.setText("Stop")
         self.start_stop_button.setStyleSheet("background-color: darkred")
-    
+
     def start_user_interaction(self):
         self.set_user_interaction_allowed(True)
 
@@ -538,7 +557,7 @@ class App(qtw.QWidget):
         self.start_stop_button.clicked.connect(self.start_agent)
         self.start_stop_button.setText("Optimise")
         self.start_stop_button.setStyleSheet("background-color: darkgreen")
-    
+
     @qtc.pyqtSlot(str)
     def check_is_start_agent_allowed(self, experiment_name):
         self.start_stop_button.setEnabled(len(experiment_name) > 0)
@@ -547,11 +566,13 @@ class App(qtw.QWidget):
     def update_achieved(self, mu_x, mu_y, sigma_x, sigma_y):
         self.achieved = (mu_x, mu_y, sigma_x, sigma_y)
         self.achieved_updated.emit(*self.achieved)
-    
+
     @qtc.pyqtSlot(float, float, float, float)
     def update_achieved_labels(self, mu_x, mu_y, sigma_x, sigma_y):
         if not math.isnan(mu_x):
-            mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
+            mu_x, mu_y, sigma_x, sigma_y = [
+                x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)
+            ]
 
             self.achieved_mu_x_label.setText(f"µ\u2093 = {mu_x:4.3f} mm")
             self.achieved_mu_y_label.setText(f"µ_y = {mu_y:4.3f} mm")
@@ -562,18 +583,18 @@ class App(qtw.QWidget):
             self.achieved_mu_y_label.setText(f"µ_y = -")
             self.achieved_sigma_x_label.setText(f"σ\u2093 = -")
             self.achieved_sigma_y_label.setText(f"σ_y = -")
-    
+
     @qtc.pyqtSlot()
     def update_deltas(self):
         self.deltas = (
             self.target_delta_mu_x_slider.value() / 100 * 0.5 * 1e-3,
             self.target_delta_mu_y_slider.value() / 100 * 0.5 * 1e-3,
             self.target_delta_sigma_x_slider.value() / 100 * 0.5 * 1e-3,
-            self.target_delta_sigma_y_slider.value() / 100 * 0.5 * 1e-3
+            self.target_delta_sigma_y_slider.value() / 100 * 0.5 * 1e-3,
         )
 
         self.deltas_updated.emit(*self.deltas)
-    
+
     @qtc.pyqtSlot(float, float, float, float)
     def update_delta_labels(self, mu_x, mu_y, sigma_x, sigma_y):
         mu_x, mu_y, sigma_x, sigma_y = [x * 1e3 for x in (mu_x, mu_y, sigma_x, sigma_y)]
@@ -582,7 +603,7 @@ class App(qtw.QWidget):
         self.target_delta_mu_y_label.setText(f"Δµ_y' = {mu_y:4.3f} mm")
         self.target_delta_sigma_x_label.setText(f"Δσ\u2093' = {sigma_x:4.3f} mm")
         self.target_delta_sigma_y_label.setText(f"Δσ_y' = {sigma_y:4.3f} mm")
-    
+
     @qtc.pyqtSlot()
     def update_delta_achieved_indicators(self):
         green = "background-color: green"
@@ -590,51 +611,71 @@ class App(qtw.QWidget):
 
         known = not math.isnan(self.achieved[0])
 
-        mu_x_success = known and abs(self.desired[0] - self.achieved[0]) <= self.deltas[0]
-        self.target_delta_mu_x_label.setStyleSheet(green if mu_x_success else transparent)
+        mu_x_success = (
+            known and abs(self.desired[0] - self.achieved[0]) <= self.deltas[0]
+        )
+        self.target_delta_mu_x_label.setStyleSheet(
+            green if mu_x_success else transparent
+        )
 
-        mu_y_success = known and abs(self.desired[1] - self.achieved[1]) <= self.deltas[1]
-        self.target_delta_mu_y_label.setStyleSheet(green if mu_y_success else transparent)
+        mu_y_success = (
+            known and abs(self.desired[1] - self.achieved[1]) <= self.deltas[1]
+        )
+        self.target_delta_mu_y_label.setStyleSheet(
+            green if mu_y_success else transparent
+        )
 
-        sigma_x_success = known and abs(self.desired[2] - self.achieved[2]) <= self.deltas[2]
-        self.target_delta_sigma_x_label.setStyleSheet(green if sigma_x_success else transparent)
+        sigma_x_success = (
+            known and abs(self.desired[2] - self.achieved[2]) <= self.deltas[2]
+        )
+        self.target_delta_sigma_x_label.setStyleSheet(
+            green if sigma_x_success else transparent
+        )
 
-        sigma_y_success = known and abs(self.desired[3] - self.achieved[3]) <= self.deltas[3]
-        self.target_delta_sigma_y_label.setStyleSheet(green if sigma_y_success else transparent)
+        sigma_y_success = (
+            known and abs(self.desired[3] - self.achieved[3]) <= self.deltas[3]
+        )
+        self.target_delta_sigma_y_label.setStyleSheet(
+            green if sigma_y_success else transparent
+        )
 
     @qtc.pyqtSlot(int, np.ndarray)
     def agent_finished_popup(self, steps, deltas):
         if (deltas <= self.deltas).all():
             msg = "The desired beam parameters have been achieved successfully! 🎉🎆"
         else:
-            msg = "The agent timed out, the desired beam parameters cannot be achieved. 🥺"
+            msg = (
+                "The agent timed out, the desired beam parameters cannot be achieved. 🥺"
+            )
 
         deltas *= 1e3
-        msg += f"\n\n" + \
-               f"Report:\n" + \
-               f"Steps = {steps:d}\n" + \
-               f"Δµ\u2093 = {deltas[0]:+6.3f} mm\n" + \
-               f"Δµ_y = {deltas[1]:+6.3f} mm\n" + \
-               f"Δσ\u2093 = {deltas[2]:+6.3f} mm\n" + \
-               f"Δσ_y = {deltas[3]:+6.3f} mm"
+        msg += (
+            f"\n\n"
+            + f"Report:\n"
+            + f"Steps = {steps:d}\n"
+            + f"Δµ\u2093 = {deltas[0]:+6.3f} mm\n"
+            + f"Δµ_y = {deltas[1]:+6.3f} mm\n"
+            + f"Δσ\u2093 = {deltas[2]:+6.3f} mm\n"
+            + f"Δσ_y = {deltas[3]:+6.3f} mm"
+        )
 
         qtw.QMessageBox.information(self, "Agent Finished", msg)
-    
+
     @qtc.pyqtSlot(str)
     def read_magnet(self, channel):
         response = pydoocs.read(channel + ".RBV")
         value = response["data"]
         self.magnet_value_field.setText(str(value))
-    
+
     @qtc.pyqtSlot()
     def write_magnet(self):
         channel = self.magnet_dropdown.currentText()
         value = float(self.magnet_value_field.text())
         pydoocs.write(channel + ".SP", value)
-        
+
     def handle_application_exit(self):
         pass
-    
+
 
 if __name__ == "__main__":
     app = qtw.QApplication(sys.argv)

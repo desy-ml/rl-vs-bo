@@ -23,10 +23,7 @@ def parse_arguments():
 
 
 def make_env():
-    env = ARESEASequential(
-        backend="simulation",
-        backendargs={"measure_beam": "direct"}
-    )
+    env = ARESEASequential(backend="simulation", backendargs={"measure_beam": "direct"})
     env = FrameStack(env, 16)
     env = ResetActuators(env)
     env = TimeLimit(env, max_episode_steps=50)
@@ -39,8 +36,6 @@ def setup_new_training():
     env = DummyVecEnv([make_env])
     env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.95)
 
-    
-
     model = TD3(
         "MlpPolicy",
         env,
@@ -49,7 +44,7 @@ def setup_new_training():
         gamma=0.95,
         tensorboard_log=f"log/{wandb.run.name}",
         verbose=1,
-        device="cpu"
+        device="cpu",
     )
 
     return model
@@ -67,7 +62,9 @@ def load_training(log_path):
     env = DummyVecEnv([make_env])
     env = VecNormalize.load(f"{log_path}/vec_normalize_{resume_steps}_steps.pkl", env)
 
-    model = TD3.load(f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env, device="cpu")
+    model = TD3.load(
+        f"{log_path}/rl_model_{resume_steps}_steps.zip", env=env, device="cpu"
+    )
     model.load_replay_buffer(f"{log_path}/replay_buffer_{resume_steps}_steps.pkl")
 
     return model
@@ -83,16 +80,16 @@ def main():
         entity="msk-ipc",
         sync_tensorboard=True,
         id=run_id,
-        resume="allow"
+        resume="allow",
     )
-    
+
     log_path = f"log/{wandb.run.name}"
 
     model = load_training(log_path) if wandb.run.resumed else setup_new_training()
 
     callbacks = [
         CheckpointCallback(3000, log_path, save_env=True, save_replay_buffer=True),
-        WandbCallback(verbose=1)
+        WandbCallback(verbose=1),
     ]
 
     eval_env = DummyVecEnv([make_env])
@@ -104,7 +101,7 @@ def main():
         callback=callbacks,
         eval_env=eval_env,
         eval_freq=3000,
-        tb_log_name="TD3"
+        tb_log_name="TD3",
     )
 
 

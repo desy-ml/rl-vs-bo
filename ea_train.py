@@ -4,7 +4,14 @@ import cheetah
 import cv2
 import gym
 from gym import spaces
-from gym.wrappers import FilterObservation, FlattenObservation, FrameStack, RecordVideo, RescaleAction, TimeLimit
+from gym.wrappers import (
+    FilterObservation,
+    FlattenObservation,
+    FrameStack,
+    RecordVideo,
+    RescaleAction,
+    TimeLimit,
+)
 import numpy as np
 import yaml
 from stable_baselines3 import A2C, PPO, SAC, TD3
@@ -68,7 +75,7 @@ def train(config):
         entity="msk-ipc",
         sync_tensorboard=True,
         monitor_gym=True,
-        config=config
+        config=config,
     )
     config["wandb_run_name"] = wandb.run.name
 
@@ -76,7 +83,9 @@ def train(config):
     if config["vec_env"] == "dummy":
         env = DummyVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
     elif config["vec_env"] == "subproc":
-        env = SubprocVecEnv([partial(make_env, config) for _ in range(config["n_envs"])])
+        env = SubprocVecEnv(
+            [partial(make_env, config) for _ in range(config["n_envs"])]
+        )
     else:
         raise ValueError(f"Invalid value \"{config['vec_env']}\" for dummy")
     eval_env = DummyVecEnv([partial(make_env, config, record_video=True)])
@@ -111,7 +120,7 @@ def train(config):
         total_timesteps=int(2e6),
         eval_env=eval_env,
         eval_freq=500,
-        callback=WandbCallback()
+        callback=WandbCallback(),
     )
 
     model.save(f"models/{wandb.run.name}/model")
@@ -158,7 +167,9 @@ def make_env(config, record_video=False):
     if config["frame_stack"] is not None:
         env = FrameStack(env, config["frame_stack"])
     if config["rescale_action"] is not None:
-        env = RescaleAction(env, config["rescale_action"][0], config["rescale_action"][1])
+        env = RescaleAction(
+            env, config["rescale_action"][0], config["rescale_action"][1]
+        )
     env = Monitor(env)
     if record_video:
         env = RecordVideo(env, video_folder=f"recordings/{config['wandb_run_name']}")
@@ -186,10 +197,7 @@ class ARESEA(gym.Env):
         setting requires `target_beam_values` to be set.
     """
 
-    metadata = {
-        "render.modes": ["rgb_array"],
-        "video.frames_per_second": 2
-    }
+    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
 
     def __init__(
         self,
@@ -215,7 +223,7 @@ class ARESEA(gym.Env):
         w_sigma_x_in_threshold=1.0,
         w_sigma_y=1.0,
         w_sigma_y_in_threshold=1.0,
-        w_time=1.0
+        w_time=1.0,
     ):
         self.action_mode = action_mode
         self.include_beam_image_in_info = include_beam_image_in_info
@@ -245,35 +253,39 @@ class ARESEA(gym.Env):
         if self.action_mode == "direct":
             self.action_space = spaces.Box(
                 low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
-                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
+                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
             )
         elif self.action_mode == "direct_unidirectional_quads":
             self.action_space = spaces.Box(
                 low=np.array([0, -72, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
-                high=np.array([72, 0, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
+                high=np.array([72, 0, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
             )
         elif self.action_mode == "delta":
             self.action_space = spaces.Box(
-                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32) * 0.1,
-                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32) * 0.1
+                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32)
+                * 0.1,
+                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
+                * 0.1,
             )
         else:
-            raise ValueError(f"Invalid value \"{self.action_mode}\" for action_mode")
+            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
         # Create observation space
         obs_space_dict = {
             "beam": spaces.Box(
                 low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
-                high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
+                high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
             ),
-            "magnets": self.action_space if self.action_mode.startswith("direct") else spaces.Box(
+            "magnets": self.action_space
+            if self.action_mode.startswith("direct")
+            else spaces.Box(
                 low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
                 high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
             ),
             "target": spaces.Box(
                 low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
-                high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32)
-            )
+                high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
+            ),
         }
         obs_space_dict.update(self.get_accelerator_observation_space())
         self.observation_space = spaces.Dict(obs_space_dict)
@@ -289,16 +301,20 @@ class ARESEA(gym.Env):
         elif self.magnet_init_mode == "random":
             self.set_magnets(self.observation_space["magnets"].sample())
         elif self.magnet_init_mode == None:
-            pass    # This really is intended to do nothing
+            pass  # This really is intended to do nothing
         else:
-            raise ValueError(f"Invalid value \"{self.magnet_init_mode}\" for magnet_init_mode")
+            raise ValueError(
+                f'Invalid value "{self.magnet_init_mode}" for magnet_init_mode'
+            )
 
         if self.target_beam_mode == "constant":
             self.target_beam = self.target_beam_values
         elif self.target_beam_mode == "random":
             self.target_beam = self.observation_space["target"].sample()
         else:
-            raise ValueError(f"Invalid value \"{self.target_beam_mode}\" for target_beam_mode")
+            raise ValueError(
+                f'Invalid value "{self.target_beam_mode}" for target_beam_mode'
+            )
 
         # Update anything in the accelerator (mainly for running simulations)
         self.update_accelerator()
@@ -311,7 +327,7 @@ class ARESEA(gym.Env):
         observation = {
             "beam": self.initial_screen_beam.astype("float32"),
             "magnets": self.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32")
+            "target": self.target_beam.astype("float32"),
         }
         observation.update(self.get_accelerator_observation())
 
@@ -327,7 +343,7 @@ class ARESEA(gym.Env):
             magnet_values = self.get_magnets()
             self.set_magnets(magnet_values + action)
         else:
-            raise ValueError(f"Invalid value \"{self.action_mode}\" for action_mode")
+            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
         # Run the simulation
         self.update_accelerator()
@@ -339,7 +355,7 @@ class ARESEA(gym.Env):
         observation = {
             "beam": current_beam.astype("float32"),
             "magnets": self.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32")
+            "target": self.target_beam.astype("float32"),
         }
         observation.update(self.get_accelerator_observation())
 
@@ -350,15 +366,19 @@ class ARESEA(gym.Env):
         tb = self.target_beam
 
         # Compute if done (beam within threshold for a certain time)
-        threshold = np.array([
-            self.target_mu_x_threshold,
-            self.target_sigma_x_threshold,
-            self.target_mu_y_threshold,
-            self.target_sigma_y_threshold,
-        ])
+        threshold = np.array(
+            [
+                self.target_mu_x_threshold,
+                self.target_sigma_x_threshold,
+                self.target_mu_y_threshold,
+                self.target_sigma_y_threshold,
+            ]
+        )
         is_in_threshold = np.abs(cb - tb) < threshold
         self.is_in_threshold_history.append(is_in_threshold)
-        is_stable_in_threshold = bool(np.array(self.is_in_threshold_history[-self.threshold_hold:]).all())
+        is_stable_in_threshold = bool(
+            np.array(self.is_in_threshold_history[-self.threshold_hold :]).all()
+        )
         done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
 
         # Compute reward
@@ -367,16 +387,20 @@ class ARESEA(gym.Env):
         done_reward = done * (25 - self.steps_taken) / 25
         if self.reward_mode == "differential":
             mu_x_reward = (abs(pb[0] - tb[0]) - abs(cb[0] - tb[0])) / abs(ib[0] - tb[0])
-            sigma_x_reward = (abs(pb[1] - tb[1]) - abs(cb[1] - tb[1])) / abs(ib[1] - tb[1])
+            sigma_x_reward = (abs(pb[1] - tb[1]) - abs(cb[1] - tb[1])) / abs(
+                ib[1] - tb[1]
+            )
             mu_y_reward = (abs(pb[2] - tb[2]) - abs(cb[2] - tb[2])) / abs(ib[2] - tb[2])
-            sigma_y_reward = (abs(pb[3] - tb[3]) - abs(cb[3] - tb[3])) / abs(ib[3] - tb[3])
+            sigma_y_reward = (abs(pb[3] - tb[3]) - abs(cb[3] - tb[3])) / abs(
+                ib[3] - tb[3]
+            )
         elif self.reward_mode == "feedback":
-            mu_x_reward = - abs((cb[0] - tb[0]) / (ib[0] - tb[0]))
-            sigma_x_reward = - abs((cb[1] - tb[1]) / (ib[1] - tb[1]))
-            mu_y_reward = - abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
-            sigma_y_reward = - abs((cb[3] - tb[3]) / (ib[3] - tb[3]))
+            mu_x_reward = -abs((cb[0] - tb[0]) / (ib[0] - tb[0]))
+            sigma_x_reward = -abs((cb[1] - tb[1]) / (ib[1] - tb[1]))
+            mu_y_reward = -abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
+            sigma_y_reward = -abs((cb[3] - tb[3]) / (ib[3] - tb[3]))
         else:
-            raise ValueError(f"Invalid value \"{self.reward_mode}\" for reward_mode")
+            raise ValueError(f'Invalid value "{self.reward_mode}" for reward_mode')
 
         reward = 0
         reward += self.w_on_screen * on_screen_reward
@@ -423,7 +447,7 @@ class ARESEA(gym.Env):
         img = self.get_beam_image()
         img = img / 2**12 * 255
         img = img.clip(0, 255).astype(np.uint8)
-        img = np.repeat(img[:,:,np.newaxis], 3, axis=-1)
+        img = np.repeat(img[:, :, np.newaxis], 3, axis=-1)
 
         # Redraw beam image as if it were binning = 4
         render_resolution = (resolution * binning / 4).astype("int")
@@ -437,7 +461,9 @@ class ARESEA(gym.Env):
         e_pos_y = int(-tb[2] / pixel_size_b4[1] + render_resolution[1] / 2)
         e_width_y = int(tb[3] / pixel_size_b4[1])
         blue = (255, 204, 79)
-        img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, blue, 2)
+        img = cv2.ellipse(
+            img, (e_pos_x, e_pos_y), (e_width_x, e_width_y), 0, 0, 360, blue, 2
+        )
 
         # Draw beam ellipse
         cb = self.get_beam_parameters()
@@ -447,40 +473,100 @@ class ARESEA(gym.Env):
         e_pos_y = int(-cb[2] / pixel_size_b4[1] + render_resolution[1] / 2)
         e_width_y = int(cb[3] / pixel_size_b4[1])
         red = (0, 0, 255)
-        img = cv2.ellipse(img, (e_pos_x,e_pos_y), (e_width_x,e_width_y), 0, 0, 360, red, 2)
+        img = cv2.ellipse(
+            img, (e_pos_x, e_pos_y), (e_width_x, e_width_y), 0, 0, 360, red, 2
+        )
 
         # Adjust aspect ratio
         new_width = int(img.shape[1] * pixel_size_b4[0] / pixel_size_b4[1])
-        img = cv2.resize(img, (new_width,img.shape[0]))
+        img = cv2.resize(img, (new_width, img.shape[0]))
 
         # Add magnet values and beam parameters
         magnets = self.get_magnets()
-        padding = np.full((int(img.shape[0]*0.27),img.shape[1],3), fill_value=255, dtype=np.uint8)
+        padding = np.full(
+            (int(img.shape[0] * 0.27), img.shape[1], 3), fill_value=255, dtype=np.uint8
+        )
         img = np.vstack([img, padding])
         black = (0, 0, 0)
         red = (0, 0, 255)
         green = (0, 255, 0)
-        img = cv2.putText(img, f"Q1={magnets[0]:.2f}", (15,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"Q2={magnets[1]:.2f}", (215,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"CV={magnets[2]*1e3:.2f}", (415,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"Q3={magnets[3]:.2f}", (615,545), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
-        img = cv2.putText(img, f"CH={magnets[4]*1e3:.2f}", (15,585), cv2.FONT_HERSHEY_SIMPLEX, 1, black)
+        img = cv2.putText(
+            img, f"Q1={magnets[0]:.2f}", (15, 545), cv2.FONT_HERSHEY_SIMPLEX, 1, black
+        )
+        img = cv2.putText(
+            img, f"Q2={magnets[1]:.2f}", (215, 545), cv2.FONT_HERSHEY_SIMPLEX, 1, black
+        )
+        img = cv2.putText(
+            img,
+            f"CV={magnets[2]*1e3:.2f}",
+            (415, 545),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            black,
+        )
+        img = cv2.putText(
+            img, f"Q3={magnets[3]:.2f}", (615, 545), cv2.FONT_HERSHEY_SIMPLEX, 1, black
+        )
+        img = cv2.putText(
+            img,
+            f"CH={magnets[4]*1e3:.2f}",
+            (15, 585),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            black,
+        )
         mu_x_color = black
         if self.target_mu_x_threshold != np.inf:
-            mu_x_color = green if abs(cb[0] - tb[0]) < self.target_mu_x_threshold else red
-        img = cv2.putText(img, f"mx={cb[0]*1e3:.2f}", (15,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_x_color)
+            mu_x_color = (
+                green if abs(cb[0] - tb[0]) < self.target_mu_x_threshold else red
+            )
+        img = cv2.putText(
+            img,
+            f"mx={cb[0]*1e3:.2f}",
+            (15, 625),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            mu_x_color,
+        )
         sigma_x_color = black
         if self.target_sigma_x_threshold != np.inf:
-            sigma_x_color = green if abs(cb[1] - tb[1]) < self.target_sigma_x_threshold else red
-        img = cv2.putText(img, f"sx={cb[1]*1e3:.2f}", (215,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_x_color)
+            sigma_x_color = (
+                green if abs(cb[1] - tb[1]) < self.target_sigma_x_threshold else red
+            )
+        img = cv2.putText(
+            img,
+            f"sx={cb[1]*1e3:.2f}",
+            (215, 625),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            sigma_x_color,
+        )
         mu_y_color = black
         if self.target_mu_y_threshold != np.inf:
-            mu_y_color = green if abs(cb[2] - tb[2]) < self.target_mu_y_threshold else red
-        img = cv2.putText(img, f"my={cb[2]*1e3:.2f}", (415,625), cv2.FONT_HERSHEY_SIMPLEX, 1, mu_y_color)
+            mu_y_color = (
+                green if abs(cb[2] - tb[2]) < self.target_mu_y_threshold else red
+            )
+        img = cv2.putText(
+            img,
+            f"my={cb[2]*1e3:.2f}",
+            (415, 625),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            mu_y_color,
+        )
         sigma_y_color = black
         if self.target_sigma_y_threshold != np.inf:
-            sigma_y_color = green if abs(cb[3] - tb[3]) < self.target_sigma_y_threshold else red
-        img = cv2.putText(img, f"sy={cb[3]*1e3:.2f}", (615,625), cv2.FONT_HERSHEY_SIMPLEX, 1, sigma_y_color)
+            sigma_y_color = (
+                green if abs(cb[3] - tb[3]) < self.target_sigma_y_threshold else red
+            )
+        img = cv2.putText(
+            img,
+            f"sy={cb[3]*1e3:.2f}",
+            (615, 625),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            sigma_y_color,
+        )
 
         if mode == "human":
             cv2.imshow("ARES EA", img)
@@ -640,7 +726,6 @@ class ARESEA(gym.Env):
 
 
 class ARESEACheetah(ARESEA):
-
     def __init__(
         self,
         incoming_mode="random",
@@ -704,9 +789,7 @@ class ARESEACheetah(ARESEA):
 
         # Create particle simulation
         self.simulation = cheetah.Segment.from_ocelot(
-            ares_lattice,
-            warnings=False,
-            device="cpu"
+            ares_lattice, warnings=False, device="cpu"
         ).subcell("AREASOLA1", "AREABSCR1")
         self.simulation.AREABSCR1.resolution = (2448, 2040)
         self.simulation.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
@@ -721,13 +804,15 @@ class ARESEACheetah(ARESEA):
         return np.all(np.abs(beam_position) < limits)
 
     def get_magnets(self):
-        return np.array([
-            self.simulation.AREAMQZM1.k1,
-            self.simulation.AREAMQZM2.k1,
-            self.simulation.AREAMCVM1.angle,
-            self.simulation.AREAMQZM3.k1,
-            self.simulation.AREAMCHM1.angle
-        ])
+        return np.array(
+            [
+                self.simulation.AREAMQZM1.k1,
+                self.simulation.AREAMQZM2.k1,
+                self.simulation.AREAMCVM1.angle,
+                self.simulation.AREAMQZM3.k1,
+                self.simulation.AREAMCHM1.angle,
+            ]
+        )
 
     def set_magnets(self, magnets):
         self.simulation.AREAMQZM1.k1 = magnets[0]
@@ -743,7 +828,7 @@ class ARESEACheetah(ARESEA):
         elif self.incoming_mode == "random":
             incoming_parameters = self.observation_space["incoming"].sample()
         else:
-            raise ValueError(f"Invalid value \"{self.incoming_mode}\" for incoming_mode")
+            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
         self.incoming = cheetah.ParameterBeam.from_parameters(
             energy=incoming_parameters[0],
             mu_x=incoming_parameters[1],
@@ -763,7 +848,9 @@ class ARESEACheetah(ARESEA):
         elif self.misalignment_mode == "random":
             misalignments = self.observation_space["misalignments"].sample()
         else:
-            raise ValueError(f"Invalid value \"{self.misalignment_mode}\" for misalignment_mode")
+            raise ValueError(
+                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
+            )
         self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
         self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
@@ -773,41 +860,48 @@ class ARESEACheetah(ARESEA):
         self.simulation(self.incoming)
 
     def get_beam_parameters(self):
-        return np.array([
-            self.simulation.AREABSCR1.read_beam.mu_x,
-            self.simulation.AREABSCR1.read_beam.sigma_x,
-            self.simulation.AREABSCR1.read_beam.mu_y,
-            self.simulation.AREABSCR1.read_beam.sigma_y
-        ])
+        return np.array(
+            [
+                self.simulation.AREABSCR1.read_beam.mu_x,
+                self.simulation.AREABSCR1.read_beam.sigma_x,
+                self.simulation.AREABSCR1.read_beam.mu_y,
+                self.simulation.AREABSCR1.read_beam.sigma_y,
+            ]
+        )
 
     def get_incoming_parameters(self):
         # Parameters of incoming are typed out to guarantee their order, as the
         # order would not be guaranteed creating np.array from dict.
-        return np.array([
-            self.incoming.energy,
-            self.incoming.mu_x,
-            self.incoming.mu_xp,
-            self.incoming.mu_y,
-            self.incoming.mu_yp,
-            self.incoming.sigma_x,
-            self.incoming.sigma_xp,
-            self.incoming.sigma_y,
-            self.incoming.sigma_yp,
-            self.incoming.sigma_s,
-            self.incoming.sigma_p
-        ])
+        return np.array(
+            [
+                self.incoming.energy,
+                self.incoming.mu_x,
+                self.incoming.mu_xp,
+                self.incoming.mu_y,
+                self.incoming.mu_yp,
+                self.incoming.sigma_x,
+                self.incoming.sigma_xp,
+                self.incoming.sigma_y,
+                self.incoming.sigma_yp,
+                self.incoming.sigma_s,
+                self.incoming.sigma_p,
+            ]
+        )
 
     def get_misalignments(self):
-        return np.array([
-            self.simulation.AREAMQZM1.misalignment[0],
-            self.simulation.AREAMQZM1.misalignment[1],
-            self.simulation.AREAMQZM2.misalignment[0],
-            self.simulation.AREAMQZM2.misalignment[1],
-            self.simulation.AREAMQZM3.misalignment[0],
-            self.simulation.AREAMQZM3.misalignment[1],
-            self.simulation.AREABSCR1.misalignment[0],
-            self.simulation.AREABSCR1.misalignment[1]
-        ], dtype=np.float32)
+        return np.array(
+            [
+                self.simulation.AREAMQZM1.misalignment[0],
+                self.simulation.AREAMQZM1.misalignment[1],
+                self.simulation.AREAMQZM2.misalignment[0],
+                self.simulation.AREAMQZM2.misalignment[1],
+                self.simulation.AREAMQZM3.misalignment[0],
+                self.simulation.AREAMQZM3.misalignment[1],
+                self.simulation.AREABSCR1.misalignment[0],
+                self.simulation.AREABSCR1.misalignment[1],
+            ],
+            dtype=np.float32,
+        )
 
     def get_beam_image(self):
         # Beam image to look like real image by dividing by goodlooking number and scaling to 12 bits)
@@ -825,8 +919,26 @@ class ARESEACheetah(ARESEA):
     def get_accelerator_observation_space(self):
         return {
             "incoming": spaces.Box(
-                low=np.array([80e6, -1e-3, -1e-4, -1e-3, -1e-4, 1e-5, 1e-6, 1e-5, 1e-6, 1e-6, 1e-4], dtype=np.float32),
-                high=np.array([160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3], dtype=np.float32)
+                low=np.array(
+                    [
+                        80e6,
+                        -1e-3,
+                        -1e-4,
+                        -1e-3,
+                        -1e-4,
+                        1e-5,
+                        1e-6,
+                        1e-5,
+                        1e-6,
+                        1e-6,
+                        1e-4,
+                    ],
+                    dtype=np.float32,
+                ),
+                high=np.array(
+                    [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
+                    dtype=np.float32,
+                ),
             ),
             "misalignments": spaces.Box(low=-2e-3, high=2e-3, shape=(8,)),
         }
