@@ -2,7 +2,6 @@ from datetime import datetime
 from io import BytesIO
 import time
 
-import gym
 from gym.wrappers import (
     FilterObservation,
     FlattenObservation,
@@ -41,93 +40,12 @@ def optimize(
     target_sigma_x_threshold=3.3198e-6,
     target_sigma_y_threshold=3.3198e-6,
     max_steps=50,
-    model_name="polished-donkey-996",
+    model_name="chocolate-totem-247",
     logbook=False,
     callback=None,
 ):
     """
-    Function used for optimisation during operation.
-
-    Note: Current version only works for polished-donkey-996.
-    """
-    # config = read_from_yaml(f"models/{model}/config")
-    assert (
-        model_name == "polished-donkey-996"
-    ), "Current version only works for polished-donkey-996."
-
-    # Load the model
-    model = TD3.load(f"models/{model_name}/model")
-
-    # Create the environment
-    env = ARESEADOOCS(
-        action_mode="delta",
-        magnet_init_mode="constant",
-        magnet_init_values=np.array([10, -10, 0, 10, 0]),
-        reward_mode="differential",
-        target_beam_mode="constant",
-        target_beam_values=np.array(
-            [target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]
-        ),
-        target_mu_x_threshold=target_mu_x_threshold,
-        target_mu_y_threshold=target_mu_y_threshold,
-        target_sigma_x_threshold=target_sigma_x_threshold,
-        target_sigma_y_threshold=target_sigma_y_threshold,
-    )
-    if max_steps is not None:
-        env = TimeLimit(env, max_episode_steps=max_steps)
-    env = RecordEpisode(env)
-    env = RecordVideo(env, f"recordings_real/{datetime.now():%Y%m%d%H%M}")
-    env = FlattenObservation(env)
-    env = PolishedDonkeyCompatibility(env)
-    env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
-    env = RescaleAction(env, -1, 1)
-
-    # Actual optimisation
-    t_start = datetime.now()
-    observation = env.reset()
-    beam_image_before = env.get_beam_image()
-    done = False
-    while not done:
-        action, _ = model.predict(observation, deterministic=True)
-        observation, reward, done, info = env.step(action)
-    t_end = datetime.now()
-
-    recording = unwrap_wrapper(env, RecordEpisode)
-    if logbook:
-        report_ea_optimization_to_logbook(
-            model_name,
-            t_start,
-            t_end,
-            recording.observations,
-            recording.infos,
-            beam_image_before,
-            target_mu_x_threshold,
-            target_sigma_x_threshold,
-            target_mu_y_threshold,
-            target_sigma_y_threshold,
-        )
-
-    env.close()
-
-
-def optimize_ablation(
-    target_mu_x,
-    target_sigma_x,
-    target_mu_y,
-    target_sigma_y,
-    target_mu_x_threshold=3.3198e-6,
-    target_mu_y_threshold=3.3198e-6,
-    target_sigma_x_threshold=3.3198e-6,
-    target_sigma_y_threshold=3.3198e-6,
-    max_steps=50,
-    model_name="polished-donkey-996",
-    logbook=False,
-    callback=None,
-):
-    """
-    Function used for optimisation during operation.
-
-    Note: This is a temporary version of this function for direct vs. delta action ablation studies.
+    Optimise beam in ARES EA using a reinforcement learning agent.
     """
     config = read_from_yaml(f"models/{model_name}/config")
 
@@ -177,6 +95,85 @@ def optimize_ablation(
         )
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
+
+    # Actual optimisation
+    t_start = datetime.now()
+    observation = env.reset()
+    beam_image_before = env.get_beam_image()
+    done = False
+    while not done:
+        action, _ = model.predict(observation, deterministic=True)
+        observation, reward, done, info = env.step(action)
+    t_end = datetime.now()
+
+    recording = unwrap_wrapper(env, RecordEpisode)
+    if logbook:
+        report_ea_optimization_to_logbook(
+            model_name,
+            t_start,
+            t_end,
+            recording.observations,
+            recording.infos,
+            beam_image_before,
+            target_mu_x_threshold,
+            target_sigma_x_threshold,
+            target_mu_y_threshold,
+            target_sigma_y_threshold,
+        )
+
+    env.close()
+
+
+def optimize_donkey(
+    target_mu_x,
+    target_sigma_x,
+    target_mu_y,
+    target_sigma_y,
+    target_mu_x_threshold=3.3198e-6,
+    target_mu_y_threshold=3.3198e-6,
+    target_sigma_x_threshold=3.3198e-6,
+    target_sigma_y_threshold=3.3198e-6,
+    max_steps=50,
+    model_name="polished-donkey-996",
+    logbook=False,
+    callback=None,
+):
+    """
+    Function used for optimisation during operation.
+
+    Note: Current version only works for polished-donkey-996.
+    """
+    # config = read_from_yaml(f"models/{model}/config")
+    assert (
+        model_name == "polished-donkey-996"
+    ), "Current version only works for polished-donkey-996."
+
+    # Load the model
+    model = TD3.load(f"models/{model_name}/model")
+
+    # Create the environment
+    env = ARESEADOOCS(
+        action_mode="delta",
+        magnet_init_mode="constant",
+        magnet_init_values=np.array([10, -10, 0, 10, 0]),
+        reward_mode="differential",
+        target_beam_mode="constant",
+        target_beam_values=np.array(
+            [target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]
+        ),
+        target_mu_x_threshold=target_mu_x_threshold,
+        target_mu_y_threshold=target_mu_y_threshold,
+        target_sigma_x_threshold=target_sigma_x_threshold,
+        target_sigma_y_threshold=target_sigma_y_threshold,
+    )
+    if max_steps is not None:
+        env = TimeLimit(env, max_episode_steps=max_steps)
+    env = RecordEpisode(env)
+    env = RecordVideo(env, f"recordings_real/{datetime.now():%Y%m%d%H%M}")
+    env = FlattenObservation(env)
+    env = PolishedDonkeyCompatibility(env)
+    env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
+    env = RescaleAction(env, -1, 1)
 
     # Actual optimisation
     t_start = datetime.now()
