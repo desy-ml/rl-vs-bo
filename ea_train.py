@@ -283,8 +283,8 @@ class ARESEA(gym.Env):
                 high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
             ),
             "target": spaces.Box(
-                low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
-                high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
+                low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
+                high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
             ),
         }
         obs_space_dict.update(self.get_accelerator_observation_space())
@@ -399,6 +399,16 @@ class ARESEA(gym.Env):
             sigma_x_reward = -abs((cb[1] - tb[1]) / (ib[1] - tb[1]))
             mu_y_reward = -abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
             sigma_y_reward = -abs((cb[3] - tb[3]) / (ib[3] - tb[3]))
+        elif self.reward_mode == "logl1":
+            mu_x_reward = -np.log(abs((cb[0] - tb[0])))
+            sigma_x_reward = -np.log(abs((cb[1] - tb[1])))
+            mu_y_reward = -np.log(abs((cb[2] - tb[2])))
+            sigma_y_reward = -np.log(abs((cb[3] - tb[3])))
+        elif self.reward_mode == "logl2":
+            mu_x_reward = -np.log((cb[0] - tb[0])**2)
+            sigma_x_reward = -np.log((cb[1] - tb[1])**2)
+            mu_y_reward = -np.log((cb[2] - tb[2])**2)
+            sigma_y_reward = -np.log((cb[3] - tb[3])**2)
         else:
             raise ValueError(f'Invalid value "{self.reward_mode}" for reward_mode')
 
@@ -734,7 +744,7 @@ class ARESEACheetah(ARESEA):
         misalignment_values=None,
         action_mode="direct",
         include_beam_image_in_info=False,
-        magnet_init_mode="zero",
+        magnet_init_mode=None,
         magnet_init_values=None,
         reward_mode="differential",
         target_beam_mode="random",
