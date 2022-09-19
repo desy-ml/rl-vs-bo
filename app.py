@@ -14,6 +14,32 @@ from PyQt6.QtWidgets import (
 import pyqtgraph as pg
 
 
+class RLAgentEAController:
+    """Controller to connect `RLAgentEAWidget` to `ea_optimize.optimze`."""
+
+    def __init__(self, model, view):
+        self.optimize = model
+        self.view = view
+        self.connect_signals_to_slots()
+
+    def connect_signals_to_slots(self):
+        """
+        Connect signals and slots of view and controller to enable view to controll the
+        model.
+        """
+        for line_edit in self.view.target_line_edits.values():
+            line_edit.editingFinished.connect(self.update_target)
+
+    def update_target(self):
+        """Is called every time that the target beam parameters are changed."""
+        target = {
+            k: 1e-3 * float(self.view.target_line_edits[k].text())
+            for k in ["mu_x", "sigma_x", "mu_y", "sigma_y"]
+        }  # Convert from mm to m
+        self.view.set_target_entries(**target)
+        self.view.place_target_ellipse(**target)
+
+
 class RLAgentEAWidget(QWidget):
     """Widget for controlling EA RL agnet."""
 
@@ -32,9 +58,10 @@ class RLAgentEAWidget(QWidget):
         self.main_layout.addLayout(target_form_layout)
 
         self.target_line_edits = {
-            k: QLineEdit("0.00") for k in ["μx", "σx", "μy", "σy"]
+            k: QLineEdit("0.00") for k in ["mu_x", "sigma_x", "mu_y", "sigma_y"]
         }
-        for name in ["μx", "σx", "μy", "σy"]:
+        for name in ["mu_x", "sigma_x", "mu_y", "sigma_y"]:
+            name.replace("mu_", "μ").replace("sigma_", "σ")
             target_form_layout.addRow(f"{name} (mm)", self.target_line_edits[name])
 
         max_steps_checkbox = QCheckBox("Max steps")
@@ -78,7 +105,7 @@ class RLAgentEAWidget(QWidget):
 
         self.target_ellipse_item = pg.EllipseROI(
             (0, 0),
-            (0, 0),
+            (1e-10, 1e-10),  # Not zero to avoid division by zero
             pen=pg.mkPen("w", width=2),
             rotatable=False,
             movable=False,
@@ -90,7 +117,7 @@ class RLAgentEAWidget(QWidget):
 
         self.current_ellipse_item = pg.EllipseROI(
             (0, 0),
-            (0, 0),
+            (1e-10, 1e-10),  # Not zero to avoid division by zero
             pen=pg.mkPen("w", width=2),
             rotatable=False,
             movable=False,
@@ -128,9 +155,26 @@ class RLAgentEAWidget(QWidget):
         mu_x, sigma_x, mu_y, sigma_y = [
             x * 1e3 for x in (mu_x, sigma_x, mu_y, sigma_y)
         ]  # Convert to mm
+        sigma_x, sigma_y = [
+            max(x, 1e-10) for x in [sigma_x, sigma_y]
+        ]  # Prevent division by zero
 
         self.target_ellipse_item.setPos((mu_x - sigma_x, mu_y - sigma_y))
         self.target_ellipse_item.setSize((2 * sigma_x, 2 * sigma_y))
+
+    def set_target_entries(self, mu_x, sigma_x, mu_y, sigma_y):
+        """
+        Enter the given beam parameters into the line edits for the target beam
+        parameters.
+        """
+        mu_x, sigma_x, mu_y, sigma_y = [
+            x * 1e3 for x in (mu_x, sigma_x, mu_y, sigma_y)
+        ]  # Convert to mm
+
+        self.target_line_edits["mu_x"].setText(str(mu_x))
+        self.target_line_edits["sigma_x"].setText(str(sigma_x))
+        self.target_line_edits["mu_y"].setText(str(mu_y))
+        self.target_line_edits["sigma_y"].setText(str(sigma_y))
 
 
 class RLAgentEAWindow(QMainWindow):
@@ -154,6 +198,8 @@ def main():
 
     window = RLAgentEAWindow()
     window.show()
+
+    controller = RLAgentEAController(model=None, view=window.centralWidget())
 
     sys.exit(app.exec())
 
