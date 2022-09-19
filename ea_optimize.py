@@ -475,9 +475,9 @@ Beam after:
 
 Target beam:
     mu_x    = {target_beam[0] * 1e3: 5.4f} mm    (e = {target_threshold[0] * 1e3:5.4f} mm) {';)' if success[0] else ':/'}
-    sigma_x = {target_beam[1] * 1e3: 5.4f} mm    (e = {target_threshold[0] * 1e3:5.4f} mm) {';)' if success[1] else ':/'}
-    mu_y    = {target_beam[2] * 1e3: 5.4f} mm    (e = {target_threshold[0] * 1e3:5.4f} mm) {';)' if success[2] else ':/'}
-    sigma_y = {target_beam[3] * 1e3: 5.4f} mm    (e = {target_threshold[0] * 1e3:5.4f} mm) {';)' if success[3] else ':/'}
+    sigma_x = {target_beam[1] * 1e3: 5.4f} mm    (e = {target_threshold[1] * 1e3:5.4f} mm) {';)' if success[1] else ':/'}
+    mu_y    = {target_beam[2] * 1e3: 5.4f} mm    (e = {target_threshold[2] * 1e3:5.4f} mm) {';)' if success[2] else ':/'}
+    sigma_y = {target_beam[3] * 1e3: 5.4f} mm    (e = {target_threshold[3] * 1e3:5.4f} mm) {';)' if success[3] else ':/'}
 
 Final magnet settings:
     AREAMQZM1 strength = {final_magnets[0]: 8.4f} 1/m^2
