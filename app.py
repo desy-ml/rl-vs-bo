@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from qt_material import apply_stylesheet
 
-from ea_optimize import optimize
+from ea_optimize import optimize_async
 
 
 class RLAgentEAController:
@@ -68,7 +68,7 @@ class RLAgentEAController:
         """
         Get target and other configurations from the GUI and initiate the optimisation.
         """
-        optimize(
+        optimize_async(
             target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e3,
             target_sigma_x=float(self.view.target_line_edits["sigma_x"].text()) * 1e3,
             target_mu_y=float(self.view.target_line_edits["mu_y"].text()) * 1e3,

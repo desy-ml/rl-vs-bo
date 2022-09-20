@@ -1,4 +1,5 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from io import BytesIO
 
@@ -209,6 +210,12 @@ def optimize_donkey(
         )
 
     env.close()
+
+
+def optimize_async(*args, **kwargs):
+    """Run `optimize without blocking."""
+    executor = ThreadPoolExecutor(max_workers=1)
+    executor.submit(optimize, *args, **kwargs)
 
 
 class ARESEADOOCS(ARESEA):
