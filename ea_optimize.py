@@ -27,9 +27,9 @@ from utils import (
     send_to_elog,
 )
 
-import pydoocs
+# import pydoocs
 
-# import dummypydoocs as pydoocs
+import dummypydoocs as pydoocs
 
 
 def optimize(
@@ -98,14 +98,20 @@ def optimize(
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
 
+    callback = CallbackList(callback) if isinstance(callback, list) else callback
+    callback.setup(env, model, config)
+
     # Actual optimisation
     t_start = datetime.now()
     observation = env.reset()
+    callback.after_reset(observation)
     beam_image_before = env.get_beam_image()
     done = False
     while not done:
         action, _ = model.predict(observation, deterministic=True)
+        callback.before_step(action)
         observation, reward, done, info = env.step(action)
+        callback.after_step(observation, reward, done, info)
     t_end = datetime.now()
 
     recording = unwrap_wrapper(env, RecordEpisode)
@@ -604,3 +610,125 @@ def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
             screen_size[1] / 2 * 1e3,
         ),
     )
+
+
+class BaseCallback:
+    """
+    Base for callbacks to pass into `optimize` function and get information at different
+    points of the optimisation.
+
+    Makes available the environment as `self.env`, the model as `self.model` and the
+    config as `self.config`.
+    """
+
+    def setup(self, env, model, config):
+        """
+        Make `env`, `model` and `config` available as instance variables of the
+        callback.
+
+        You probably don't need to override this method!
+        """
+        self.env = env
+        self.model = model
+        self.config = config
+
+    def after_reset(self, obs):
+        """
+        Called after the environment's `reset` method has been called.
+        Return `True` tostop optimisation.
+        """
+        return False
+
+    def before_step(self, action):
+        """
+        Called before every step and after the action was computed.
+        Return `True` tostop optimisation.
+        """
+        return False
+
+    def after_step(self, obs, reward, done, info):
+        """
+        Called after every call to the environment's `step` function.
+        Return `True` tostop optimisation.
+        """
+        return False
+
+    def optimization_finished(self):
+        """Called after the optimization was finished."""
+        pass
+
+
+class CallbackList(BaseCallback):
+    """Combines multiple callbacks into one."""
+
+    def __init__(self, callbacks):
+        super().__init__()
+        self.callbacks = callbacks
+
+    def setup(self, env, model, config):
+        super().setup(env, model, config)
+
+        for callback in self.callbacks:
+            callback.setup(env, model, config)
+
+    def after_reset(self, obs):
+        return any([callback.after_reset(obs) for callback in self.callbacks])
+
+    def before_step(self, action):
+        return any([callback.before_step(action) for callback in self.callbacks])
+
+    def after_step(self, obs, reward, done, info):
+        return any(
+            [
+                callback.after_step(obs, reward, done, info)
+                for callback in self.callbacks
+            ]
+        )
+
+    def optimization_finished(self):
+        for callback in self.callbacks:
+            callback.optimization_finished()
+
+
+class TestCallback(BaseCallback):
+    """
+    Very simple callback for testing. Prints method name and arguments whenever callback
+    is called.
+    """
+
+    def setup(self, env, model, config):
+        super().setup(env, model, config)
+        print(
+            f"""setup
+    -> {env = }
+    -> {model = }
+    -> {config = }"""
+        )
+
+    def after_reset(self, obs):
+        print(
+            f"""after reset
+    -> {obs = }"""
+        )
+        return False
+
+    def before_step(self, action):
+        print(
+            f"""before_step
+    -> {action = }"""
+        )
+        return False
+
+    def after_step(self, obs, reward, done, info):
+        print(
+            f"""after_step
+    -> {obs = }
+    -> {reward = }
+    -> {done = }
+    -> {info = }"""
+        )
+        return False
+
+    def optimization_finished(self):
+        print(f"""optimization_finished""")
+        pass
