@@ -1,6 +1,7 @@
 import sys
 
 import numpy as np
+from PyQt6.QtGui import QDoubleValidator, QIntValidator
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -12,6 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 import pyqtgraph as pg
+from qt_material import apply_stylesheet
 
 
 class RLAgentEAController:
@@ -58,18 +60,26 @@ class RLAgentEAWidget(QWidget):
         self.main_layout.addLayout(target_form_layout)
 
         self.target_line_edits = {
-            k: QLineEdit("0.00") for k in ["mu_x", "sigma_x", "mu_y", "sigma_y"]
+            k: QLineEdit("0.0") for k in ["mu_x", "sigma_x", "mu_y", "sigma_y"]
         }
         for name in ["mu_x", "sigma_x", "mu_y", "sigma_y"]:
-            name.replace("mu_", "μ").replace("sigma_", "σ")
-            target_form_layout.addRow(f"{name} (mm)", self.target_line_edits[name])
+            pretty_name = name.replace("mu_", "μ").replace("sigma_", "σ")
+            target_form_layout.addRow(
+                f"{pretty_name} (mm)", self.target_line_edits[name]
+            )
+        for name in ["mu_x", "mu_y"]:
+            self.target_line_edits[name].setValidator(QDoubleValidator(-3, 3, -1))
+        for name in ["sigma_x", "sigma_y"]:
+            self.target_line_edits[name].setValidator(QDoubleValidator(0, 3, -1))
 
         max_steps_checkbox = QCheckBox("Max steps")
         max_steps_line_edit = QLineEdit("25")
+        max_steps_line_edit.setValidator(QIntValidator(0, 300))
         target_form_layout.addRow(max_steps_checkbox, max_steps_line_edit)
 
         threshold_checkbox = QCheckBox("Threshold (mm)")
         threshold_line_edit = QLineEdit("0.01")
+        threshold_line_edit.setValidator(QDoubleValidator(0, 3.0, -1))
         target_form_layout.addRow(threshold_checkbox, threshold_line_edit)
 
         start_stop_button = QPushButton("Optimise")
@@ -195,6 +205,7 @@ class RLAgentEAWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Force the style to be the same on all OSs
+    apply_stylesheet(app, theme="dark_amber.xml")
 
     window = RLAgentEAWindow()
     window.show()
