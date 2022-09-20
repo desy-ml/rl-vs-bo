@@ -1,6 +1,7 @@
 import sys
 
 import numpy as np
+import pyqtgraph as pg
 from PyQt6.QtGui import QDoubleValidator, QIntValidator
 from PyQt6.QtWidgets import (
     QApplication,
@@ -12,7 +13,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-import pyqtgraph as pg
 from qt_material import apply_stylesheet
 
 from ea_optimize import optimize

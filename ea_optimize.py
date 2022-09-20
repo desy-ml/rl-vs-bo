@@ -1,7 +1,11 @@
+import time
 from datetime import datetime
 from io import BytesIO
-import time
 
+# import pydoocs
+import dummypydoocs as pydoocs
+import matplotlib.pyplot as plt
+import numpy as np
 from gym.wrappers import (
     FilterObservation,
     FlattenObservation,
@@ -10,8 +14,6 @@ from gym.wrappers import (
     RescaleAction,
     TimeLimit,
 )
-import matplotlib.pyplot as plt
-import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3 import PPO, TD3
 from stable_baselines3.common.env_util import unwrap_wrapper

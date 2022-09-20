@@ -1,15 +1,15 @@
 import base64
-from datetime import datetime, timedelta
 import os
 import pickle
 import subprocess
+from datetime import datetime, timedelta
 
 import gym
-from gym import spaces
 import numpy as np
+import wandb
+from gym import spaces
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-import wandb
 
 
 def remove_if_exists(path):
