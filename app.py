@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import (
 import pyqtgraph as pg
 from qt_material import apply_stylesheet
 
+from ea_optimize import optimize
+
 
 class RLAgentEAController:
     """Controller to connect `RLAgentEAWidget` to `ea_optimize.optimze`."""
@@ -30,14 +32,20 @@ class RLAgentEAController:
         Connect signals and slots of view and controller to enable view to controll the
         model.
         """
+        # Connect target line edits to target ellipse
         for line_edit in self.view.target_line_edits.values():
             line_edit.editingFinished.connect(self.update_target)
+
+        # Connect max steps and threshold checkboxes to their line edit enabledness
         self.view.max_steps_checkbox.stateChanged.connect(
             self.view.max_steps_line_edit.setEnabled
         )
         self.view.threshold_checkbox.stateChanged.connect(
             self.view.threshold_line_edit.setEnabled
         )
+
+        # Connect optimise button to starting the optimisation function
+        self.view.start_stop_button.clicked.connect(self.start_optimization)
 
     def setup_initial_state(self):
         """Put app into state expected at start-up."""
@@ -55,6 +63,35 @@ class RLAgentEAController:
         }  # Convert from mm to m
         self.view.set_target_entries(**target)
         self.view.place_target_ellipse(**target)
+
+    def start_optimization(self):
+        """
+        Get target and other configurations from the GUI and initiate the optimisation.
+        """
+        optimize(
+            target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e3,
+            target_sigma_x=float(self.view.target_line_edits["sigma_x"].text()) * 1e3,
+            target_mu_y=float(self.view.target_line_edits["mu_y"].text()) * 1e3,
+            target_sigma_y=float(self.view.target_line_edits["sigma_y"].text()) * 1e3,
+            target_mu_x_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            if self.view.threshold_checkbox.isChecked()
+            else 3.3198e-6,
+            target_mu_y_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            if self.view.threshold_checkbox.isChecked()
+            else 3.3198e-6,
+            target_sigma_x_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            if self.view.threshold_checkbox.isChecked()
+            else 3.3198e-6,
+            target_sigma_y_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            if self.view.threshold_checkbox.isChecked()
+            else 3.3198e-6,
+            max_steps=int(self.view.max_steps_line_edit.text())
+            if self.view.max_steps_checkbox.isChecked()
+            else None,
+            model_name="chocolate-totem-247",
+            logbook=True,
+            callback=None,
+        )
 
 
 class RLAgentEAWidget(QWidget):
@@ -97,8 +134,8 @@ class RLAgentEAWidget(QWidget):
         self.threshold_line_edit.setValidator(QDoubleValidator(0, 3.0, -1))
         target_form_layout.addRow(self.threshold_checkbox, self.threshold_line_edit)
 
-        start_stop_button = QPushButton("Optimise")
-        target_form_layout.addRow(start_stop_button)
+        self.start_stop_button = QPushButton("Optimise")
+        target_form_layout.addRow(self.start_stop_button)
 
     def create_screen_view(self):
         """Make view of screen."""
