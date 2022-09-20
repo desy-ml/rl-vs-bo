@@ -23,6 +23,7 @@ class RLAgentEAController:
         self.optimize = model
         self.view = view
         self.connect_signals_to_slots()
+        self.setup_initial_state()
 
     def connect_signals_to_slots(self):
         """
@@ -31,6 +32,20 @@ class RLAgentEAController:
         """
         for line_edit in self.view.target_line_edits.values():
             line_edit.editingFinished.connect(self.update_target)
+        self.view.max_steps_checkbox.stateChanged.connect(
+            self.view.max_steps_line_edit.setEnabled
+        )
+        self.view.threshold_checkbox.stateChanged.connect(
+            self.view.threshold_line_edit.setEnabled
+        )
+
+    def setup_initial_state(self):
+        """Put app into state expected at start-up."""
+        self.view.max_steps_checkbox.setChecked(True)
+        self.view.threshold_checkbox.setChecked(False)
+        self.view.threshold_line_edit.setEnabled(
+            False
+        )  # Hacky: I would prefer this to happen via the signal
 
     def update_target(self):
         """Is called every time that the target beam parameters are changed."""
@@ -72,15 +87,15 @@ class RLAgentEAWidget(QWidget):
         for name in ["sigma_x", "sigma_y"]:
             self.target_line_edits[name].setValidator(QDoubleValidator(0, 3, -1))
 
-        max_steps_checkbox = QCheckBox("Max steps")
-        max_steps_line_edit = QLineEdit("25")
-        max_steps_line_edit.setValidator(QIntValidator(0, 300))
-        target_form_layout.addRow(max_steps_checkbox, max_steps_line_edit)
+        self.max_steps_checkbox = QCheckBox("Max steps")
+        self.max_steps_line_edit = QLineEdit("25")
+        self.max_steps_line_edit.setValidator(QIntValidator(0, 300))
+        target_form_layout.addRow(self.max_steps_checkbox, self.max_steps_line_edit)
 
-        threshold_checkbox = QCheckBox("Threshold (mm)")
-        threshold_line_edit = QLineEdit("0.01")
-        threshold_line_edit.setValidator(QDoubleValidator(0, 3.0, -1))
-        target_form_layout.addRow(threshold_checkbox, threshold_line_edit)
+        self.threshold_checkbox = QCheckBox("Threshold (mm)")
+        self.threshold_line_edit = QLineEdit("0.01")
+        self.threshold_line_edit.setValidator(QDoubleValidator(0, 3.0, -1))
+        target_form_layout.addRow(self.threshold_checkbox, self.threshold_line_edit)
 
         start_stop_button = QPushButton("Optimise")
         target_form_layout.addRow(start_stop_button)
