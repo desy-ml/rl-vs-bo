@@ -1,0 +1,13 @@
+git+https://github.com/desy-ml/cheetah.git@v0.5.13
+git+https://gitlab.desy.de/msk-ipc/dummy-pydoocs.git
+gym
+jupyter
+matplotlib
+numpy
+opencv-python
+PyQt6
+pyyaml
+pygqtgraph
+scipy
+stable-baselines3
+wandb
