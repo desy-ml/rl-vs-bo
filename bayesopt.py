@@ -1,5 +1,5 @@
 import torch
-from botorch.models import SingleTaskGP, ModelListGP
+from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_model
 from botorch.acquisition import (
     UpperConfidenceBound,
@@ -8,23 +8,9 @@ from botorch.acquisition import (
 )
 from botorch.optim import optimize_acqf
 from gpytorch.mlls import ExactMarginalLogLikelihood
-import cheetah
-import cv2
 import gym
-from gym import spaces
 from gym.spaces.utils import unflatten
-from gym.wrappers import (
-    FilterObservation,
-    FlattenObservation,
-    FrameStack,
-    RecordVideo,
-    RescaleAction,
-    TimeLimit,
-)
 import numpy as np
-from ea_train import ARESEACheetah, make_env
-import matplotlib.pyplot as plt
-import time
 
 config = {
     "action_mode": "direct",
@@ -89,15 +75,6 @@ def calculate_objective(env, observation, reward, obj="reward"):
             logl1 = -np.log(np.abs(cb - tb))
             # resolution limit -log(3e-6) ~ 12.5
             objective = np.clip(logl1, None, 12.5).sum()
-        elif obj == "clipped_l2":
-            mu_x_reward = -np.log((cb[0] - tb[0]) ** 2)
-            sigma_x_reward = -np.log((cb[1] - tb[1]) ** 2)
-            mu_y_reward = -np.log((cb[2] - tb[2]) ** 2)
-            sigma_y_reward = -np.log((cb[3] - tb[3]) ** 2)
-            components = np.array(
-                [mu_x_reward, sigma_x_reward, mu_y_reward, sigma_y_reward]
-            )
-            objective = np.clip(components, None, 25).sum()
 
         elif obj == "worstl1":
             l1 = -np.abs(cb - tb)
