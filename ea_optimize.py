@@ -5,6 +5,7 @@ from io import BytesIO
 
 # import pydoocs
 import dummypydoocs as pydoocs
+import gym
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.wrappers import (
@@ -55,6 +56,8 @@ def optimize(
     # Load the model
     model = PPO.load(f"models/{model_name}/model")
 
+    callback = CallbackList(callback) if isinstance(callback, list) else callback
+
     # Create the environment
     env = ARESEADOOCS(
         action_mode=config["action_mode"],
@@ -84,6 +87,8 @@ def optimize(
     )
     if max_steps is not None:
         env = TimeLimit(env, max_steps)
+    if callback is not None:
+        env = OptimizeFunctionCallback(env, callback)
     env = RecordEpisode(env)
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
@@ -99,20 +104,14 @@ def optimize(
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
 
-    callback = CallbackList(callback) if isinstance(callback, list) else callback
-    callback.setup(env, model, config)
-
     # Actual optimisation
     t_start = datetime.now()
     observation = env.reset()
-    callback.after_reset(observation)
     beam_image_before = env.get_beam_image()
     done = False
     while not done:
         action, _ = model.predict(observation, deterministic=True)
-        callback.before_step(action)
         observation, reward, done, info = env.step(action)
-        callback.after_step(observation, reward, done, info)
     t_end = datetime.now()
 
     recording = unwrap_wrapper(env, RecordEpisode)
@@ -623,44 +622,20 @@ class BaseCallback:
     """
     Base for callbacks to pass into `optimize` function and get information at different
     points of the optimisation.
-
-    Makes available the environment as `self.env`, the model as `self.model` and the
-    config as `self.config`.
     """
 
-    def setup(self, env, model, config):
-        """
-        Make `env`, `model` and `config` available as instance variables of the
-        callback.
+    def environment_reset(self, obs):
+        """Called after the environment's `reset` method has been called."""
+        pass
 
-        You probably don't need to override this method!
-        """
-        self.env = env
-        self.model = model
-        self.config = config
-
-    def after_reset(self, obs):
-        """
-        Called after the environment's `reset` method has been called.
-        Return `True` tostop optimisation.
-        """
-        return False
-
-    def before_step(self, action):
-        """
-        Called before every step and after the action was computed.
-        Return `True` tostop optimisation.
-        """
-        return False
-
-    def after_step(self, obs, reward, done, info):
+    def environment_step(self, obs, reward, done, info):
         """
         Called after every call to the environment's `step` function.
         Return `True` tostop optimisation.
         """
         return False
 
-    def optimization_finished(self):
+    def environment_close(self):
         """Called after the optimization was finished."""
         pass
 
@@ -672,29 +647,21 @@ class CallbackList(BaseCallback):
         super().__init__()
         self.callbacks = callbacks
 
-    def setup(self, env, model, config):
-        super().setup(env, model, config)
-
+    def environment_reset(self, obs):
         for callback in self.callbacks:
-            callback.setup(env, model, config)
+            callback.environment_reset(obs)
 
-    def after_reset(self, obs):
-        return any([callback.after_reset(obs) for callback in self.callbacks])
-
-    def before_step(self, action):
-        return any([callback.before_step(action) for callback in self.callbacks])
-
-    def after_step(self, obs, reward, done, info):
+    def environment_step(self, obs, reward, done, info):
         return any(
             [
-                callback.after_step(obs, reward, done, info)
+                callback.environment_step(obs, reward, done, info)
                 for callback in self.callbacks
             ]
         )
 
-    def optimization_finished(self):
+    def environment_close(self):
         for callback in self.callbacks:
-            callback.optimization_finished()
+            callback.environment_close()
 
 
 class TestCallback(BaseCallback):
@@ -703,32 +670,15 @@ class TestCallback(BaseCallback):
     is called.
     """
 
-    def setup(self, env, model, config):
-        super().setup(env, model, config)
+    def environment_reset(self, obs):
         print(
-            f"""setup
-    -> {env = }
-    -> {model = }
-    -> {config = }"""
-        )
-
-    def after_reset(self, obs):
-        print(
-            f"""after reset
+            f"""environment_reset
     -> {obs = }"""
         )
-        return False
 
-    def before_step(self, action):
+    def environment_step(self, obs, reward, done, info):
         print(
-            f"""before_step
-    -> {action = }"""
-        )
-        return False
-
-    def after_step(self, obs, reward, done, info):
-        print(
-            f"""after_step
+            f"""environment_step
     -> {obs = }
     -> {reward = }
     -> {done = }
@@ -736,6 +686,27 @@ class TestCallback(BaseCallback):
         )
         return False
 
-    def optimization_finished(self):
-        print(f"""optimization_finished""")
-        pass
+    def environment_close(self):
+        print(f"""environment_close""")
+
+
+class OptimizeFunctionCallback(gym.Wrapper):
+    """Wrapper to send screen image, beam parameters and optimisation end to GUI."""
+
+    def __init__(self, env, callback):
+        super().__init__(env)
+        self.callback = callback
+
+    def reset(self):
+        obs = super().reset()
+        self.callback.environment_reset(obs)
+        return obs
+
+    def step(self, action):
+        obs, reward, done, info = super().step(action)
+        self.callback.environment_step(obs, reward, done, info)
+        return obs, reward, done, info
+
+    def close(self):
+        super().close()
+        self.callback.environment_close()

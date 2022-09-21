@@ -15,10 +15,10 @@ from PyQt6.QtWidgets import (
 )
 from qt_material import apply_stylesheet
 
-from ea_optimize import optimize_async
+from ea_optimize import BaseCallback, optimize_async
 
 
-class RLAgentEAController:
+class RLAgentEAController(BaseCallback):
     """Controller to connect `RLAgentEAWidget` to `ea_optimize.optimze`."""
 
     def __init__(self, model, view):
@@ -68,6 +68,8 @@ class RLAgentEAController:
         """
         Get target and other configurations from the GUI and initiate the optimisation.
         """
+        self.view.set_configuration_gui_enabled(False)
+
         optimize_async(
             target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e3,
             target_sigma_x=float(self.view.target_line_edits["sigma_x"].text()) * 1e3,
@@ -90,8 +92,27 @@ class RLAgentEAController:
             else None,
             model_name="chocolate-totem-247",
             logbook=True,
-            callback=None,
+            callback=self,  # [self, TestCallback()],
         )
+
+    def environment_reset(self, obs):
+        img = None  # TODO get beam image (for example via self.env)
+        # TODO write image to GUI
+
+        mu_x, sigma_x, mu_y, sigma_y = obs["beam"]
+        # TODO write parameters to GUI
+
+    def environment_step(self, obs, reward, done, info):
+        img = info["beam_image"]
+        self.view.show_screen_image(img)
+
+        self.view.place_current_ellipse(*obs["beam"])
+
+        stop_requested = False  # TODO Test if stop was pressed
+        return stop_requested
+
+    def environment_close(self):
+        self.view.set_configuration_gui_enabled(True)
 
 
 class RLAgentEAWidget(QWidget):
@@ -180,7 +201,7 @@ class RLAgentEAWidget(QWidget):
         self.current_ellipse_item = pg.EllipseROI(
             (0, 0),
             (1e-10, 1e-10),  # Not zero to avoid division by zero
-            pen=pg.mkPen("w", width=2),
+            pen=pg.mkPen("r", width=2),
             rotatable=False,
             movable=False,
             resizable=False,
@@ -200,7 +221,7 @@ class RLAgentEAWidget(QWidget):
             np.flipud(img),
             axisOrder="row-major",
             rect=self.screen_rect,
-            autoLevels=False,
+            autoLevels=True,
         )
 
     def place_current_ellipse(self, mu_x, sigma_x, mu_y, sigma_y):
@@ -237,6 +258,16 @@ class RLAgentEAWidget(QWidget):
         self.target_line_edits["sigma_x"].setText(str(sigma_x))
         self.target_line_edits["mu_y"].setText(str(mu_y))
         self.target_line_edits["sigma_y"].setText(str(sigma_y))
+
+    def set_configuration_gui_enabled(self, enabled):
+        """Enable for disable GUI elements for configuring optimisation run."""
+        for line_edit in self.target_line_edits.values():
+            line_edit.setEnabled(enabled)
+        self.max_steps_checkbox.setEnabled(enabled)
+        self.max_steps_line_edit.setEnabled(enabled)
+        self.threshold_checkbox.setEnabled(enabled)
+        self.threshold_line_edit.setEnabled(enabled)
+        self.start_stop_button.setEnabled(enabled)
 
 
 class RLAgentEAWindow(QMainWindow):
