@@ -159,6 +159,8 @@ def optimize_donkey(
     # Load the model
     model = TD3.load(f"models/{model_name}/model")
 
+    callback = CallbackList(callback) if isinstance(callback, list) else callback
+
     # Create the environment
     env = ARESEADOOCS(
         action_mode="delta",
@@ -176,6 +178,8 @@ def optimize_donkey(
     )
     if max_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_steps)
+    if callback is not None:
+        env = OptimizeFunctionCallback(env, callback)
     env = RecordEpisode(env)
     env = RecordVideo(env, f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = FlattenObservation(env)
@@ -215,6 +219,8 @@ def optimize_async(*args, **kwargs):
     """Run `optimize without blocking."""
     executor = ThreadPoolExecutor(max_workers=1)
     executor.submit(optimize, *args, **kwargs)
+    # kwargs["model_name"] = "polished-donkey-996"
+    # executor.submit(optimize_donkey, *args, **kwargs)
 
 
 class ARESEADOOCS(ARESEA):
