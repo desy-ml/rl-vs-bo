@@ -7,7 +7,7 @@ numpy
 opencv-python
 PyQt6
 pyyaml
-pygqtgraph
+pyqtgraph
 scipy
 stable-baselines3
 wandb
