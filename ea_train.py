@@ -404,11 +404,16 @@ class ARESEA(gym.Env):
             sigma_x_reward = -np.log(abs((cb[1] - tb[1])))
             mu_y_reward = -np.log(abs((cb[2] - tb[2])))
             sigma_y_reward = -np.log(abs((cb[3] - tb[3])))
-        elif self.reward_mode == "logl2":
-            mu_x_reward = -np.log((cb[0] - tb[0]) ** 2)
-            sigma_x_reward = -np.log((cb[1] - tb[1]) ** 2)
-            mu_y_reward = -np.log((cb[2] - tb[2]) ** 2)
-            sigma_y_reward = -np.log((cb[3] - tb[3]) ** 2)
+        elif self.reward_mode == "l1":
+            mu_x_reward = -abs(cb[0] - tb[0])
+            sigma_x_reward = -abs(cb[1] - tb[1])
+            mu_y_reward = -abs(cb[2] - tb[2])
+            sigma_y_reward = -abs(cb[3] - tb[3])
+        elif self.reward_mode == "l2":
+            mu_x_reward = -((cb[0] - tb[0]) ** 2)
+            sigma_x_reward = -((cb[1] - tb[1]) ** 2)
+            mu_y_reward = -((cb[2] - tb[2]) ** 2)
+            sigma_y_reward = -((cb[3] - tb[3]) ** 2)
         else:
             raise ValueError(f'Invalid value "{self.reward_mode}" for reward_mode')
 
