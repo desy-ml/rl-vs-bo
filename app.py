@@ -71,20 +71,20 @@ class RLAgentEAController(BaseCallback):
         self.view.set_configuration_gui_enabled(False)
 
         optimize_async(
-            target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e3,
-            target_sigma_x=float(self.view.target_line_edits["sigma_x"].text()) * 1e3,
-            target_mu_y=float(self.view.target_line_edits["mu_y"].text()) * 1e3,
-            target_sigma_y=float(self.view.target_line_edits["sigma_y"].text()) * 1e3,
-            target_mu_x_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e-3,
+            target_sigma_x=float(self.view.target_line_edits["sigma_x"].text()) * 1e-3,
+            target_mu_y=float(self.view.target_line_edits["mu_y"].text()) * 1e-3,
+            target_sigma_y=float(self.view.target_line_edits["sigma_y"].text()) * 1e-3,
+            target_mu_x_threshold=float(self.view.threshold_line_edit.text()) * 1e-3
             if self.view.threshold_checkbox.isChecked()
             else 3.3198e-6,
-            target_mu_y_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            target_mu_y_threshold=float(self.view.threshold_line_edit.text()) * 1e-3
             if self.view.threshold_checkbox.isChecked()
             else 3.3198e-6,
-            target_sigma_x_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            target_sigma_x_threshold=float(self.view.threshold_line_edit.text()) * 1e-3
             if self.view.threshold_checkbox.isChecked()
             else 3.3198e-6,
-            target_sigma_y_threshold=float(self.view.threshold_line_edit.text()) * 1e3
+            target_sigma_y_threshold=float(self.view.threshold_line_edit.text()) * 1e-3
             if self.view.threshold_checkbox.isChecked()
             else 3.3198e-6,
             max_steps=int(self.view.max_steps_line_edit.text())

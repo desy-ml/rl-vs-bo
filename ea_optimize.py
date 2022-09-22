@@ -3,8 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from io import BytesIO
 
-# import pydoocs
-import dummypydoocs as pydoocs
+import pydoocs
+# import dummypydoocs as pydoocs
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,10 +28,6 @@ from utils import (
     RecordEpisode,
     send_to_elog,
 )
-
-# import pydoocs
-
-import dummypydoocs as pydoocs
 
 
 def optimize(
@@ -218,9 +214,9 @@ def optimize_donkey(
 def optimize_async(*args, **kwargs):
     """Run `optimize without blocking."""
     executor = ThreadPoolExecutor(max_workers=1)
-    executor.submit(optimize, *args, **kwargs)
-    # kwargs["model_name"] = "polished-donkey-996"
-    # executor.submit(optimize_donkey, *args, **kwargs)
+    # executor.submit(optimize, *args, **kwargs)
+    kwargs["model_name"] = "polished-donkey-996"
+    executor.submit(optimize_donkey, *args, **kwargs)
 
 
 class ARESEADOOCS(ARESEA):
