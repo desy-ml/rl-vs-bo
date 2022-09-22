@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 
-# Script for running the Jupyter notebook from the jddd Cockpit
+# Script for running the RL Agent EA app from the ARES cockpit
 
 . /home/aresoper/.profile
 conda activate /home/kaiserja/.conda/envs/rl39ng
 cd /home/aresoper/user/kaiserja/ares-ea-v2
-jupyter lab ea_rl_agent_v1.ipynb
+python app.py
