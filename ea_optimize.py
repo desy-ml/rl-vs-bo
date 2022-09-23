@@ -724,7 +724,7 @@ class OptimizeFunctionCallback(gym.Wrapper):
 
     def step(self, action):
         obs, reward, done, info = super().step(action)
-        self.callback.environment_step(obs, reward, done, info)
+        done = done or self.callback.environment_step(obs, reward, done, info)
         return obs, reward, done, info
 
     def close(self):

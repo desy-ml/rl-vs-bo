@@ -29,6 +29,8 @@ class RLAgentEAController(BaseCallback):
         self.connect_signals_to_slots()
         self.setup_initial_state()
 
+        self.is_optimization_running = False
+
     def connect_signals_to_slots(self):
         """
         Connect signals and slots of view and controller to enable view to controll the
@@ -47,7 +49,7 @@ class RLAgentEAController(BaseCallback):
         )
 
         # Connect optimise button to starting the optimisation function
-        self.view.start_stop_button.clicked.connect(self.start_optimization)
+        self.view.start_stop_button.clicked.connect(self.start_stop_button_clicked)
 
     def setup_initial_state(self):
         """Put app into state expected at start-up."""
@@ -66,11 +68,21 @@ class RLAgentEAController(BaseCallback):
         self.view.set_target_entries(**target)
         self.view.place_target_ellipse(**target)
 
+    def start_stop_button_clicked(self):
+        if self.is_optimization_running:
+            self.stop_optimization()
+        else:
+            self.start_optimization()
+
     def start_optimization(self):
         """
         Get target and other configurations from the GUI and initiate the optimisation.
         """
         self.enable_configuration_gui(False)
+        self.view.start_stop_button.setText("Stop")
+
+        self.is_optimization_running = True
+        self.stop_optimization_requested = False
 
         optimize_async(
             target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e-3,
@@ -97,6 +109,13 @@ class RLAgentEAController(BaseCallback):
             callback=self,  # [self, TestCallback()],
         )
 
+    def stop_optimization(self):
+        """
+        Request a stop of the optimisation. Note that the optimisation only stops by the
+        next stop.
+        """
+        self.stop_optimization_requested = True
+
     def enable_configuration_gui(self, enable):
         """Enable for disable GUI elements for configuring optimisation run."""
         for line_edit in self.view.target_line_edits.values():
@@ -107,7 +126,6 @@ class RLAgentEAController(BaseCallback):
         self.view.threshold_checkbox.setEnabled(enable)
         if self.view.threshold_checkbox.isChecked():
             self.view.threshold_line_edit.setEnabled(enable)
-        self.view.start_stop_button.setEnabled(enable)
 
     def environment_reset(self, obs):
         self.view.show_screen_image(self.env.get_beam_image())
@@ -139,11 +157,13 @@ class RLAgentEAController(BaseCallback):
         self.optimization_step += 1
         self.view.display_step(self.optimization_step)
 
-        stop_requested = False  # TODO Test if stop was pressed
-        return stop_requested
+        return self.stop_optimization_requested
 
     def environment_close(self):
         self.enable_configuration_gui(True)
+        self.view.start_stop_button.setText("Optimise")
+
+        self.is_optimization_running = False
 
 
 class RLAgentEAWidget(QWidget):
