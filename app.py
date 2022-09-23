@@ -68,7 +68,7 @@ class RLAgentEAController(BaseCallback):
         """
         Get target and other configurations from the GUI and initiate the optimisation.
         """
-        self.view.set_configuration_gui_enabled(False)
+        self.enable_configuration_gui(False)
 
         optimize_async(
             target_mu_x=float(self.view.target_line_edits["mu_x"].text()) * 1e-3,
@@ -95,6 +95,18 @@ class RLAgentEAController(BaseCallback):
             callback=self,  # [self, TestCallback()],
         )
 
+    def enable_configuration_gui(self, enable):
+        """Enable for disable GUI elements for configuring optimisation run."""
+        for line_edit in self.view.target_line_edits.values():
+            line_edit.setEnabled(enable)
+        self.view.max_steps_checkbox.setEnabled(enable)
+        if self.view.max_steps_checkbox.isChecked():
+            self.view.max_steps_line_edit.setEnabled(enable)
+        self.view.threshold_checkbox.setEnabled(enable)
+        if self.view.threshold_checkbox.isChecked():
+            self.view.threshold_line_edit.setEnabled(enable)
+        self.view.start_stop_button.setEnabled(enable)
+
     def environment_reset(self, obs):
         img = None  # TODO get beam image (for example via self.env)
         # TODO write image to GUI
@@ -112,7 +124,7 @@ class RLAgentEAController(BaseCallback):
         return stop_requested
 
     def environment_close(self):
-        self.view.set_configuration_gui_enabled(True)
+        self.enable_configuration_gui(True)
 
 
 class RLAgentEAWidget(QWidget):
@@ -258,16 +270,6 @@ class RLAgentEAWidget(QWidget):
         self.target_line_edits["sigma_x"].setText(str(sigma_x))
         self.target_line_edits["mu_y"].setText(str(mu_y))
         self.target_line_edits["sigma_y"].setText(str(sigma_y))
-
-    def set_configuration_gui_enabled(self, enabled):
-        """Enable for disable GUI elements for configuring optimisation run."""
-        for line_edit in self.target_line_edits.values():
-            line_edit.setEnabled(enabled)
-        self.max_steps_checkbox.setEnabled(enabled)
-        self.max_steps_line_edit.setEnabled(enabled)
-        self.threshold_checkbox.setEnabled(enabled)
-        self.threshold_line_edit.setEnabled(enabled)
-        self.start_stop_button.setEnabled(enabled)
 
 
 class RLAgentEAWindow(QMainWindow):
