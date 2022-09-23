@@ -11,4 +11,5 @@ pyyaml
 pyqtgraph
 scipy
 stable-baselines3
+tensorboard
 wandb
