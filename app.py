@@ -110,9 +110,8 @@ class RLAgentEAController(BaseCallback):
         self.view.start_stop_button.setEnabled(enable)
 
     def environment_reset(self, obs):
-        img = self.env.get_beam_image()
-        self.view.show_screen_image(img)
-
+        self.view.show_screen_image(self.env.get_beam_image())
+        self.view.place_current_ellipse(*obs["beam"])
         self.view.display_current_beam_parameters(*obs["beam"])
 
         # Find parameter farthest from target and display
