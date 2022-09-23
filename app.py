@@ -198,13 +198,13 @@ class RLAgentEAWidget(QWidget):
         grid_layout = QGridLayout()
         self.main_layout.addLayout(grid_layout)
 
-        self.step_label = QLabel("Step: -")
+        self.step_label = QLabel("Step = -")
         grid_layout.addWidget(self.step_label, 1, 1)
-        self.delta_label = QLabel("Δp: - mm (-)")
+        self.delta_label = QLabel("Δp = - mm (-)")
         grid_layout.addWidget(self.delta_label, 2, 1)
 
         self.current_labels = {
-            name: QLabel(f"{name.replace('mu_', 'μ').replace('sigma_', 'σ')}: - mm")
+            name: QLabel(f"{name.replace('mu_', 'μ').replace('sigma_', 'σ')} = - mm")
             for name in ["mu_x", "sigma_x", "mu_y", "sigma_y"]
         }
         grid_layout.addWidget(self.current_labels["mu_x"], 1, 2)
@@ -315,7 +315,7 @@ class RLAgentEAWidget(QWidget):
 
     def display_step(self, step):
         """Show that the current step is `step`."""
-        self.step_label.setText(f"Step: {step}")
+        self.step_label.setText(f"Step = {step}")
 
     def display_delta_threshold(self, delta, name):
         """
@@ -324,7 +324,7 @@ class RLAgentEAWidget(QWidget):
         """
         delta *= 1e3
         self.delta_label.setText(
-            f"Δp: {delta:.3f} mm ({name.replace('mu_', 'μ').replace('sigma_', 'σ')})"
+            f"Δp = {delta:.3f} mm ({name.replace('mu_', 'μ').replace('sigma_', 'σ')})"
         )
 
     def display_current_beam_parameters(self, mu_x, sigma_x, mu_y, sigma_y):
@@ -332,7 +332,7 @@ class RLAgentEAWidget(QWidget):
         values = [x * 1e3 for x in [mu_x, sigma_x, mu_y, sigma_y]]
         for name, value in zip(names, values):
             self.current_labels[name].setText(
-                f"{name.replace('mu_', 'μ').replace('sigma_', 'σ')}: {value:.3f} mm"
+                f"{name.replace('mu_', 'μ').replace('sigma_', 'σ')} = {value:.3f} mm"
             )
 
 
