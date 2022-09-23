@@ -122,6 +122,9 @@ class RLAgentEAController(BaseCallback):
         namemaxdelta = ["mu_x", "sigma_x", "mu_y", "sigma_y"][argmaxdelta]
         self.view.display_delta_threshold(maxdelta, namemaxdelta)
 
+        self.optimization_step = 0
+        self.view.display_step(self.optimization_step)
+
     def environment_step(self, obs, reward, done, info):
         self.view.show_screen_image(info["beam_image"])
         self.view.place_current_ellipse(*obs["beam"])
@@ -133,6 +136,9 @@ class RLAgentEAController(BaseCallback):
         maxdelta = deltas[argmaxdelta]
         namemaxdelta = ["mu_x", "sigma_x", "mu_y", "sigma_y"][argmaxdelta]
         self.view.display_delta_threshold(maxdelta, namemaxdelta)
+
+        self.optimization_step += 1
+        self.view.display_step(self.optimization_step)
 
         stop_requested = False  # TODO Test if stop was pressed
         return stop_requested
