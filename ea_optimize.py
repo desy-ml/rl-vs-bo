@@ -100,6 +100,8 @@ def optimize(
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
 
+    callback.env = env
+
     # Actual optimisation
     t_start = datetime.now()
     observation = env.reset()
@@ -182,6 +184,8 @@ def optimize_donkey(
     env = PolishedDonkeyCompatibility(env)
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
     env = RescaleAction(env, -1, 1)
+
+    callback.env = env
 
     # Actual optimisation
     t_start = datetime.now()
@@ -624,7 +628,11 @@ class BaseCallback:
     """
     Base for callbacks to pass into `optimize` function and get information at different
     points of the optimisation.
+    Provides access to the environment via `self.env`.
     """
+
+    def __init__(self):
+        self.env = None
 
     def environment_reset(self, obs):
         """Called after the environment's `reset` method has been called."""
@@ -648,6 +656,16 @@ class CallbackList(BaseCallback):
     def __init__(self, callbacks):
         super().__init__()
         self.callbacks = callbacks
+
+    @property
+    def env(self):
+        return self._env
+
+    @env.setter
+    def env(self, value):
+        self._env = value
+        for callback in self.callbacks:
+            callback.env = self._env
 
     def environment_reset(self, obs):
         for callback in self.callbacks:

@@ -110,8 +110,8 @@ class RLAgentEAController(BaseCallback):
         self.view.start_stop_button.setEnabled(enable)
 
     def environment_reset(self, obs):
-        img = None  # TODO get beam image (for example via self.env)
-        # TODO write image to GUI
+        img = self.env.get_beam_image()
+        self.view.show_screen_image(img)
 
         self.view.display_current_beam_parameters(*obs["beam"])
 
