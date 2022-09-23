@@ -248,9 +248,9 @@ class RLAgentEAWidget(QWidget):
             movable=False,
             resizable=False,
         )
+        plot_widget.addItem(self.target_ellipse_item)
         for handle in self.target_ellipse_item.getHandles():
             self.target_ellipse_item.removeHandle(handle)
-        plot_widget.addItem(self.target_ellipse_item)
 
         self.current_ellipse_item = pg.EllipseROI(
             (0, 0),
@@ -260,9 +260,9 @@ class RLAgentEAWidget(QWidget):
             movable=False,
             resizable=False,
         )
+        plot_widget.addItem(self.current_ellipse_item)
         for handle in self.current_ellipse_item.getHandles():
             self.current_ellipse_item.removeHandle(handle)
-        plot_widget.addItem(self.current_ellipse_item)
 
         cmap = pg.colormap.get("CET-L9")
         bar = pg.ColorBarItem(colorMap=cmap, width=10)
