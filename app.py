@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QFormLayout,
+    QGridLayout,
+    QLabel,
     QLineEdit,
     QMainWindow,
     QPushButton,
@@ -111,14 +113,26 @@ class RLAgentEAController(BaseCallback):
         img = None  # TODO get beam image (for example via self.env)
         # TODO write image to GUI
 
-        mu_x, sigma_x, mu_y, sigma_y = obs["beam"]
-        # TODO write parameters to GUI
+        self.view.display_current_beam_parameters(*obs["beam"])
+
+        # Find parameter farthest from target and display
+        deltas = obs["beam"] - obs["target"]
+        argmaxdelta = np.argmax(np.abs(deltas))
+        maxdelta = deltas[argmaxdelta]
+        namemaxdelta = ["mu_x", "sigma_x", "mu_y", "sigma_y"][argmaxdelta]
+        self.view.display_delta_threshold(maxdelta, namemaxdelta)
 
     def environment_step(self, obs, reward, done, info):
-        img = info["beam_image"]
-        self.view.show_screen_image(img)
-
+        self.view.show_screen_image(info["beam_image"])
         self.view.place_current_ellipse(*obs["beam"])
+        self.view.display_current_beam_parameters(*obs["beam"])
+
+        # Find parameter farthest from target and display
+        deltas = obs["beam"] - obs["target"]
+        argmaxdelta = np.argmax(np.abs(deltas))
+        maxdelta = deltas[argmaxdelta]
+        namemaxdelta = ["mu_x", "sigma_x", "mu_y", "sigma_y"][argmaxdelta]
+        self.view.display_delta_threshold(maxdelta, namemaxdelta)
 
         stop_requested = False  # TODO Test if stop was pressed
         return stop_requested
@@ -137,6 +151,7 @@ class RLAgentEAWidget(QWidget):
         self.setLayout(self.main_layout)
 
         self.create_optimisation_configuration()
+        self.create_optimisation_info()
         self.create_screen_view()
 
     def create_optimisation_configuration(self):
@@ -169,6 +184,28 @@ class RLAgentEAWidget(QWidget):
 
         self.start_stop_button = QPushButton("Optimise")
         target_form_layout.addRow(self.start_stop_button)
+
+    def create_optimisation_info(self):
+        """
+        Create display for info on optimisation such as step and current beam
+        parameters.
+        """
+        grid_layout = QGridLayout()
+        self.main_layout.addLayout(grid_layout)
+
+        self.step_label = QLabel("Step: -")
+        grid_layout.addWidget(self.step_label, 1, 1)
+        self.delta_label = QLabel("Δp: - mm (-)")
+        grid_layout.addWidget(self.delta_label, 2, 1)
+
+        self.current_labels = {
+            name: QLabel(f"{name.replace('mu_', 'μ').replace('sigma_', 'σ')}: - mm")
+            for name in ["mu_x", "sigma_x", "mu_y", "sigma_y"]
+        }
+        grid_layout.addWidget(self.current_labels["mu_x"], 1, 2)
+        grid_layout.addWidget(self.current_labels["sigma_x"], 1, 3)
+        grid_layout.addWidget(self.current_labels["mu_y"], 2, 2)
+        grid_layout.addWidget(self.current_labels["sigma_y"], 2, 3)
 
     def create_screen_view(self):
         """Make view of screen."""
@@ -270,6 +307,28 @@ class RLAgentEAWidget(QWidget):
         self.target_line_edits["sigma_x"].setText(str(sigma_x))
         self.target_line_edits["mu_y"].setText(str(mu_y))
         self.target_line_edits["sigma_y"].setText(str(sigma_y))
+
+    def display_step(self, step):
+        """Show that the current step is `step`."""
+        self.step_label.setText(f"Step: {step}")
+
+    def display_delta_threshold(self, delta, name):
+        """
+        Show the the difference `delta` of the beam parameter farthest from its target
+        as well as the `name` of that parameter.
+        """
+        delta *= 1e3
+        self.delta_label.setText(
+            f"Δp: {delta:.3f} mm ({name.replace('mu_', 'μ').replace('sigma_', 'σ')})"
+        )
+
+    def display_current_beam_parameters(self, mu_x, sigma_x, mu_y, sigma_y):
+        names = ["mu_x", "sigma_x", "mu_y", "sigma_y"]
+        values = [x * 1e3 for x in [mu_x, sigma_x, mu_y, sigma_y]]
+        for name, value in zip(names, values):
+            self.current_labels[name].setText(
+                f"{name.replace('mu_', 'μ').replace('sigma_', 'σ')}: {value:.3f} mm"
+            )
 
 
 class RLAgentEAWindow(QMainWindow):
