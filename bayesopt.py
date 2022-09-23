@@ -114,6 +114,13 @@ def scale_action(env, observation, filter_action=None):
     return action_values
 
 
+def get_new_bound(env, current_action, stepsize):
+    bounds = np.array([env.action_space.low, env.action_space.high])
+    bounds = stepsize * bounds + current_action
+    bounds = np.clip(bounds, env.action_space.low, env.action_space.high)
+    return bounds
+
+
 def get_next_samples(X, Y, best_y, bounds, n_points=1, acquisition="EI"):
     """
     Suggest Next Sample for BO
