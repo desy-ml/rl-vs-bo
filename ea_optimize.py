@@ -52,11 +52,7 @@ def optimize(
     # Load the model
     model = PPO.load(f"models/{model_name}/model")
 
-    # TODO move to an init_callback function
-    if callback is None:
-        callback = BaseCallback()
-    elif isinstance(callback, list):
-        callback = CallbackList(callback)
+    callback = setup_callback(callback)
 
     # Create the environment
     env = ARESEADOOCS(
@@ -161,11 +157,7 @@ def optimize_donkey(
     # Load the model
     model = TD3.load(f"models/{model_name}/model")
 
-    # TODO move to an init_callback function
-    if callback is None:
-        callback = BaseCallback()
-    elif isinstance(callback, list):
-        callback = CallbackList(callback)
+    callback = setup_callback(callback)
 
     # Create the environment
     env = ARESEADOOCS(
@@ -459,6 +451,18 @@ class ARESEADOOCS(ARESEA):
         bits[0] = 1 if setto else 0
         pydoocs.write(address, bits)
         time.sleep(1)
+
+
+def setup_callback(callback):
+    """
+    Prepare the callback for the actual optimisation run and return a callback that
+    works exactly as expected.
+    """
+    if callback is None:
+        callback = BaseCallback()
+    elif isinstance(callback, list):
+        callback = CallbackList(callback)
+    return callback
 
 
 def report_ea_optimization_to_logbook(
