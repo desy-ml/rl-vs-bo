@@ -382,7 +382,7 @@ class ARESEA(gym.Env):
         done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
 
         # Compute reward
-        on_screen_reward = -(not self.is_beam_on_screen())
+        on_screen_reward = 1 if self.is_beam_on_screen() else -1
         time_reward = -1
         done_reward = done * (25 - self.steps_taken) / 25
         if self.reward_mode == "differential":

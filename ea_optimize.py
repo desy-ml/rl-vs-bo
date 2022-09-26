@@ -52,7 +52,11 @@ def optimize(
     # Load the model
     model = PPO.load(f"models/{model_name}/model")
 
-    callback = CallbackList(callback) if isinstance(callback, list) else callback
+    # TODO move to an init_callback function
+    if callback is None:
+        callback = BaseCallback()
+    elif isinstance(callback, list):
+        callback = CallbackList(callback)
 
     # Create the environment
     env = ARESEADOOCS(
@@ -157,7 +161,11 @@ def optimize_donkey(
     # Load the model
     model = TD3.load(f"models/{model_name}/model")
 
-    callback = CallbackList(callback) if isinstance(callback, list) else callback
+    # TODO move to an init_callback function
+    if callback is None:
+        callback = BaseCallback()
+    elif isinstance(callback, list):
+        callback = CallbackList(callback)
 
     # Create the environment
     env = ARESEADOOCS(
@@ -275,9 +283,10 @@ class ARESEADOOCS(ARESEA):
             w_sigma_y_in_threshold=w_sigma_y_in_threshold,
             w_time=w_time,
         )
+        self.beam_parameter_compute_failed = {"x": False, "y": False}
 
     def is_beam_on_screen(self):
-        return True  # TODO find better logic
+        return all(self.beam_parameter_compute_failed.values())
 
     def get_magnets(self):
         return np.array(
@@ -327,6 +336,7 @@ class ARESEADOOCS(ARESEA):
     def get_beam_parameters(self):
         img = self.get_beam_image()
         pixel_size = self.get_pixel_size()
+        resolution = self.get_screen_resolution()
 
         parameters = {}
         for axis, direction in zip([0, 1], ["x", "y"]):
@@ -339,6 +349,11 @@ class ARESEADOOCS(ARESEA):
             if len(half_values) > 0:
                 fwhm_pixel = half_values[-1] - half_values[0]
                 center_pixel = half_values[0] + fwhm_pixel / 2
+
+                # If (almost) all pixels are in FWHM, the beam might not be on screen
+                self.beam_parameter_compute_failed[direction] = (
+                    len(half_values) > 0.95 * resolution[axis]
+                )
             else:
                 fwhm_pixel = 42  # TODO figure out what to do with these
                 center_pixel = 42
