@@ -297,11 +297,19 @@ class ARESEAeLog(gym.Wrapper):
         """
         msg = self.create_text_message()
         img = self.create_plot_jpg()
+        title = "Beam Optimisation on AREABSCR1 using " + (
+            "Bayesian Optimisation"
+            if self.model_name == "Bayesian Optimisation"
+            else "Reinforcement Learning"
+        )
+
+        print(f"{title = }")
+        print(f"{msg = }")
 
         send_to_elog(
             elog="areslog",
             author="Autonomous ARES",
-            title="RL-based Beam Optimisation on AREABSCR1",
+            title=title,
             severity="NONE",
             text=msg,
             image=img,
@@ -326,7 +334,7 @@ class ARESEAeLog(gym.Wrapper):
         steps_taken = len(self.observations) - 1
         success = np.abs(beam_after - target_beam) < target_threshold
 
-        return f"""Reinforcement learning agent optimised beam on AREABSCR1
+        return f"""{'Bayesian Optimisation' if self.model_name == 'Bayesian Optimisation' else 'Reinforcement Learning agent'} optimised beam on AREABSCR1
 
 Agent: {self.model_name}
 Start time: {self.t_start}
