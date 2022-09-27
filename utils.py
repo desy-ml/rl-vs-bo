@@ -1,16 +1,15 @@
 import base64
 import os
-from pathlib import Path
 import pickle
 import subprocess
 from datetime import datetime, timedelta
 
 import gym
 import numpy as np
-import wandb
 from gym import spaces
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+import wandb
 
 
 def remove_if_exists(path):
@@ -151,14 +150,19 @@ class RecordEpisode(gym.Wrapper):
     Pass a `save_dir` other than `None` to save the recorded data to pickle files.
     """
 
-    def __init__(self, env, save_dir=None, filename="recorded_episode"):
+    def __init__(self, env, save_dir=None, name_prefix="recorded_episode"):
         super().__init__(env)
 
-        self.save_dir = save_dir
-        self.filename = filename
+        self.save_dir = os.path.abspath(save_dir)
+        if os.path.isdir(self.save_dir):
+            print(
+                f"Overwriting existing data recordings at {self.save_dir} folder. Specify a different `save_dir` for the `RecordEpisode` wrapper if this is not desired."
+            )
+        os.makedirs(self.save_dir, exist_ok=True)
+
+        self.name_prefix = name_prefix
 
         self.n_episodes_recorded = 0
-        Path(self.save_dir).mkdir(parents=True, exist_ok=True)
 
     def reset(self):
         self.t_end = datetime.now()
@@ -210,7 +214,7 @@ class RecordEpisode(gym.Wrapper):
 
     def save_to_file(self):
         """Save the data from the current episodes to a `.pkl` file."""
-        filename = f"{self.filename}_{self.n_episodes_recorded}.pkl"
+        filename = f"{self.name_prefix}_{self.n_episodes_recorded}.pkl"
         path = os.path.join(self.save_dir, filename)
 
         d = {
