@@ -42,6 +42,7 @@ def optimize(
     max_steps=50,
     model_name="chocolate-totem-247",
     logbook=False,
+    data_log_dir=None,
     callback=None,
 ):
     """
@@ -85,7 +86,8 @@ def optimize(
         env = TimeLimit(env, max_steps)
     if callback is not None:
         env = OptimizeFunctionCallback(env, callback)
-    env = RecordEpisode(env)
+    if data_log_dir is not None:
+        env = RecordEpisode(env, save_dir=data_log_dir)
     if logbook:
         env = ARESEAeLog(env, model_name=model_name)
     if config["filter_observation"] is not None:
@@ -125,6 +127,7 @@ def optimize_donkey(
     max_steps=50,
     model_name="polished-donkey-996",
     logbook=False,
+    data_log_dir=None,
     callback=None,
 ):
     """
@@ -161,7 +164,8 @@ def optimize_donkey(
         env = TimeLimit(env, max_episode_steps=max_steps)
     if callback is not None:
         env = OptimizeFunctionCallback(env, callback)
-    env = RecordEpisode(env, save_dir="data_recordings")
+    if data_log_dir is not None:
+        env = RecordEpisode(env, save_dir=data_log_dir)
     if logbook:
         env = ARESEAeLog(env, model_name=model_name)
     env = RecordVideo(env, f"recordings_real/{datetime.now():%Y%m%d%H%M}")

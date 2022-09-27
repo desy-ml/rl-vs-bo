@@ -212,9 +212,11 @@ class RecordEpisode(gym.Wrapper):
         return observation, reward, done, info
 
     def close(self):
+        super().close()
+
         self.t_end = datetime.now()
 
-        if self.save_dir is not None:
+        if self.save_dir is not None and self.n_episodes_recorded > 0:
             self.save_to_file()
 
     def save_to_file(self):
@@ -280,6 +282,8 @@ class ARESEAeLog(gym.Wrapper):
         return observation, reward, done, info
 
     def close(self):
+        super().close()
+
         if self.has_reset_before:
             self.t_end = datetime.now()
             self.report_optimization_to_elog()
