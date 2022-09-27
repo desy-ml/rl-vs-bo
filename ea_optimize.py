@@ -1,12 +1,10 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from io import BytesIO
 
 import pydoocs
 # import dummypydoocs as pydoocs
 import gym
-import matplotlib.pyplot as plt
 import numpy as np
 from gym.wrappers import (
     FilterObservation,
@@ -18,7 +16,6 @@ from gym.wrappers import (
 )
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3 import PPO, TD3
-from stable_baselines3.common.env_util import unwrap_wrapper
 
 from ea_train import ARESEA, read_from_yaml
 from utils import (
