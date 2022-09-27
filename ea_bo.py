@@ -10,27 +10,19 @@ from gym.wrappers import (
     RescaleAction,
     TimeLimit,
 )
-from stable_baselines3.common.env_util import unwrap_wrapper
 
 from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
 from ea_optimize import (
     ARESEADOOCS,
     ARESEAeLog,
     BaseCallback,
-    CallbackList,
     OptimizeFunctionCallback,
     TQDMWrapper,
     setup_callback,
 )
-from utils import (
-    FilterAction,
-    NotVecNormalize,
-    PolishedDonkeyCompatibility,
-    RecordEpisode,
-    send_to_elog,
-)
+from utils import FilterAction, RecordEpisode
 
-config = config = {
+config = {
     "action_mode": "direct_unidirectional_quads",
     "gamma": 0.99,
     # "filter_action": [0, 1, 3],
