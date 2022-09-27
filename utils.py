@@ -309,7 +309,9 @@ class ARESEAeLog(gym.Wrapper):
 
     def create_text_message(self):
         """Create text message summarising the optimisation."""
-        beam_before = self.observations[0]["beam"]
+        beam_before = self.infos[0][
+            "beam_before_reset"
+        ]  # TODO this may become an issue when magnet_init_values is None
         beam_after = self.observations[-1]["beam"]
         target_beam = self.observations[0]["target"]
         target_threshold = np.array(
@@ -360,12 +362,24 @@ Final magnet settings:
     def create_plot_jpg(self):
         """Create plot overview of the optimisation and return it as jpg bytes."""
         fig, axs = plt.subplots(1, 5, figsize=(30, 4))
-        plot_quadrupole_history(axs[0], self.observations)
-        plot_steerer_history(axs[1], self.observations)
-        plot_beam_history(axs[2], self.observations)
+        plot_quadrupole_history(
+            axs[0],
+            self.observations,
+            before_reset=self.infos[0]["magnets_before_reset"],
+        )
+        plot_steerer_history(
+            axs[1],
+            self.observations,
+            before_reset=self.infos[0]["magnets_before_reset"],
+        )
+        plot_beam_history(
+            axs[2], self.observations, before_reset=self.infos[0]["beam_before_reset"]
+        )
         plot_beam_image(
             axs[3],
-            self.beam_image_before,
+            self.infos[0][
+                "screen_before_reset"
+            ],  # TODO this may become an issue when magnet_init_values is None
             screen_resolution=self.infos[0]["screen_resolution"],
             pixel_size=self.infos[0]["pixel_size"],
             title="Beam at Reset (Background Removed)",
@@ -387,15 +401,21 @@ Final magnet settings:
         return img
 
 
-def plot_quadrupole_history(ax, observations):
+def plot_quadrupole_history(ax, observations, before_reset=None):
     areamqzm1 = [obs["magnets"][0] for obs in observations]
     areamqzm2 = [obs["magnets"][1] for obs in observations]
     areamqzm3 = [obs["magnets"][3] for obs in observations]
 
-    steps = np.arange(len(observations))
+    if before_reset is not None:
+        areamqzm1 = [before_reset[0]] + areamqzm1
+        areamqzm2 = [before_reset[1]] + areamqzm2
+        areamqzm3 = [before_reset[3]] + areamqzm3
+
+    start = 0 if before_reset is None else -1
+    steps = np.arange(start, len(observations))
 
     ax.set_title("Quadrupoles")
-    ax.set_xlim([0, len(steps)])
+    ax.set_xlim([start, len(observations) + 1])
     ax.set_xlabel("Step")
     ax.set_ylabel("Strength (1/m^2)")
     ax.plot(steps, areamqzm1, label="AREAMQZM1")
@@ -405,34 +425,46 @@ def plot_quadrupole_history(ax, observations):
     ax.grid(True)
 
 
-def plot_steerer_history(ax, observations):
+def plot_steerer_history(ax, observations, before_reset=None):
     areamcvm1 = np.array([obs["magnets"][2] for obs in observations])
     areamchm2 = np.array([obs["magnets"][4] for obs in observations])
 
-    steps = np.arange(len(observations))
+    if before_reset is not None:
+        areamcvm1 = np.insert(areamcvm1, 0, before_reset[2])
+        areamchm2 = np.insert(areamchm2, 0, before_reset[4])
+
+    start = 0 if before_reset is None else -1
+    steps = np.arange(start, len(observations))
 
     ax.set_title("Steerers")
     ax.set_xlabel("Step")
     ax.set_ylabel("Kick (mrad)")
-    ax.set_xlim([0, len(steps)])
+    ax.set_xlim([start, len(observations) + 1])
     ax.plot(steps, areamcvm1 * 1e3, label="AREAMCVM1")
     ax.plot(steps, areamchm2 * 1e3, label="AREAMCHM2")
     ax.legend()
     ax.grid(True)
 
 
-def plot_beam_history(ax, observations):
+def plot_beam_history(ax, observations, before_reset=None):
     mu_x = np.array([obs["beam"][0] for obs in observations])
     sigma_x = np.array([obs["beam"][1] for obs in observations])
     mu_y = np.array([obs["beam"][2] for obs in observations])
     sigma_y = np.array([obs["beam"][3] for obs in observations])
 
+    if before_reset is not None:
+        mu_x = np.insert(mu_x, 0, before_reset[0])
+        sigma_x = np.insert(sigma_x, 0, before_reset[1])
+        mu_y = np.insert(mu_y, 0, before_reset[2])
+        sigma_y = np.insert(sigma_y, 0, before_reset[3])
+
     target_beam = observations[0]["target"]
 
-    steps = np.arange(len(observations))
+    start = 0 if before_reset is None else -1
+    steps = np.arange(start, len(observations))
 
     ax.set_title("Beam Parameters")
-    ax.set_xlim([0, len(steps)])
+    ax.set_xlim([start, len(observations) + 1])
     ax.set_xlabel("Step")
     ax.set_ylabel("(mm)")
     ax.plot(steps, mu_x * 1e3, label=r"$\mu_x$", c="tab:blue")

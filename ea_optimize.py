@@ -250,6 +250,7 @@ class ARESEADOOCS(ARESEA):
             w_time=w_time,
         )
         self.beam_parameter_compute_failed = {"x": False, "y": False}
+        self.reset_accelerator_was_just_called = False
 
     def is_beam_on_screen(self):
         return all(self.beam_parameter_compute_failed.values())
@@ -296,8 +297,30 @@ class ARESEADOOCS(ARESEA):
                 for magnet in magnets
             ]
 
+    def reset_accelerator(self):
+        # If reset changes the magnet settings, record magnets and beam before reset
+        if self.magnet_init_mode is None:
+            return
+
+        self.update_accelerator()
+
+        self.magnets_before_reset = self.get_magnets()
+        self.screen_before_reset = self.get_beam_image()
+        self.beam_before_reset = self.get_beam_parameters()
+
+        # In order to record a screen image right after the accelerator was reset, this
+        # flag is set so that we know to record the image the next time
+        # `update_accelerator` is called.
+        self.reset_accelerator_was_just_called = True
+
     def update_accelerator(self):
         self.beam_image = self.capture_clean_beam_image()
+
+        # Record the beam image just after reset (because there is no info on reset).
+        # It will be included in `info` of the next step.
+        if self.reset_accelerator_was_just_called:
+            self.screen_after_reset = self.beam_image
+            self.reset_accelerator_was_just_called = False
 
     def get_beam_parameters(self):
         img = self.get_beam_image()
@@ -425,6 +448,27 @@ class ARESEADOOCS(ARESEA):
         bits[0] = 1 if setto else 0
         pydoocs.write(address, bits)
         time.sleep(1)
+
+    def get_accelerator_info(self):
+        # If magnets or the beam were recorded before reset, add them info on the first
+        # step, so a generalised data recording wrapper captures them.
+        info = {}
+
+        if hasattr(self, "magnets_before_reset"):
+            info["magnets_before_reset"] = self.magnets_before_reset
+            del self.magnets_before_reset
+        if hasattr(self, "screen_before_reset"):
+            info["screen_before_reset"] = self.screen_before_reset
+            del self.screen_before_reset
+        if hasattr(self, "beam_before_reset"):
+            info["beam_before_reset"] = self.beam_before_reset
+            del self.beam_before_reset
+
+        if hasattr(self, "screen_after_reset"):
+            info["screen_after_reset"] = self.screen_after_reset
+            del self.screen_after_reset
+
+        return info
 
 
 def setup_callback(callback):
