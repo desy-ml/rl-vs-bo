@@ -3,12 +3,15 @@ import os
 import pickle
 import subprocess
 from datetime import datetime, timedelta
+from io import BytesIO
 
 import gym
+import matplotlib.pyplot as plt
 import numpy as np
 from gym import spaces
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
 import wandb
 
 
@@ -153,12 +156,14 @@ class RecordEpisode(gym.Wrapper):
     def __init__(self, env, save_dir=None, name_prefix="recorded_episode"):
         super().__init__(env)
 
-        self.save_dir = os.path.abspath(save_dir)
-        if os.path.isdir(self.save_dir):
-            print(
-                f"Overwriting existing data recordings at {self.save_dir} folder. Specify a different `save_dir` for the `RecordEpisode` wrapper if this is not desired."
-            )
-        os.makedirs(self.save_dir, exist_ok=True)
+        self.save_dir = save_dir
+        if self.save_dir is not None:
+            self.save_dir = os.path.abspath(save_dir)
+            if os.path.isdir(self.save_dir):
+                print(
+                    f"Overwriting existing data recordings at {self.save_dir} folder. Specify a different `save_dir` for the `RecordEpisode` wrapper if this is not desired."
+                )
+            os.makedirs(self.save_dir, exist_ok=True)
 
         self.name_prefix = name_prefix
 
@@ -229,6 +234,231 @@ class RecordEpisode(gym.Wrapper):
 
         with open(path, "wb") as f:
             pickle.dump(d, f)
+
+
+class ARESEAeLog(gym.Wrapper):
+    """
+    Wrapper to send a summary of optimsations in the ARES Experimental Area
+    to the ARES eLog.
+    """
+
+    def __init__(self, env, model_name):
+        super().__init__(env)
+
+        self.model_name = model_name
+        self.has_reset_before = False
+
+    def reset(self):
+        if self.has_reset_before:
+            self.t_end = datetime.now()
+            self.report_optimization_to_elog()
+        else:
+            self.has_reset_before = True
+
+        observation = self.env.reset()
+        self.beam_image_before = self.env.get_beam_image()
+
+        self.observations = [observation]
+        self.rewards = []
+        self.infos = []
+        self.actions = []
+        self.t_start = datetime.now()
+        self.t_end = None
+        self.steps_taken = 0
+
+        return observation
+
+    def step(self, action):
+        observation, reward, done, info = self.env.step(action)
+
+        self.observations.append(observation)
+        self.rewards.append(reward)
+        self.infos.append(info)
+        self.actions.append(action)
+        self.steps_taken += 1
+
+        return observation, reward, done, info
+
+    def close(self):
+        if self.has_reset_before:
+            self.t_end = datetime.now()
+            self.report_optimization_to_elog()
+
+    def report_optimization_to_elog(self):
+        """
+        Send a summary report of the optimisation in the ARES EA environment to the ARES
+        eLog.
+        """
+        msg = self.create_text_message()
+        img = self.create_plot_jpg()
+
+        send_to_elog(
+            elog="areslog",
+            author="Autonomous ARES",
+            title="RL-based Beam Optimisation on AREABSCR1",
+            severity="NONE",
+            text=msg,
+            image=img,
+        )
+
+    def create_text_message(self):
+        """Create text message summarising the optimisation."""
+        beam_before = self.observations[0]["beam"]
+        beam_after = self.observations[-1]["beam"]
+        target_beam = self.observations[0]["target"]
+        target_threshold = np.array(
+            [
+                self.env.target_mu_x_threshold,
+                self.env.target_sigma_x_threshold,
+                self.env.target_mu_y_threshold,
+                self.env.target_sigma_y_threshold,
+            ]
+        )
+        final_magnets = self.observations[-1]["magnets"]
+        steps_taken = len(self.observations) - 1
+        success = np.abs(beam_after - target_beam) < target_threshold
+
+        return f"""Reinforcement learning agent optimised beam on AREABSCR1
+
+Agent: {self.model_name}
+Start time: {self.t_start}
+Time taken: {self.t_end - self.t_start}
+No. of steps: {steps_taken}
+
+Beam before:
+    mu_x    = {beam_before[0] * 1e3: 5.4f} mm
+    sigma_x = {beam_before[1] * 1e3: 5.4f} mm
+    mu_y    = {beam_before[2] * 1e3: 5.4f} mm
+    sigma_y = {beam_before[3] * 1e3: 5.4f} mm
+
+Beam after:
+    mu_x    = {beam_after[0] * 1e3: 5.4f} mm
+    sigma_x = {beam_after[1] * 1e3: 5.4f} mm
+    mu_y    = {beam_after[2] * 1e3: 5.4f} mm
+    sigma_y = {beam_after[3] * 1e3: 5.4f} mm
+
+Target beam:
+    mu_x    = {target_beam[0] * 1e3: 5.4f} mm    (e = {target_threshold[0] * 1e3:5.4f} mm) {';)' if success[0] else ':/'}
+    sigma_x = {target_beam[1] * 1e3: 5.4f} mm    (e = {target_threshold[1] * 1e3:5.4f} mm) {';)' if success[1] else ':/'}
+    mu_y    = {target_beam[2] * 1e3: 5.4f} mm    (e = {target_threshold[2] * 1e3:5.4f} mm) {';)' if success[2] else ':/'}
+    sigma_y = {target_beam[3] * 1e3: 5.4f} mm    (e = {target_threshold[3] * 1e3:5.4f} mm) {';)' if success[3] else ':/'}
+
+Final magnet settings:
+    AREAMQZM1 strength = {final_magnets[0]: 8.4f} 1/m^2
+    AREAMQZM2 strength = {final_magnets[1]: 8.4f} 1/m^2
+    AREAMCVM1 kick     = {final_magnets[2] * 1e3: 8.4f} mrad
+    AREAMQZM3 strength = {final_magnets[3]: 8.4f} 1/m^2
+    AREAMCHM1 kick     = {final_magnets[4] * 1e3: 8.4f} mrad
+    """
+
+    def create_plot_jpg(self):
+        """Create plot overview of the optimisation and return it as jpg bytes."""
+        fig, axs = plt.subplots(1, 5, figsize=(30, 4))
+        plot_quadrupole_history(axs[0], self.observations)
+        plot_steerer_history(axs[1], self.observations)
+        plot_beam_history(axs[2], self.observations)
+        plot_beam_image(
+            axs[3],
+            self.beam_image_before,
+            screen_resolution=self.infos[0]["screen_resolution"],
+            pixel_size=self.infos[0]["pixel_size"],
+            title="Beam at Reset (Background Removed)",
+        )
+        plot_beam_image(
+            axs[4],
+            self.infos[-1]["beam_image"],
+            screen_resolution=self.infos[-1]["screen_resolution"],
+            pixel_size=self.infos[-1]["pixel_size"],
+            title="Beam After (Background Removed)",
+        )
+        fig.tight_layout()
+
+        buf = BytesIO()
+        fig.savefig(buf, dpi=300, format="jpg")
+        buf.seek(0)
+        img = bytes(buf.read())
+
+        return img
+
+
+def plot_quadrupole_history(ax, observations):
+    areamqzm1 = [obs["magnets"][0] for obs in observations]
+    areamqzm2 = [obs["magnets"][1] for obs in observations]
+    areamqzm3 = [obs["magnets"][3] for obs in observations]
+
+    steps = np.arange(len(observations))
+
+    ax.set_title("Quadrupoles")
+    ax.set_xlim([0, len(steps)])
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Strength (1/m^2)")
+    ax.plot(steps, areamqzm1, label="AREAMQZM1")
+    ax.plot(steps, areamqzm2, label="AREAMQZM2")
+    ax.plot(steps, areamqzm3, label="AREAMQZM3")
+    ax.legend()
+    ax.grid(True)
+
+
+def plot_steerer_history(ax, observations):
+    areamcvm1 = np.array([obs["magnets"][2] for obs in observations])
+    areamchm2 = np.array([obs["magnets"][4] for obs in observations])
+
+    steps = np.arange(len(observations))
+
+    ax.set_title("Steerers")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Kick (mrad)")
+    ax.set_xlim([0, len(steps)])
+    ax.plot(steps, areamcvm1 * 1e3, label="AREAMCVM1")
+    ax.plot(steps, areamchm2 * 1e3, label="AREAMCHM2")
+    ax.legend()
+    ax.grid(True)
+
+
+def plot_beam_history(ax, observations):
+    mu_x = np.array([obs["beam"][0] for obs in observations])
+    sigma_x = np.array([obs["beam"][1] for obs in observations])
+    mu_y = np.array([obs["beam"][2] for obs in observations])
+    sigma_y = np.array([obs["beam"][3] for obs in observations])
+
+    target_beam = observations[0]["target"]
+
+    steps = np.arange(len(observations))
+
+    ax.set_title("Beam Parameters")
+    ax.set_xlim([0, len(steps)])
+    ax.set_xlabel("Step")
+    ax.set_ylabel("(mm)")
+    ax.plot(steps, mu_x * 1e3, label=r"$\mu_x$", c="tab:blue")
+    ax.plot(steps, [target_beam[0] * 1e3] * len(steps), ls="--", c="tab:blue")
+    ax.plot(steps, sigma_x * 1e3, label=r"$\sigma_x$", c="tab:orange")
+    ax.plot(steps, [target_beam[1] * 1e3] * len(steps), ls="--", c="tab:orange")
+    ax.plot(steps, mu_y * 1e3, label=r"$\mu_y$", c="tab:green")
+    ax.plot(steps, [target_beam[2] * 1e3] * len(steps), ls="--", c="tab:green")
+    ax.plot(steps, sigma_y * 1e3, label=r"$\sigma_y$", c="tab:red")
+    ax.plot(steps, [target_beam[3] * 1e3] * len(steps), ls="--", c="tab:red")
+    ax.legend()
+    ax.grid(True)
+
+
+def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
+    screen_size = screen_resolution * pixel_size
+
+    ax.set_title(title)
+    ax.set_xlabel("(mm)")
+    ax.set_ylabel("(mm)")
+    ax.imshow(
+        img,
+        vmin=0,
+        aspect="equal",
+        interpolation="none",
+        extent=(
+            -screen_size[0] / 2 * 1e3,
+            screen_size[0] / 2 * 1e3,
+            -screen_size[1] / 2 * 1e3,
+            screen_size[1] / 2 * 1e3,
+        ),
+    )
 
 
 class PolishedDonkeyCompatibility(gym.Wrapper):
