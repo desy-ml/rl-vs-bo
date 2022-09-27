@@ -24,6 +24,7 @@ from utils import (
     NotVecNormalize,
     PolishedDonkeyCompatibility,
     RecordEpisode,
+    TQDMWrapper,
 )
 
 
@@ -40,6 +41,7 @@ def optimize(
     model_name="chocolate-totem-247",
     logbook=False,
     data_log_dir=None,
+    progress_bar=False,
     callback=None,
 ):
     """
@@ -81,6 +83,8 @@ def optimize(
     )
     if max_steps is not None:
         env = TimeLimit(env, max_steps)
+    if progress_bar:
+        env = TQDMWrapper(env)
     if callback is not None:
         env = OptimizeFunctionCallback(env, callback)
     if data_log_dir is not None:
@@ -125,6 +129,7 @@ def optimize_donkey(
     model_name="polished-donkey-996",
     logbook=False,
     data_log_dir=None,
+    progress_bar=False,
     callback=None,
 ):
     """
@@ -159,6 +164,8 @@ def optimize_donkey(
     )
     if max_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_steps)
+    if progress_bar:
+        env = TQDMWrapper(env)
     if callback is not None:
         env = OptimizeFunctionCallback(env, callback)
     if data_log_dir is not None:

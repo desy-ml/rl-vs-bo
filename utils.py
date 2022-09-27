@@ -9,8 +9,10 @@ import gym
 import matplotlib.pyplot as plt
 import numpy as np
 from gym import spaces
+from gym.wrappers import TimeLimit
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.env_util import is_wrapped, unwrap_wrapper
+from tqdm import tqdm
 
 import wandb
 
@@ -622,3 +624,36 @@ class NotVecNormalize(gym.Wrapper):
         observation = self.vec_normalize.normalize_obs(observation)
         reward = self.vec_normalize.normalize_reward(reward)
         return observation, reward, done, info
+
+
+class TQDMWrapper(gym.Wrapper):
+    """
+    Uses TQDM to show a progress bar for every step taken by the environment. If the
+    passed `env` is already wrapper in a `TimeLimit` wrapper, this wrapper will use that
+    as the maximum number of steps for the progress bar.
+    """
+
+    def reset(self):
+        if hasattr(self, "pbar"):
+            self.pbar.close()
+
+        obs = super().reset()
+
+        if is_wrapped(self.env, TimeLimit):
+            time_limit = unwrap_wrapper(self.env, TimeLimit)
+            self.pbar = tqdm(total=time_limit._max_episode_steps)
+        else:
+            self.pbar = tqdm()
+
+        return obs
+
+    def step(self, action):
+        obs, reward, done, info = super().step(action)
+        self.pbar.update()
+        return obs, reward, done, info
+
+    def close(self):
+        if hasattr(self, "pbar"):
+            self.pbar.close()
+
+        super().close()
