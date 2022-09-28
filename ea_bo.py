@@ -32,7 +32,7 @@ config = {
     "incoming_mode": "random",
     "incoming_values": None,
     "magnet_init_mode": "constant",
-    "magnet_init_values": np.array([10, -10, 0, 10, 0]),
+    "magnet_init_values": np.array([10, -10, 0, 10, 0]),    # TODO maybe set to zero
     "misalignment_mode": "constant",
     "misalignment_values": np.zeros(8),
     "n_envs": 40,
