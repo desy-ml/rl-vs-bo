@@ -1,6 +1,6 @@
-git+https://github.com/desy-ml/cheetah.git@v0.5.13
 git+https://gitlab.desy.de/msk-ipc/dummy-pydoocs.git
 botorch
+cheetah-accelerator>=0.5.14
 gym
 jupyter
 matplotlib
