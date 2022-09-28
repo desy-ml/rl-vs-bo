@@ -55,7 +55,7 @@ config = {
     "w_mu_x_in_threshold": 0.0,
     "w_mu_y": 1.0,
     "w_mu_y_in_threshold": 0.0,
-    "w_on_screen": 100.0,
+    "w_on_screen": 10.0,
     "w_sigma_x": 1.0,
     "w_sigma_x_in_threshold": 0.0,
     "w_sigma_y": 1.0,
@@ -168,7 +168,7 @@ def optimize(
     for i, action in enumerate(X):
         action = action.detach().numpy()
         observation, reward, done, info = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function)
+        objective = calculate_objective(env, observation, reward, obj=obj_function, w_on_screen=config["w_on_screen"])
         Y[i] = torch.tensor(objective)
 
     # Actual BO Loop
@@ -185,7 +185,7 @@ def optimize(
         )
         action = action_t.detach().numpy().flatten()
         observation, reward, done, info = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function)
+        objective = calculate_objective(env, observation, reward, obj=obj_function, w_on_screen=config["w_on_screen"])
 
         # append data
         X = torch.cat([X, action_t])

@@ -57,7 +57,7 @@ config = {
 }
 
 
-def calculate_objective(env, observation, reward, obj="reward"):
+def calculate_objective(env, observation, reward, obj="reward", w_on_screen=10):
     """A wrapper for getting objective not (yet) defined in the class
 
     Could be interesting objectives:
@@ -92,6 +92,8 @@ def calculate_objective(env, observation, reward, obj="reward"):
             objective = np.mean(np.abs(cb - tb))
         else:
             raise NotImplementedError(f"Objective {obj} not known")
+    on_screen_reward = 1 if env.is_beam_on_screen() else -1
+    objective += w_on_screen * on_screen_reward
     return objective
 
 
