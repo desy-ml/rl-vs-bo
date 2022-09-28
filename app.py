@@ -366,7 +366,7 @@ class RLAgentEAWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("RL Agent EA")
+        self.setWindowTitle("RL Agent EA 0.1.0 - Support: Jan Kaiser (MSK)")
         rl_agent_ea_widget = RLAgentEAWidget()
         self.setCentralWidget(rl_agent_ea_widget)
 
