@@ -162,8 +162,8 @@ def optimize(
         X = torch.tensor([action_i], dtype=torch.float32)
         bounds = get_new_bound(env, action_i, stepsize)
         for i in range(init_samples - 1):
-            new_action = np.random.uniform(low=bounds[0], high=bounds[1])
-            X = torch.cat([X, torch.tensor([new_action])])
+            new_action = np.random.uniform(low=bounds[0], high=bounds[1]).reshape(1,-1)
+            X = torch.cat([X, torch.tensor(new_action)])
     # Sample initial Ys to build GP
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
