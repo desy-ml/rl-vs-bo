@@ -32,7 +32,7 @@ config = {
     "incoming_mode": "random",
     "incoming_values": None,
     "magnet_init_mode": "constant",
-    "magnet_init_values": np.array([10, -10, 0, 10, 0]),    # TODO maybe set to zero
+    # "magnet_init_values": np.array([10, -10, 0, 10, 0]),
     "misalignment_mode": "constant",
     "misalignment_values": np.zeros(8),
     "n_envs": 40,
@@ -88,6 +88,7 @@ def optimize(
     init_x=None,
     init_samples=5,
     filter_action=None,
+    magnet_init_values=np.array([10, -10, 0, 10, 0]),
     set_to_best=True,  # set back to best found setting after opt.
 ):
     callback = setup_callback(callback)
@@ -96,7 +97,7 @@ def optimize(
     env = ARESEADOOCS(
         action_mode=config["action_mode"],
         magnet_init_mode=config["magnet_init_mode"],
-        magnet_init_values=config["magnet_init_values"],
+        magnet_init_values=magnet_init_values,
         reward_mode=config["reward_mode"],
         target_beam_mode=config["target_beam_mode"],
         target_beam_values=np.array(
