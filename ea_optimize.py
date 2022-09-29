@@ -253,7 +253,7 @@ class ARESEADOOCS(ARESEA):
         self.reset_accelerator_was_just_called = False
 
     def is_beam_on_screen(self):
-        return all(self.beam_parameter_compute_failed.values())
+        return not all(self.beam_parameter_compute_failed.values())
 
     def get_magnets(self):
         return np.array(
