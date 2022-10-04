@@ -1,24 +1,14 @@
 import json
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import torch
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
-from bayesopt import (
-    bo_optimize,
-    calculate_objective,
-    get_new_bound,
-    get_next_samples,
-    scale_action,
-)
-from ea_optimize import TQDMWrapper
+from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
 from ea_train import ARESEACheetah
 from utils import FilterAction, RecordEpisode
-
-with open("problems.json", "r") as f:
-    problems = json.load(f)
 
 
 def convert_incoming_from_problem(problem):
@@ -196,6 +186,9 @@ def try_problem(problem_index, problem):
 
 
 def main():
+    with open("problems.json", "r") as f:
+        problems = json.load(f)
+
     with ProcessPoolExecutor() as executor:
         futures = tqdm(
             executor.map(try_problem, range(len(problems)), problems), total=300
