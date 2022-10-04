@@ -253,7 +253,7 @@ class ARESEADOOCS(ARESEA):
         self.reset_accelerator_was_just_called = False
 
     def is_beam_on_screen(self):
-        return all(self.beam_parameter_compute_failed.values())
+        return not all(self.beam_parameter_compute_failed.values())
 
     def get_magnets(self):
         return np.array(
@@ -331,7 +331,7 @@ class ARESEADOOCS(ARESEA):
         for axis, direction in zip([0, 1], ["x", "y"]):
             projection = img.sum(axis=axis)
             minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
-            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")
+            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")    # TODO rethink filters
 
             (half_values,) = np.where(filtered >= 0.5 * filtered.max())
 
@@ -427,7 +427,7 @@ class ARESEADOOCS(ARESEA):
         removed = (median_beam - median_background).clip(0, 2**16 - 1)
         flipped = np.flipud(removed)
 
-        return flipped
+        return flipped.astype(np.uint16)
 
     def capture_interval(self, n, dt):
         """Capture `n` images from the screen and wait `dt` seconds in between them."""
