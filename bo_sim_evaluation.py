@@ -11,7 +11,7 @@ from ea_train import ARESEACheetah
 from utils import FilterAction, RecordEpisode
 
 
-def convert_incoming_from_problem(problem):
+def convert_incoming_from_problem(problem: dict) -> np.ndarray:
     return np.array(
         [
             problem["incoming"]["energy"],
@@ -29,11 +29,11 @@ def convert_incoming_from_problem(problem):
     )
 
 
-def convert_misalignments_from_problem(problem):
+def convert_misalignments_from_problem(problem: dict) -> np.ndarray:
     return np.array(problem["misalignments"])
 
 
-def convert_target_from_problem(problem):
+def convert_target_from_problem(problem: dict) -> np.ndarray:
     return np.array(
         [
             problem["desired"][0],
@@ -44,7 +44,7 @@ def convert_target_from_problem(problem):
     )
 
 
-def try_problem(problem_index, problem):
+def try_problem(problem_index: int, problem: dict):
     config = {
         "action_mode": "direct_unidirectional_quads",
         "filter_action": None,

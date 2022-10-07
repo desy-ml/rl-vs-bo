@@ -2,7 +2,7 @@ import json
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
-from gym.wrappers import FlattenObservation, RescaleAction, TimeLimit
+from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from stable_baselines3 import TD3
 from tqdm.notebook import tqdm
 
@@ -15,7 +15,7 @@ from ea_train import ARESEACheetah
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
 
-def try_problem(problem_index, problem):
+def try_problem(problem_index: dict, problem: int) -> None:
     model_name = "polished-donkey-996"
 
     # Load the model
@@ -43,6 +43,7 @@ def try_problem(problem_index, problem):
     env = RecordEpisode(
         env, save_dir=f"bo_rl_opponent_evaluation/problem_{problem_index:03d}"
     )
+    env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)
     env = PolishedDonkeyCompatibility(env)
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
