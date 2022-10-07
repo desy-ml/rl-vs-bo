@@ -6,7 +6,9 @@ __pycache__
 slurm-*.out
 wandb
 
+bo_evaluation
 bo_rl_opponent_evaluation
+kit_shift_data
 log
 models
 old
