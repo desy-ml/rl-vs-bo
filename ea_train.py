@@ -335,16 +335,7 @@ class ARESEA(gym.Env):
         return observation
 
     def step(self, action):
-        # Perform action
-        if self.action_mode == "direct":
-            self.set_magnets(action)
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.set_magnets(action)
-        elif self.action_mode == "delta":
-            magnet_values = self.get_magnets()
-            self.set_magnets(magnet_values + action)
-        else:
-            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
+        self.take_action(action)
 
         # Run the simulation
         self.update_accelerator()
@@ -589,6 +580,18 @@ class ARESEA(gym.Env):
             cv2.waitKey(200)
         else:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def take_action(self, action):
+        """Take `action` according to the environment's configuration."""
+        if self.action_mode == "direct":
+            self.set_magnets(action)
+        elif self.action_mode == "direct_unidirectional_quads":
+            self.set_magnets(action)
+        elif self.action_mode == "delta":
+            magnet_values = self.get_magnets()
+            self.set_magnets(magnet_values + action)
+        else:
+            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
     def is_beam_on_screen(self):
         """
