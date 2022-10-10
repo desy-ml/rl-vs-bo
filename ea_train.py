@@ -28,17 +28,20 @@ from utils import FilterAction
 def main():
     config = {
         "action_mode": "delta",
+        "beam_distance_ord": 1,
         "gamma": 0.99,
         "filter_action": [0, 1, 3],
         "filter_observation": None,
         "frame_stack": None,
         "incoming_mode": "random",
         "incoming_values": None,
+        "log_beam_distance": False,
         "magnet_init_mode": "constant",
         "magnet_init_values": np.array([10, -10, 0, 10, 0]),
         "misalignment_mode": "constant",
         "misalignment_values": np.zeros(8),
         "n_envs": 40,
+        "normalize_beam_distance": True,
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-3, 3),
@@ -53,6 +56,7 @@ def main():
         "threshold_hold": 5,
         "time_limit": 25,
         "vec_env": "subproc",
+        "w_beam": 1.0,
         "w_done": 10.0,
         "w_mu_x": 0.0,
         "w_mu_x_in_threshold": 0.0,
@@ -137,8 +141,11 @@ def make_env(config, record_video=False):
         misalignment_mode=config["misalignment_mode"],
         misalignment_values=config["misalignment_values"],
         action_mode=config["action_mode"],
+        beam_distance_ord=config["beam_distance_ord"],
+        log_beam_distance=config["log_beam_distance"],
         magnet_init_mode=config["magnet_init_mode"],
         magnet_init_values=config["magnet_init_values"],
+        normalize_beam_distance=config["normalize_beam_distance"],
         reward_mode=config["reward_mode"],
         target_beam_mode=config["target_beam_mode"],
         target_beam_values=config["target_beam_values"],
@@ -147,6 +154,7 @@ def make_env(config, record_video=False):
         target_sigma_x_threshold=config["target_sigma_x_threshold"],
         target_sigma_y_threshold=config["target_sigma_y_threshold"],
         threshold_hold=config["threshold_hold"],
+        w_beam=config["w_beam"],
         w_mu_x=config["w_mu_x"],
         w_mu_x_in_threshold=config["w_mu_x_in_threshold"],
         w_mu_y=config["w_mu_y"],
@@ -204,9 +212,12 @@ class ARESEA(gym.Env):
     def __init__(
         self,
         action_mode: str = "direct",
+        beam_distance_ord: int = 1,
         include_beam_image_in_info: bool = True,
+        log_beam_distance: bool = False,
         magnet_init_mode: Optional[str] = None,
         magnet_init_values: np.ndarray = None,
+        normalize_beam_distance: bool = True,
         reward_mode: str = "differential",
         target_beam_mode: str = "random",
         target_beam_values: np.ndarray = None,
@@ -215,6 +226,7 @@ class ARESEA(gym.Env):
         target_sigma_x_threshold: float = 3.3198e-6,
         target_sigma_y_threshold: float = 2.4469e-6,
         threshold_hold: int = 1,
+        w_beam: float = 1.0,
         w_done: float = 1.0,
         w_mu_x: float = 1.0,
         w_mu_x_in_threshold: float = 1.0,
@@ -228,9 +240,12 @@ class ARESEA(gym.Env):
         w_time: float = 1.0,
     ):
         self.action_mode = action_mode
+        self.beam_distance_ord = beam_distance_ord
         self.include_beam_image_in_info = include_beam_image_in_info
+        self.log_beam_distance = log_beam_distance
         self.magnet_init_mode = magnet_init_mode
         self.magnet_init_values = magnet_init_values
+        self.normalize_beam_distance = normalize_beam_distance
         self.reward_mode = reward_mode
         self.target_beam_mode = target_beam_mode
         self.target_beam_values = target_beam_values
@@ -239,6 +254,7 @@ class ARESEA(gym.Env):
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
         self.threshold_hold = threshold_hold
+        self.w_beam = w_beam
         self.w_done = w_done
         self.w_mu_x = w_mu_x
         self.w_mu_x_in_threshold = w_mu_x_in_threshold
@@ -378,44 +394,11 @@ class ARESEA(gym.Env):
         on_screen_reward = 1 if self.is_beam_on_screen() else -1
         time_reward = -1
         done_reward = done * (25 - self.steps_taken) / 25
-        if self.reward_mode == "differential":
-            mu_x_reward = (abs(pb[0] - tb[0]) - abs(cb[0] - tb[0])) / abs(ib[0] - tb[0])
-            sigma_x_reward = (abs(pb[1] - tb[1]) - abs(cb[1] - tb[1])) / abs(
-                ib[1] - tb[1]
-            )
-            mu_y_reward = (abs(pb[2] - tb[2]) - abs(cb[2] - tb[2])) / abs(ib[2] - tb[2])
-            sigma_y_reward = (abs(pb[3] - tb[3]) - abs(cb[3] - tb[3])) / abs(
-                ib[3] - tb[3]
-            )
-        elif self.reward_mode == "feedback":
-            mu_x_reward = -abs((cb[0] - tb[0]) / (ib[0] - tb[0]))
-            sigma_x_reward = -abs((cb[1] - tb[1]) / (ib[1] - tb[1]))
-            mu_y_reward = -abs((cb[2] - tb[2]) / (ib[2] - tb[2]))
-            sigma_y_reward = -abs((cb[3] - tb[3]) / (ib[3] - tb[3]))
-        elif self.reward_mode == "logl1":
-            mu_x_reward = -np.log(abs((cb[0] - tb[0])))
-            sigma_x_reward = -np.log(abs((cb[1] - tb[1])))
-            mu_y_reward = -np.log(abs((cb[2] - tb[2])))
-            sigma_y_reward = -np.log(abs((cb[3] - tb[3])))
-        elif self.reward_mode == "l1":
-            mu_x_reward = -abs(cb[0] - tb[0])
-            sigma_x_reward = -abs(cb[1] - tb[1])
-            mu_y_reward = -abs(cb[2] - tb[2])
-            sigma_y_reward = -abs(cb[3] - tb[3])
-        elif self.reward_mode == "l2":
-            mu_x_reward = -((cb[0] - tb[0]) ** 2)
-            sigma_x_reward = -((cb[1] - tb[1]) ** 2)
-            mu_y_reward = -((cb[2] - tb[2]) ** 2)
-            sigma_y_reward = -((cb[3] - tb[3]) ** 2)
-        else:
-            raise ValueError(f'Invalid value "{self.reward_mode}" for reward_mode')
+        beam_reward = self.compute_beam_reward(current_beam)
 
         reward = 0
         reward += self.w_on_screen * on_screen_reward
-        reward += self.w_mu_x * mu_x_reward
-        reward += self.w_sigma_x * sigma_x_reward
-        reward += self.w_mu_y * mu_y_reward
-        reward += self.w_sigma_y * sigma_y_reward
+        reward += self.w_beam * beam_reward
         reward += self.w_time * time_reward
         reward += self.w_mu_x_in_threshold * is_in_threshold[0]
         reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
@@ -427,13 +410,10 @@ class ARESEA(gym.Env):
         # Put together info
         info = {
             "binning": self.get_binning(),
-            "mu_x_reward": mu_x_reward,
-            "mu_y_reward": mu_y_reward,
+            "l1_distance": self.compute_beam_distance(current_beam, ord=1),
             "on_screen_reward": on_screen_reward,
             "pixel_size": self.get_pixel_size(),
             "screen_resolution": self.get_screen_resolution(),
-            "sigma_x_reward": sigma_x_reward,
-            "sigma_y_reward": sigma_y_reward,
             "time_reward": time_reward,
         }
         if self.include_beam_image_in_info:
@@ -594,6 +574,31 @@ class ARESEA(gym.Env):
         else:
             raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
+    def compute_beam_reward(self, current_beam: np.ndarray) -> float:
+        """Compute reward about the current beam's difference to the target beam."""
+        compute_beam_distance = partial(
+            self.compute_beam_distance, ord=self.beam_distance_ord
+        )
+
+        # TODO I'm not sure if the order with log is okay this way
+        if self.log_beam_distance:
+            compute_beam_distance = lambda beam: np.log(compute_beam_distance(beam))
+
+        if self.reward_mode == "feedback":
+            beam_reward = compute_beam_distance(current_beam)
+        elif self.reward_mode == "differential":
+            current_distance = compute_beam_distance(current_beam)
+            previous_distance = compute_beam_distance(self.previous_beam)
+            beam_reward = previous_distance - current_distance
+        else:
+            raise ValueError(f"Invalid value '{self.reward_mode}' for reward_mode")
+
+        if self.normalize_beam_distance:
+            initial_distance = compute_beam_distance(self.initial_screen_beam)
+            beam_reward /= initial_distance
+
+        return beam_reward
+
     def is_beam_on_screen(self):
         """
         Return `True` when the beam is on the screen and `False` when it isn't.
@@ -660,6 +665,16 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Must be implemented!
         """
         raise NotImplementedError
+
+    def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
+        """
+        Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
+        weighted by its configured weight.
+        """
+        weights = np.array([self.w_mu_x, self.w_sigma_x, self.w_mu_y, self.w_sigma_y])
+        weighted_current = weights * beam
+        weighted_target = weights * self.target_beam
+        return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
 
     def get_incoming_parameters(self):
         """
@@ -757,9 +772,12 @@ class ARESEACheetah(ARESEA):
         misalignment_mode="random",
         misalignment_values=None,
         action_mode="direct",
+        beam_distance_ord=1,
         include_beam_image_in_info=False,
+        log_beam_distance=False,
         magnet_init_mode=None,
         magnet_init_values=None,
+        normalize_beam_distance=True,
         reward_mode="differential",
         target_beam_mode="random",
         target_beam_values=None,
@@ -768,6 +786,7 @@ class ARESEACheetah(ARESEA):
         target_sigma_x_threshold=3.3198e-6,
         target_sigma_y_threshold=2.4469e-6,
         threshold_hold=1,
+        w_beam=1.0,
         w_done=1.0,
         w_mu_x=1.0,
         w_mu_x_in_threshold=1.0,
@@ -782,9 +801,12 @@ class ARESEACheetah(ARESEA):
     ):
         super().__init__(
             action_mode=action_mode,
+            beam_distance_ord=beam_distance_ord,
             include_beam_image_in_info=include_beam_image_in_info,
+            log_beam_distance=log_beam_distance,
             magnet_init_mode=magnet_init_mode,
             magnet_init_values=magnet_init_values,
+            normalize_beam_distance=normalize_beam_distance,
             reward_mode=reward_mode,
             target_beam_mode=target_beam_mode,
             target_beam_values=target_beam_values,
@@ -793,6 +815,7 @@ class ARESEACheetah(ARESEA):
             target_sigma_x_threshold=target_sigma_x_threshold,
             target_sigma_y_threshold=target_sigma_y_threshold,
             threshold_hold=threshold_hold,
+            w_beam=w_beam,
             w_done=w_done,
             w_mu_x=w_mu_x,
             w_mu_x_in_threshold=w_mu_x_in_threshold,
