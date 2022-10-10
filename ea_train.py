@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Optional
 
 import cheetah
 import cv2
@@ -202,29 +203,29 @@ class ARESEA(gym.Env):
 
     def __init__(
         self,
-        action_mode="direct",
-        include_beam_image_in_info=True,
-        magnet_init_mode=None,
-        magnet_init_values=None,
-        reward_mode="differential",
-        target_beam_mode="random",
-        target_beam_values=None,
-        target_mu_x_threshold=3.3198e-6,
-        target_mu_y_threshold=2.4469e-6,
-        target_sigma_x_threshold=3.3198e-6,
-        target_sigma_y_threshold=2.4469e-6,
-        threshold_hold=1,
-        w_done=1.0,
-        w_mu_x=1.0,
-        w_mu_x_in_threshold=1.0,
-        w_mu_y=1.0,
-        w_mu_y_in_threshold=1.0,
-        w_on_screen=1.0,
-        w_sigma_x=1.0,
-        w_sigma_x_in_threshold=1.0,
-        w_sigma_y=1.0,
-        w_sigma_y_in_threshold=1.0,
-        w_time=1.0,
+        action_mode: str = "direct",
+        include_beam_image_in_info: bool = True,
+        magnet_init_mode: Optional[str] = None,
+        magnet_init_values: np.ndarray = None,
+        reward_mode: str = "differential",
+        target_beam_mode: str = "random",
+        target_beam_values: np.ndarray = None,
+        target_mu_x_threshold: float = 3.3198e-6,
+        target_mu_y_threshold: float = 2.4469e-6,
+        target_sigma_x_threshold: float = 3.3198e-6,
+        target_sigma_y_threshold: float = 2.4469e-6,
+        threshold_hold: int = 1,
+        w_done: float = 1.0,
+        w_mu_x: float = 1.0,
+        w_mu_x_in_threshold: float = 1.0,
+        w_mu_y: float = 1.0,
+        w_mu_y_in_threshold: float = 1.0,
+        w_on_screen: float = 1.0,
+        w_sigma_x: float = 1.0,
+        w_sigma_x_in_threshold: float = 1.0,
+        w_sigma_y: float = 1.0,
+        w_sigma_y_in_threshold: float = 1.0,
+        w_time: float = 1.0,
     ):
         self.action_mode = action_mode
         self.include_beam_image_in_info = include_beam_image_in_info
