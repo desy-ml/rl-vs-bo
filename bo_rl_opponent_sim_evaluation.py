@@ -63,9 +63,7 @@ def main():
         problems = json.load(f)
 
     with ProcessPoolExecutor() as executor:
-        futures = tqdm(
-            executor.map(try_problem, range(len(problems)), problems), total=300
-        )
+        _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
 
 
 if __name__ == "__main__":
