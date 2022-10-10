@@ -82,7 +82,7 @@ def train(config):
         monitor_gym=True,
         config=config,
     )
-    config["wandb_run_name"] = wandb.run.name
+    config["run_name"] = wandb.run.name
 
     # Setup environments
     if config["vec_env"] == "dummy":
@@ -116,7 +116,7 @@ def train(config):
         env,
         device=config["sb3_device"],
         gamma=config["gamma"],
-        tensorboard_log=f"log/{config['wandb_run_name']}",
+        tensorboard_log=f"log/{config['run_name']}",
         n_steps=100,
         batch_size=100,
     )
@@ -181,7 +181,7 @@ def make_env(config, record_video=False):
         )
     env = Monitor(env)
     if record_video:
-        env = RecordVideo(env, video_folder=f"recordings/{config['wandb_run_name']}")
+        env = RecordVideo(env, video_folder=f"recordings/{config['run_name']}")
     return env
 
 
