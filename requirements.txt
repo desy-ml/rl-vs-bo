@@ -1,15 +1,18 @@
-git+https://gitlab.desy.de/msk-ipc/dummy-pydoocs.git
-botorch
+# git+https://gitlab.desy.de/msk-ipc/dummy-pydoocs.git
+black
+# botorch
 cheetah-accelerator>=0.5.14
 gym
+isort
 jupyter
 matplotlib
 numpy
 opencv-python
-PyQt6
+# PyQt6
 pyyaml
-pyqtgraph
+# pyqtgraph
 scipy
 stable-baselines3
 tensorboard
+tqdm
 wandb
