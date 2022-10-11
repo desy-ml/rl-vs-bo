@@ -393,7 +393,7 @@ class ARESEA(gym.Env):
         # Compute reward
         on_screen_reward = 1 if self.is_beam_on_screen() else -1
         time_reward = -1
-        done_reward = 1
+        done_reward = int(done)
         beam_reward = self.compute_beam_reward(current_beam)
 
         reward = 0
