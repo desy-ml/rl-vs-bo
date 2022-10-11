@@ -45,7 +45,7 @@ def main():
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
-        "reward_mode": "feedback",
+        "reward_mode": "differential",
         "sb3_device": "auto",
         "target_beam_mode": "constant",
         "target_beam_values": np.zeros(4),
@@ -67,7 +67,7 @@ def main():
         "w_sigma_x_in_threshold": 0.0,
         "w_sigma_y": 1.0,
         "w_sigma_y_in_threshold": 0.0,
-        "w_time": 0.0,
+        "w_time": 0.02,
     }
 
     train(config)
@@ -122,7 +122,7 @@ def train(config):
     )
 
     model.learn(
-        total_timesteps=int(2e6),
+        total_timesteps=10_000_000,
         eval_env=eval_env,
         eval_freq=500,
         callback=WandbCallback(),
@@ -393,7 +393,7 @@ class ARESEA(gym.Env):
         # Compute reward
         on_screen_reward = 1 if self.is_beam_on_screen() else -1
         time_reward = -1
-        done_reward = done * (25 - self.steps_taken) / 25
+        done_reward = 1
         beam_reward = self.compute_beam_reward(current_beam)
 
         reward = 0
@@ -585,7 +585,8 @@ class ARESEA(gym.Env):
             compute_beam_distance = lambda beam: np.log(compute_beam_distance(beam))
 
         if self.reward_mode == "feedback":
-            beam_reward = compute_beam_distance(current_beam)
+            current_distance = compute_beam_distance(current_beam)
+            beam_reward = -current_distance
         elif self.reward_mode == "differential":
             current_distance = compute_beam_distance(current_beam)
             previous_distance = compute_beam_distance(self.previous_beam)
