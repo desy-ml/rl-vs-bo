@@ -51,10 +51,10 @@ def main():
         "target_beam_values": np.zeros(4),
         "target_mu_x_threshold": np.inf,
         "target_mu_y_threshold": np.inf,
-        "target_sigma_x_threshold": 20e-6,
+        "target_sigma_x_threshold": 20e-6,  # 20e-6 m are close to screen resolution
         "target_sigma_y_threshold": 20e-6,
-        "threshold_hold": 5,
-        "time_limit": 25,
+        "threshold_hold": 3,
+        "time_limit": 50,
         "vec_env": "subproc",
         "w_beam": 1.0,
         "w_done": 10.0,
