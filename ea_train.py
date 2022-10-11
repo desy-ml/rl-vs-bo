@@ -28,7 +28,7 @@ from utils import FilterAction
 def main():
     config = {
         "action_mode": "delta",
-        "beam_distance_ord": 1,
+        "beam_distance_ord": 2,
         "gamma": 0.99,
         "filter_action": [0, 1, 3],
         "filter_observation": None,
@@ -45,7 +45,7 @@ def main():
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
-        "reward_mode": "differential",
+        "reward_mode": "feedback",
         "sb3_device": "auto",
         "target_beam_mode": "constant",
         "target_beam_values": np.zeros(4),
@@ -67,7 +67,7 @@ def main():
         "w_sigma_x_in_threshold": 0.0,
         "w_sigma_y": 1.0,
         "w_sigma_y_in_threshold": 0.0,
-        "w_time": 0.02,
+        "w_time": 0.0,
     }
 
     train(config)
@@ -122,7 +122,7 @@ def train(config):
     )
 
     model.learn(
-        total_timesteps=10_000_000,
+        total_timesteps=5_000_000,
         eval_env=eval_env,
         eval_freq=500,
         callback=WandbCallback(),
