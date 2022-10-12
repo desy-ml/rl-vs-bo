@@ -38,6 +38,7 @@ def main():
         "log_beam_distance": False,
         "magnet_init_mode": "random",
         "magnet_init_values": None,
+        "max_misalignment": 5e-4,
         "misalignment_mode": "random",
         "misalignment_values": None,
         "n_envs": 40,
@@ -138,6 +139,7 @@ def make_env(config, record_video=False):
     env = ARESEACheetah(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
+        max_misalignment=config["max_misalignment"],
         misalignment_mode=config["misalignment_mode"],
         misalignment_values=config["misalignment_values"],
         action_mode=config["action_mode"],
@@ -770,6 +772,7 @@ class ARESEACheetah(ARESEA):
         self,
         incoming_mode="random",
         incoming_values=None,
+        max_misalignment: float = 5e-4,
         misalignment_mode="random",
         misalignment_values=None,
         action_mode="direct",
@@ -800,6 +803,12 @@ class ARESEACheetah(ARESEA):
         w_sigma_y_in_threshold=1.0,
         w_time=1.0,
     ):
+        self.incoming_mode = incoming_mode
+        self.incoming_values = incoming_values
+        self.max_misalignment = max_misalignment
+        self.misalignment_mode = misalignment_mode
+        self.misalignment_values = misalignment_values
+
         super().__init__(
             action_mode=action_mode,
             beam_distance_ord=beam_distance_ord,
@@ -829,11 +838,6 @@ class ARESEACheetah(ARESEA):
             w_sigma_y_in_threshold=w_sigma_y_in_threshold,
             w_time=w_time,
         )
-
-        self.incoming_mode = incoming_mode
-        self.incoming_values = incoming_values
-        self.misalignment_mode = misalignment_mode
-        self.misalignment_values = misalignment_values
 
         # Create particle simulation
         self.simulation = cheetah.Segment.from_ocelot(
@@ -989,7 +993,9 @@ class ARESEACheetah(ARESEA):
                     dtype=np.float32,
                 ),
             ),
-            "misalignments": spaces.Box(low=-2e-3, high=2e-3, shape=(8,)),
+            "misalignments": spaces.Box(
+                low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
+            ),
         }
 
     def get_accelerator_observation(self):
