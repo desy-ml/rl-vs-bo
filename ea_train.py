@@ -25,7 +25,7 @@ from ARESlatticeStage3v1_9 import cell as ares_lattice
 from utils import FilterAction
 
 
-def main():
+def main() -> None:
     config = {
         "action_mode": "delta",
         "beam_distance_ord": 2,
@@ -74,7 +74,7 @@ def main():
     train(config)
 
 
-def train(config):
+def train(config: dict) -> None:
     # Setup wandb
     wandb.init(
         project="ares-ea-v2",
@@ -135,7 +135,7 @@ def train(config):
     save_to_yaml(config, f"models/{wandb.run.name}/config")
 
 
-def make_env(config, record_video=False):
+def make_env(config: dict, record_video: bool = False) -> gym.Env:
     env = ARESEACheetah(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
@@ -240,7 +240,7 @@ class ARESEA(gym.Env):
         w_sigma_y: float = 1.0,
         w_sigma_y_in_threshold: float = 1.0,
         w_time: float = 1.0,
-    ):
+    ) -> None:
         self.action_mode = action_mode
         self.beam_distance_ord = beam_distance_ord
         self.include_beam_image_in_info = include_beam_image_in_info
@@ -313,7 +313,7 @@ class ARESEA(gym.Env):
         # Setup the accelerator (either simulation or the actual machine)
         self.setup_accelerator()
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         self.reset_accelerator()
 
         if self.magnet_init_mode == "constant":
@@ -353,7 +353,7 @@ class ARESEA(gym.Env):
 
         return observation
 
-    def step(self, action):
+    def step(self, action: np.ndarray) -> tuple:
         self.take_action(action)
 
         # Run the simulation
@@ -426,7 +426,7 @@ class ARESEA(gym.Env):
 
         return observation, reward, done, info
 
-    def render(self, mode="human"):
+    def render(self, mode: str = "human") -> Optional[np.ndarray]:
         assert mode == "rgb_array" or mode == "human"
 
         binning = self.get_binning()
@@ -564,7 +564,7 @@ class ARESEA(gym.Env):
         else:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def take_action(self, action):
+    def take_action(self, action: np.ndarray) -> None:
         """Take `action` according to the environment's configuration."""
         if self.action_mode == "direct":
             self.set_magnets(action)
@@ -602,7 +602,7 @@ class ARESEA(gym.Env):
 
         return beam_reward
 
-    def is_beam_on_screen(self):
+    def is_beam_on_screen(self) -> bool:
         """
         Return `True` when the beam is on the screen and `False` when it isn't.
 
@@ -610,7 +610,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def setup_accelerator(self):
+    def setup_accelerator(self) -> None:
         """
         Prepare the accelerator for use with the environment. Should mostly be used for
         setting up simulations.
@@ -618,7 +618,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Optional.
         """
 
-    def get_magnets(self):
+    def get_magnets(self) -> np.ndarray:
         """
         Return the magnet values as a NumPy array in order as the magnets appear in the
         accelerator.
@@ -627,7 +627,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def set_magnets(self, magnets):
+    def set_magnets(self, magnets: np.ndarray) -> None:
         """
         Set the magnets to the given values.
 
@@ -641,7 +641,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def reset_accelerator(self):
+    def reset_accelerator(self) -> None:
         """
         Code that should set the accelerator up for a new episode. Run when the `reset`
         is called.
@@ -652,7 +652,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Optional.
         """
 
-    def update_accelerator(self):
+    def update_accelerator(self) -> None:
         """
         Update accelerator metrics for later use. Use this to run the simulation or
         cache the beam image.
@@ -660,7 +660,7 @@ class ARESEA(gym.Env):
         Override with backend-specific imlementation. Optional.
         """
 
-    def get_beam_parameters(self):
+    def get_beam_parameters(self) -> np.ndarray:
         """
         Get the beam parameters measured on the diagnostic screen as NumPy array grouped
         by dimension (e.g. mu_x, sigma_x, mu_y, sigma_y).
@@ -679,7 +679,7 @@ class ARESEA(gym.Env):
         weighted_target = weights * self.target_beam
         return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
 
-    def get_incoming_parameters(self):
+    def get_incoming_parameters(self) -> np.ndarray:
         """
         Get all physical beam parameters of the incoming beam as NumPy array in order
         energy, mu_x, mu_xp, mu_y, mu_yp, sigma_x, sigma_xp, sigma_y, sigma_yp, sigma_s,
@@ -689,7 +689,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def get_misalignments(self):
+    def get_misalignments(self) -> np.ndarray:
         """
         Get misalignments of the quadrupoles and the diagnostic screen as NumPy array in
         order AREAMQZM1.misalignment.x, AREAMQZM1.misalignment.y,
@@ -700,7 +700,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def get_beam_image(self):
+    def get_beam_image(self) -> np.ndarray:
         """
         Retreive the beam image as a 2-dimensional NumPy array.
 
@@ -714,7 +714,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def get_binning(self):
+    def get_binning(self) -> np.ndarray:
         """
         Return binning currently set on the screen camera as NumPy array [x, y].
 
@@ -722,7 +722,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def get_screen_resolution(self):
+    def get_screen_resolution(self) -> np.ndarray:
         """
         Return (binned) resolution of the screen camera as NumPy array [x, y].
 
@@ -730,7 +730,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def get_pixel_size(self):
+    def get_pixel_size(self) -> np.ndarray:
         """
         Return the (binned) size of the area on the diagnostic screen covered by one
         pixel as NumPy array [x, y].
@@ -739,7 +739,7 @@ class ARESEA(gym.Env):
         """
         raise NotImplementedError
 
-    def get_accelerator_observation_space(self):
+    def get_accelerator_observation_space(self) -> dict:
         """
         Return a dictionary of aditional observation spaces for observations from the
         accelerator backend, e.g. incoming beam and misalignments in simulation.
@@ -748,7 +748,7 @@ class ARESEA(gym.Env):
         """
         return {}
 
-    def get_accelerator_observation(self):
+    def get_accelerator_observation(self) -> dict:
         """
         Return a dictionary of aditional observations from the accelerator backend, e.g.
         incoming beam and misalignments in simulation.
@@ -757,7 +757,7 @@ class ARESEA(gym.Env):
         """
         return {}
 
-    def get_accelerator_info(self):
+    def get_accelerator_info(self) -> dict:
         """
         Return a dictionary of aditional info from the accelerator backend, e.g.
         incoming beam and misalignments in simulation.
@@ -770,39 +770,39 @@ class ARESEA(gym.Env):
 class ARESEACheetah(ARESEA):
     def __init__(
         self,
-        incoming_mode="random",
-        incoming_values=None,
+        incoming_mode: str = "random",
+        incoming_values: Optional[np.ndarray] = None,
         max_misalignment: float = 5e-4,
-        misalignment_mode="random",
-        misalignment_values=None,
-        action_mode="direct",
-        beam_distance_ord=1,
-        include_beam_image_in_info=False,
-        log_beam_distance=False,
-        magnet_init_mode=None,
-        magnet_init_values=None,
-        normalize_beam_distance=True,
-        reward_mode="differential",
-        target_beam_mode="random",
-        target_beam_values=None,
-        target_mu_x_threshold=3.3198e-6,
-        target_mu_y_threshold=2.4469e-6,
-        target_sigma_x_threshold=3.3198e-6,
-        target_sigma_y_threshold=2.4469e-6,
-        threshold_hold=1,
-        w_beam=1.0,
-        w_done=1.0,
-        w_mu_x=1.0,
-        w_mu_x_in_threshold=1.0,
-        w_mu_y=1.0,
-        w_mu_y_in_threshold=1.0,
-        w_on_screen=1.0,
-        w_sigma_x=1.0,
-        w_sigma_x_in_threshold=1.0,
-        w_sigma_y=1.0,
-        w_sigma_y_in_threshold=1.0,
-        w_time=1.0,
-    ):
+        misalignment_mode: str = "random",
+        misalignment_values: Optional[np.ndarray] = None,
+        action_mode: str = "direct",
+        beam_distance_ord: int = 1,
+        include_beam_image_in_info: bool = False,
+        log_beam_distance: bool = False,
+        magnet_init_mode: Optional[str] = None,
+        magnet_init_values: Optional[np.ndarray] = None,
+        normalize_beam_distance: bool = True,
+        reward_mode: str = "differential",
+        target_beam_mode: str = "random",
+        target_beam_values: Optional[np.ndarray] = None,
+        target_mu_x_threshold: float = 3.3198e-6,
+        target_mu_y_threshold: float = 2.4469e-6,
+        target_sigma_x_threshold: float = 3.3198e-6,
+        target_sigma_y_threshold: float = 2.4469e-6,
+        threshold_hold: int = 1,
+        w_beam: float = 1.0,
+        w_done: float = 1.0,
+        w_mu_x: float = 1.0,
+        w_mu_x_in_threshold: float = 1.0,
+        w_mu_y: float = 1.0,
+        w_mu_y_in_threshold: float = 1.0,
+        w_on_screen: float = 1.0,
+        w_sigma_x: float = 1.0,
+        w_sigma_x_in_threshold: float = 1.0,
+        w_sigma_y: float = 1.0,
+        w_sigma_y_in_threshold: float = 1.0,
+        w_time: float = 1.0,
+    ) -> None:
         self.incoming_mode = incoming_mode
         self.incoming_values = incoming_values
         self.max_misalignment = max_misalignment
@@ -849,13 +849,13 @@ class ARESEACheetah(ARESEA):
         self.simulation.AREABSCR1.binning = 4
         self.simulation.AREABSCR1.is_active = True
 
-    def is_beam_on_screen(self):
+    def is_beam_on_screen(self) -> bool:
         screen = self.simulation.AREABSCR1
         beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
         limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
         return np.all(np.abs(beam_position) < limits)
 
-    def get_magnets(self):
+    def get_magnets(self) -> np.ndarray:
         return np.array(
             [
                 self.simulation.AREAMQZM1.k1,
@@ -866,14 +866,14 @@ class ARESEACheetah(ARESEA):
             ]
         )
 
-    def set_magnets(self, magnets):
+    def set_magnets(self, magnets: np.ndarray) -> None:
         self.simulation.AREAMQZM1.k1 = magnets[0]
         self.simulation.AREAMQZM2.k1 = magnets[1]
         self.simulation.AREAMCVM1.angle = magnets[2]
         self.simulation.AREAMQZM3.k1 = magnets[3]
         self.simulation.AREAMCHM1.angle = magnets[4]
 
-    def reset_accelerator(self):
+    def reset_accelerator(self) -> None:
         # New domain randomisation
         if self.incoming_mode == "constant":
             incoming_parameters = self.incoming_values
@@ -908,10 +908,10 @@ class ARESEACheetah(ARESEA):
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
         self.simulation.AREABSCR1.misalignment = misalignments[6:8]
 
-    def update_accelerator(self):
+    def update_accelerator(self) -> None:
         self.simulation(self.incoming)
 
-    def get_beam_parameters(self):
+    def get_beam_parameters(self) -> np.ndarray:
         return np.array(
             [
                 self.simulation.AREABSCR1.read_beam.mu_x,
@@ -921,7 +921,7 @@ class ARESEACheetah(ARESEA):
             ]
         )
 
-    def get_incoming_parameters(self):
+    def get_incoming_parameters(self) -> np.ndarray:
         # Parameters of incoming are typed out to guarantee their order, as the
         # order would not be guaranteed creating np.array from dict.
         return np.array(
@@ -940,7 +940,7 @@ class ARESEACheetah(ARESEA):
             ]
         )
 
-    def get_misalignments(self):
+    def get_misalignments(self) -> np.ndarray:
         return np.array(
             [
                 self.simulation.AREAMQZM1.misalignment[0],
@@ -955,21 +955,21 @@ class ARESEACheetah(ARESEA):
             dtype=np.float32,
         )
 
-    def get_beam_image(self):
+    def get_beam_image(self) -> np.ndarray:
         # Beam image to look like real image by dividing by goodlooking number and
         # scaling to 12 bits)
         return self.simulation.AREABSCR1.reading / 1e9 * 2**12
 
-    def get_binning(self):
+    def get_binning(self) -> np.ndarray:
         return np.array(self.simulation.AREABSCR1.binning)
 
-    def get_screen_resolution(self):
+    def get_screen_resolution(self) -> np.ndarray:
         return np.array(self.simulation.AREABSCR1.resolution) / self.get_binning()
 
-    def get_pixel_size(self):
+    def get_pixel_size(self) -> np.ndarray:
         return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
 
-    def get_accelerator_observation_space(self):
+    def get_accelerator_observation_space(self) -> dict:
         return {
             "incoming": spaces.Box(
                 low=np.array(
@@ -998,20 +998,20 @@ class ARESEACheetah(ARESEA):
             ),
         }
 
-    def get_accelerator_observation(self):
+    def get_accelerator_observation(self) -> dict:
         return {
             "incoming": self.get_incoming_parameters(),
             "misalignments": self.get_misalignments(),
         }
 
 
-def read_from_yaml(path):
+def read_from_yaml(path: str) -> dict:
     with open(f"{path}.yaml", "r") as f:
         data = yaml.load(f.read(), Loader=yaml.Loader)
     return data
 
 
-def save_to_yaml(data, path):
+def save_to_yaml(data: dict, path: str) -> None:
     with open(f"{path}.yaml", "w") as f:
         yaml.dump(data, f)
 
