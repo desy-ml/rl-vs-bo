@@ -1,3 +1,4 @@
+from typing import Optional, Union
 import torch
 from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_model
@@ -123,12 +124,35 @@ def get_new_bound(env, current_action, stepsize):
     return bounds
 
 
-def get_next_samples(X, Y, best_y, bounds, n_points=1, acquisition="EI"):
+def get_next_samples(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    best_y: Union[float, torch.Tensor],
+    bounds: torch.Tensor,
+    n_points: int = 1,
+    acquisition: str = "EI",
+    fixparam: Optional[dict] = None,
+):
     """
     Suggest Next Sample for BO
     """
     gp = SingleTaskGP(X, Y)
     mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+    # Exclude fixed hyperparameters
+    if "lengthscale" in fixparam.keys():
+        gp.covar_module.base_kernel.lengthscale = fixparam["lengthscale"]
+        gp.covar_module.base_kernel.raw_lengthscale.requires_grad = False
+    if "noise_var" in fixparam.keys():
+        gp.likelihood.noise_covar.noise = fixparam["noise_var"]
+        gp.likelihood.noise_covar.raw_noise.requires_grad = False
+    if "mean_constant" in fixparam.keys():
+        gp.mean_module.constant = fixparam["mean_constant"]
+        gp.mean_module.raw_constant.requires_grad = False
+    if "scale" in fixparam.keys():
+        gp.covar_module.output_scale = fixparam["scale"]
+        gp.covar_module.raw_outputscale.requires_grad = False
+
+    # Fit GP
     fit_gpytorch_model(mll)
 
     if acquisition == "EI":
