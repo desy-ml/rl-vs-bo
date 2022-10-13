@@ -20,6 +20,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNorm
 from wandb.integration.sb3 import WandbCallback
 
 from ARESlatticeStage3v1_9 import cell as ares_lattice
+from utils import save_config
 
 
 def main():
@@ -112,7 +113,7 @@ def train(config):
     model.save(f"models/{wandb.run.name}/model")
     if config["normalize_observation"] or config["normalize_reward"]:
         env.save(f"models/{wandb.run.name}/vec_normalize.pkl")
-    save_to_yaml(config, f"models/{wandb.run.name}/config")
+    save_config(config, f"models/{wandb.run.name}/config")
 
 
 def make_env(config, record_video=False):
@@ -712,17 +713,6 @@ class ARESEACheetah(ARESEA):
             "incoming": self.get_incoming_parameters(),
             "misalignments": self.get_misalignments(),
         }
-
-
-def read_from_yaml(path):
-    with open(f"{path}.yaml", "r") as f:
-        data = yaml.load(f.read(), Loader=yaml.Loader)
-    return data
-
-
-def save_to_yaml(data, path):
-    with open(f"{path}.yaml", "w") as f:
-        yaml.dump(data, f)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ import cv2
 import gym
 import numpy as np
 import wandb
-import yaml
 from gym import spaces
 from gym.wrappers import (
     FilterObservation,
@@ -23,7 +22,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNorm
 from wandb.integration.sb3 import WandbCallback
 
 from ARESlatticeStage3v1_9 import cell as ares_lattice
-from utils import FilterAction
+from utils import FilterAction, save_config
 
 
 def main() -> None:
@@ -1007,26 +1006,6 @@ class ARESEACheetah(ARESEA):
             "incoming": self.get_incoming_parameters(),
             "misalignments": self.get_misalignments(),
         }
-
-
-def load_config(path: str) -> dict:
-    """
-    Load a training setup config file to a config dictionary. The config file must be a
-    `.yaml` file. The `path` argument to this function should be given without the file
-    extension.
-    """
-    with open(f"{path}.yaml", "r") as f:
-        data = yaml.load(f.read(), Loader=yaml.Loader)
-    return data
-
-
-def save_config(data: dict, path: str) -> None:
-    """
-    Save a training setup config to a `.yaml` file. The `path` argument to this function
-    should be given without the file extension.
-    """
-    with open(f"{path}.yaml", "w") as f:
-        yaml.dump(data, f)
 
 
 if __name__ == "__main__":

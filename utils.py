@@ -9,6 +9,7 @@ import gym
 import matplotlib.pyplot as plt
 import numpy as np
 import wandb
+import yaml
 from gym import spaces
 from gym.wrappers import TimeLimit
 from stable_baselines3.common.callbacks import BaseCallback
@@ -696,3 +697,23 @@ class TQDMWrapper(gym.Wrapper):
             self.pbar.close()
 
         super().close()
+
+
+def load_config(path: str) -> dict:
+    """
+    Load a training setup config file to a config dictionary. The config file must be a
+    `.yaml` file. The `path` argument to this function should be given without the file
+    extension.
+    """
+    with open(f"{path}.yaml", "r") as f:
+        data = yaml.load(f.read(), Loader=yaml.Loader)
+    return data
+
+
+def save_config(data: dict, path: str) -> None:
+    """
+    Save a training setup config to a `.yaml` file. The `path` argument to this function
+    should be given without the file extension.
+    """
+    with open(f"{path}.yaml", "w") as f:
+        yaml.dump(data, f)

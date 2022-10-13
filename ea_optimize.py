@@ -17,7 +17,7 @@ from gym.wrappers import (
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3 import PPO, TD3
 
-from ea_train import ARESEA, load_config
+from ea_train import ARESEA
 from utils import (
     ARESEAeLog,
     FilterAction,
@@ -25,6 +25,7 @@ from utils import (
     PolishedDonkeyCompatibility,
     RecordEpisode,
     TQDMWrapper,
+    load_config,
 )
 
 
