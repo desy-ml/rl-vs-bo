@@ -8,13 +8,12 @@ from io import BytesIO
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
+import wandb
 from gym import spaces
 from gym.wrappers import TimeLimit
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_util import is_wrapped, unwrap_wrapper
 from tqdm import tqdm
-
-import wandb
 
 
 def remove_if_exists(path):

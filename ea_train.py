@@ -5,6 +5,7 @@ import cheetah
 import cv2
 import gym
 import numpy as np
+import wandb
 import yaml
 from gym import spaces
 from gym.wrappers import (
@@ -21,7 +22,6 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
 
-import wandb
 from ARESlatticeStage3v1_9 import cell as ares_lattice
 from utils import FilterAction
 
@@ -83,6 +83,7 @@ def train(config: dict) -> None:
         sync_tensorboard=True,
         monitor_gym=True,
         config=config,
+        dir=".wandb",
     )
     config["run_name"] = wandb.run.name
 
