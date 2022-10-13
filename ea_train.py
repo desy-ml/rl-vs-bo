@@ -16,6 +16,7 @@ from gym.wrappers import (
     TimeLimit,
 )
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
@@ -122,11 +123,12 @@ def train(config: dict) -> None:
         batch_size=100,
     )
 
+    eval_callback = EvalCallback(eval_env, eval_freq=500)
+    wandb_callback = WandbCallback()
+
     model.learn(
         total_timesteps=5_000_000,
-        eval_env=eval_env,
-        eval_freq=500,
-        callback=WandbCallback(),
+        callback=[eval_callback, wandb_callback],
     )
 
     model.save(f"models/{wandb.run.name}/model")
