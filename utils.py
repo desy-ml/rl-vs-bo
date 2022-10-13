@@ -17,6 +17,115 @@ from stable_baselines3.common.env_util import is_wrapped, unwrap_wrapper
 from tqdm import tqdm
 
 
+def load_config(path: str) -> dict:
+    """
+    Load a training setup config file to a config dictionary. The config file must be a
+    `.yaml` file. The `path` argument to this function should be given without the file
+    extension.
+    """
+    with open(f"{path}.yaml", "r") as f:
+        data = yaml.load(f.read(), Loader=yaml.Loader)
+    return data
+
+
+def plot_beam_history(ax, observations, before_reset=None):
+    mu_x = np.array([obs["beam"][0] for obs in observations])
+    sigma_x = np.array([obs["beam"][1] for obs in observations])
+    mu_y = np.array([obs["beam"][2] for obs in observations])
+    sigma_y = np.array([obs["beam"][3] for obs in observations])
+
+    if before_reset is not None:
+        mu_x = np.insert(mu_x, 0, before_reset[0])
+        sigma_x = np.insert(sigma_x, 0, before_reset[1])
+        mu_y = np.insert(mu_y, 0, before_reset[2])
+        sigma_y = np.insert(sigma_y, 0, before_reset[3])
+
+    target_beam = observations[0]["target"]
+
+    start = 0 if before_reset is None else -1
+    steps = np.arange(start, len(observations))
+
+    ax.set_title("Beam Parameters")
+    ax.set_xlim([start, len(observations) + 1])
+    ax.set_xlabel("Step")
+    ax.set_ylabel("(mm)")
+    ax.plot(steps, mu_x * 1e3, label=r"$\mu_x$", c="tab:blue")
+    ax.plot(steps, [target_beam[0] * 1e3] * len(steps), ls="--", c="tab:blue")
+    ax.plot(steps, sigma_x * 1e3, label=r"$\sigma_x$", c="tab:orange")
+    ax.plot(steps, [target_beam[1] * 1e3] * len(steps), ls="--", c="tab:orange")
+    ax.plot(steps, mu_y * 1e3, label=r"$\mu_y$", c="tab:green")
+    ax.plot(steps, [target_beam[2] * 1e3] * len(steps), ls="--", c="tab:green")
+    ax.plot(steps, sigma_y * 1e3, label=r"$\sigma_y$", c="tab:red")
+    ax.plot(steps, [target_beam[3] * 1e3] * len(steps), ls="--", c="tab:red")
+    ax.legend()
+    ax.grid(True)
+
+
+def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
+    screen_size = screen_resolution * pixel_size
+
+    ax.set_title(title)
+    ax.set_xlabel("(mm)")
+    ax.set_ylabel("(mm)")
+    ax.imshow(
+        img,
+        vmin=0,
+        aspect="equal",
+        interpolation="none",
+        extent=(
+            -screen_size[0] / 2 * 1e3,
+            screen_size[0] / 2 * 1e3,
+            -screen_size[1] / 2 * 1e3,
+            screen_size[1] / 2 * 1e3,
+        ),
+    )
+
+
+def plot_quadrupole_history(ax, observations, before_reset=None):
+    areamqzm1 = [obs["magnets"][0] for obs in observations]
+    areamqzm2 = [obs["magnets"][1] for obs in observations]
+    areamqzm3 = [obs["magnets"][3] for obs in observations]
+
+    if before_reset is not None:
+        areamqzm1 = [before_reset[0]] + areamqzm1
+        areamqzm2 = [before_reset[1]] + areamqzm2
+        areamqzm3 = [before_reset[3]] + areamqzm3
+
+    start = 0 if before_reset is None else -1
+    steps = np.arange(start, len(observations))
+
+    ax.set_title("Quadrupoles")
+    ax.set_xlim([start, len(observations) + 1])
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Strength (1/m^2)")
+    ax.plot(steps, areamqzm1, label="AREAMQZM1")
+    ax.plot(steps, areamqzm2, label="AREAMQZM2")
+    ax.plot(steps, areamqzm3, label="AREAMQZM3")
+    ax.legend()
+    ax.grid(True)
+
+
+def plot_steerer_history(ax, observations, before_reset=None):
+    areamcvm1 = np.array([obs["magnets"][2] for obs in observations])
+    areamchm2 = np.array([obs["magnets"][4] for obs in observations])
+
+    if before_reset is not None:
+        areamcvm1 = np.insert(areamcvm1, 0, before_reset[2])
+        areamchm2 = np.insert(areamchm2, 0, before_reset[4])
+
+    start = 0 if before_reset is None else -1
+    steps = np.arange(start, len(observations))
+
+    ax.set_title("Steerers")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Kick (mrad)")
+    ax.set_xlim([start, len(observations) + 1])
+    ax.plot(steps, areamcvm1 * 1e3, label="AREAMCVM1")
+    ax.plot(steps, areamchm2 * 1e3, label="AREAMCHM2")
+    ax.legend()
+    ax.grid(True)
+
+
 def remove_if_exists(path):
     try:
         os.remove(path)
@@ -25,219 +134,65 @@ def remove_if_exists(path):
         return False
 
 
-class CheckpointCallback(BaseCallback):
-    def __init__(
-        self,
-        save_freq,
-        save_path,
-        name_prefix="rl_model",
-        save_env=False,
-        env_name_prefix="vec_normalize",
-        save_replay_buffer=False,
-        replay_buffer_name_prefix="replay_buffer",
-        delete_old_replay_buffers=True,
-        verbose=0,
-    ):
-        super(CheckpointCallback, self).__init__(verbose)
-        self.save_freq = save_freq
-        self.save_path = save_path
-        self.name_prefix = name_prefix
-        self.save_env = save_env
-        self.env_name_prefix = env_name_prefix
-        self.save_replay_buffer = save_replay_buffer
-        self.replay_buffer_name_prefix = replay_buffer_name_prefix
-        self.delete_old_replay_buffers = delete_old_replay_buffers
-
-    def _init_callback(self):
-        # Create folder if needed
-        if self.save_path is not None:
-            os.makedirs(self.save_path, exist_ok=True)
-
-    def _on_step(self) -> bool:
-        if self.n_calls % self.save_freq == 0:
-            # Save model
-            path = os.path.join(
-                self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps"
-            )
-            self.model.save(path)
-            if self.verbose > 1:
-                print(f"Saving model checkpoint to {path}")
-
-            # Save env (VecNormalize wrapper)
-            if self.save_env:
-                path = os.path.join(
-                    self.save_path,
-                    f"{self.env_name_prefix}_{self.num_timesteps}_steps.pkl",
-                )
-                self.training_env.save(path)
-                if self.verbose > 1:
-                    print(f"Saving environment to {path[:-4]}")
-
-            # Save replay buffer
-            if self.save_replay_buffer:
-                path = os.path.join(
-                    self.save_path,
-                    f"{self.replay_buffer_name_prefix}_{self.num_timesteps}_steps",
-                )
-                self.model.save_replay_buffer(path)
-                if self.verbose > 1:
-                    print(f"Saving replay buffer to {path}")
-
-                if self.delete_old_replay_buffers and hasattr(self, "last_saved_path"):
-                    remove_if_exists(self.last_saved_path + ".pkl")
-                    if self.verbose > 1:
-                        print(f"Removing old replay buffer at {self.last_saved_path}")
-
-                self.last_saved_path = path
-
-        return True
+def save_config(data: dict, path: str) -> None:
+    """
+    Save a training setup config to a `.yaml` file. The `path` argument to this function
+    should be given without the file extension.
+    """
+    with open(f"{path}.yaml", "w") as f:
+        yaml.dump(data, f)
 
 
-class SLURMRescheduleCallback(BaseCallback):
-    def __init__(self, reserved_time, safety=timedelta(minutes=1), verbose=0):
-        super().__init__(verbose)
-        self.allowed_time = reserved_time - safety
-        self.t_start = datetime.now()
-        self.t_last = self.t_start
+def send_to_elog(author, title, severity, text, elog, image=None):
+    """Send information to a supplied electronic logbook."""
 
-    def _on_step(self):
-        t_now = datetime.now()
-        passed_time = t_now - self.t_start
-        dt = t_now - self.t_last
-        self.t_last = t_now
-        if passed_time + dt > self.allowed_time:
-            os.system(
-                f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh"
-            )
-            if self.verbose > 1:
-                print(f"Scheduling new batch job to continue training")
-            return False
-        else:
-            if self.verbose > 1:
-                print(
-                    f"Continue running with this SLURM job (passed={passed_time} / allowed={self.allowed_time} / dt={dt})"
-                )
-            return True
-
-
-class FilterAction(gym.ActionWrapper):
-    def __init__(self, env, filter_indicies, replace="random"):
-        super().__init__(env)
-
-        self.filter_indicies = filter_indicies
-        self.replace = replace
-
-        self.action_space = spaces.Box(
-            low=env.action_space.low[filter_indicies],
-            high=env.action_space.high[filter_indicies],
-            shape=env.action_space.low[filter_indicies].shape,
-            dtype=env.action_space.dtype,
+    # The DOOCS elog expects an XML string in a particular format. This string
+    # is beeing generated in the following as an initial list of strings.
+    succeded = True  # indicator for a completely successful job
+    # list beginning
+    elogXMLStringList = ['<?xml version="1.0" encoding="ISO-8859-1"?>', "<entry>"]
+    # author information
+    elogXMLStringList.append("<author>")
+    elogXMLStringList.append(author)
+    elogXMLStringList.append("</author>")
+    # title information
+    elogXMLStringList.append("<title>")
+    elogXMLStringList.append(title)
+    elogXMLStringList.append("</title>")
+    # severity information
+    elogXMLStringList.append("<severity>")
+    elogXMLStringList.append(severity)
+    elogXMLStringList.append("</severity>")
+    # text information
+    elogXMLStringList.append("<text>")
+    elogXMLStringList.append(text)
+    elogXMLStringList.append("</text>")
+    # image information
+    if image:
+        try:
+            encodedImage = base64.b64encode(image)
+            elogXMLStringList.append("<image>")
+            elogXMLStringList.append(encodedImage.decode())
+            elogXMLStringList.append("</image>")
+        except:  # make elog entry anyway, but return error (succeded = False)
+            succeded = False
+    # list end
+    elogXMLStringList.append("</entry>")
+    # join list to the final string
+    elogXMLString = "\n".join(elogXMLStringList)
+    # open printer process
+    try:
+        lpr = subprocess.Popen(
+            ["/usr/bin/lp", "-o", "raw", "-d", elog],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
-
-    def action(self, action):
-        if self.replace == "random":
-            unfiltered = self.env.action_space.sample()
-        else:
-            unfiltered = np.full(
-                self.env.action_space.shape,
-                self.replace,
-                dtype=self.env.action_space.dtype,
-            )
-
-        unfiltered[self.filter_indicies] = action
-
-        return unfiltered
-
-
-class RecordEpisode(gym.Wrapper):
-    """
-    Wrapper for recording epsiode data such as observations, rewards, infos and actions.
-    Pass a `save_dir` other than `None` to save the recorded data to pickle files.
-    """
-
-    def __init__(self, env, save_dir=None, name_prefix="recorded_episode"):
-        super().__init__(env)
-
-        self.save_dir = save_dir
-        if self.save_dir is not None:
-            self.save_dir = os.path.abspath(save_dir)
-            if os.path.isdir(self.save_dir):
-                print(
-                    f"Overwriting existing data recordings at {self.save_dir} folder. Specify a different `save_dir` for the `RecordEpisode` wrapper if this is not desired."
-                )
-            os.makedirs(self.save_dir, exist_ok=True)
-
-        self.name_prefix = name_prefix
-
-        self.n_episodes_recorded = 0
-
-    def reset(self):
-        self.t_end = datetime.now()
-
-        if self.save_dir is not None and self.n_episodes_recorded > 0:
-            self.save_to_file()
-
-        if self.n_episodes_recorded > 0:
-            self.previous_observations = self.observations
-            self.previous_rewards = self.rewards
-            self.previous_infos = self.infos
-            self.previous_actions = self.actions
-            self.previous_t_start = self.t_start
-            self.previous_t_end = self.t_end
-            self.previous_steps_taken = self.steps_taken
-
-        self.n_episodes_recorded += 1
-
-        observation = self.env.reset()
-
-        self.observations = [observation]
-        self.rewards = []
-        self.infos = []
-        self.actions = []
-        self.t_start = datetime.now()
-        self.t_end = None
-        self.steps_taken = 0
-
-        self.has_previously_run = True
-
-        return observation
-
-    def step(self, action):
-        observation, reward, done, info = self.env.step(action)
-
-        self.observations.append(observation)
-        self.rewards.append(reward)
-        self.infos.append(info)
-        self.actions.append(action)
-        self.steps_taken += 1
-
-        return observation, reward, done, info
-
-    def close(self):
-        super().close()
-
-        self.t_end = datetime.now()
-
-        if self.save_dir is not None and self.n_episodes_recorded > 0:
-            self.save_to_file()
-
-    def save_to_file(self):
-        """Save the data from the current episodes to a `.pkl` file."""
-        filename = f"{self.name_prefix}_{self.n_episodes_recorded}.pkl"
-        path = os.path.join(self.save_dir, filename)
-
-        d = {
-            "observations": self.observations,
-            "rewards": self.rewards,
-            "infos": self.infos,
-            "actions": self.actions,
-            "t_start": self.t_start,
-            "t_end": self.t_end,
-            "steps_taken": self.steps_taken,
-        }
-
-        with open(path, "wb") as f:
-            pickle.dump(d, f)
+        # send printer job
+        lpr.communicate(elogXMLString.encode("utf-8"))
+    except Exception as e:
+        print(e)
+        succeded = False
+    return succeded
 
 
 class ARESEAeLog(gym.Wrapper):
@@ -409,102 +364,124 @@ Final magnet settings:
         return img
 
 
-def plot_quadrupole_history(ax, observations, before_reset=None):
-    areamqzm1 = [obs["magnets"][0] for obs in observations]
-    areamqzm2 = [obs["magnets"][1] for obs in observations]
-    areamqzm3 = [obs["magnets"][3] for obs in observations]
+class CheckpointCallback(BaseCallback):
+    def __init__(
+        self,
+        save_freq,
+        save_path,
+        name_prefix="rl_model",
+        save_env=False,
+        env_name_prefix="vec_normalize",
+        save_replay_buffer=False,
+        replay_buffer_name_prefix="replay_buffer",
+        delete_old_replay_buffers=True,
+        verbose=0,
+    ):
+        super(CheckpointCallback, self).__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.name_prefix = name_prefix
+        self.save_env = save_env
+        self.env_name_prefix = env_name_prefix
+        self.save_replay_buffer = save_replay_buffer
+        self.replay_buffer_name_prefix = replay_buffer_name_prefix
+        self.delete_old_replay_buffers = delete_old_replay_buffers
 
-    if before_reset is not None:
-        areamqzm1 = [before_reset[0]] + areamqzm1
-        areamqzm2 = [before_reset[1]] + areamqzm2
-        areamqzm3 = [before_reset[3]] + areamqzm3
+    def _init_callback(self):
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
 
-    start = 0 if before_reset is None else -1
-    steps = np.arange(start, len(observations))
+    def _on_step(self) -> bool:
+        if self.n_calls % self.save_freq == 0:
+            # Save model
+            path = os.path.join(
+                self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps"
+            )
+            self.model.save(path)
+            if self.verbose > 1:
+                print(f"Saving model checkpoint to {path}")
 
-    ax.set_title("Quadrupoles")
-    ax.set_xlim([start, len(observations) + 1])
-    ax.set_xlabel("Step")
-    ax.set_ylabel("Strength (1/m^2)")
-    ax.plot(steps, areamqzm1, label="AREAMQZM1")
-    ax.plot(steps, areamqzm2, label="AREAMQZM2")
-    ax.plot(steps, areamqzm3, label="AREAMQZM3")
-    ax.legend()
-    ax.grid(True)
+            # Save env (VecNormalize wrapper)
+            if self.save_env:
+                path = os.path.join(
+                    self.save_path,
+                    f"{self.env_name_prefix}_{self.num_timesteps}_steps.pkl",
+                )
+                self.training_env.save(path)
+                if self.verbose > 1:
+                    print(f"Saving environment to {path[:-4]}")
 
+            # Save replay buffer
+            if self.save_replay_buffer:
+                path = os.path.join(
+                    self.save_path,
+                    f"{self.replay_buffer_name_prefix}_{self.num_timesteps}_steps",
+                )
+                self.model.save_replay_buffer(path)
+                if self.verbose > 1:
+                    print(f"Saving replay buffer to {path}")
 
-def plot_steerer_history(ax, observations, before_reset=None):
-    areamcvm1 = np.array([obs["magnets"][2] for obs in observations])
-    areamchm2 = np.array([obs["magnets"][4] for obs in observations])
+                if self.delete_old_replay_buffers and hasattr(self, "last_saved_path"):
+                    remove_if_exists(self.last_saved_path + ".pkl")
+                    if self.verbose > 1:
+                        print(f"Removing old replay buffer at {self.last_saved_path}")
 
-    if before_reset is not None:
-        areamcvm1 = np.insert(areamcvm1, 0, before_reset[2])
-        areamchm2 = np.insert(areamchm2, 0, before_reset[4])
+                self.last_saved_path = path
 
-    start = 0 if before_reset is None else -1
-    steps = np.arange(start, len(observations))
-
-    ax.set_title("Steerers")
-    ax.set_xlabel("Step")
-    ax.set_ylabel("Kick (mrad)")
-    ax.set_xlim([start, len(observations) + 1])
-    ax.plot(steps, areamcvm1 * 1e3, label="AREAMCVM1")
-    ax.plot(steps, areamchm2 * 1e3, label="AREAMCHM2")
-    ax.legend()
-    ax.grid(True)
-
-
-def plot_beam_history(ax, observations, before_reset=None):
-    mu_x = np.array([obs["beam"][0] for obs in observations])
-    sigma_x = np.array([obs["beam"][1] for obs in observations])
-    mu_y = np.array([obs["beam"][2] for obs in observations])
-    sigma_y = np.array([obs["beam"][3] for obs in observations])
-
-    if before_reset is not None:
-        mu_x = np.insert(mu_x, 0, before_reset[0])
-        sigma_x = np.insert(sigma_x, 0, before_reset[1])
-        mu_y = np.insert(mu_y, 0, before_reset[2])
-        sigma_y = np.insert(sigma_y, 0, before_reset[3])
-
-    target_beam = observations[0]["target"]
-
-    start = 0 if before_reset is None else -1
-    steps = np.arange(start, len(observations))
-
-    ax.set_title("Beam Parameters")
-    ax.set_xlim([start, len(observations) + 1])
-    ax.set_xlabel("Step")
-    ax.set_ylabel("(mm)")
-    ax.plot(steps, mu_x * 1e3, label=r"$\mu_x$", c="tab:blue")
-    ax.plot(steps, [target_beam[0] * 1e3] * len(steps), ls="--", c="tab:blue")
-    ax.plot(steps, sigma_x * 1e3, label=r"$\sigma_x$", c="tab:orange")
-    ax.plot(steps, [target_beam[1] * 1e3] * len(steps), ls="--", c="tab:orange")
-    ax.plot(steps, mu_y * 1e3, label=r"$\mu_y$", c="tab:green")
-    ax.plot(steps, [target_beam[2] * 1e3] * len(steps), ls="--", c="tab:green")
-    ax.plot(steps, sigma_y * 1e3, label=r"$\sigma_y$", c="tab:red")
-    ax.plot(steps, [target_beam[3] * 1e3] * len(steps), ls="--", c="tab:red")
-    ax.legend()
-    ax.grid(True)
+        return True
 
 
-def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
-    screen_size = screen_resolution * pixel_size
+class FilterAction(gym.ActionWrapper):
+    def __init__(self, env, filter_indicies, replace="random"):
+        super().__init__(env)
 
-    ax.set_title(title)
-    ax.set_xlabel("(mm)")
-    ax.set_ylabel("(mm)")
-    ax.imshow(
-        img,
-        vmin=0,
-        aspect="equal",
-        interpolation="none",
-        extent=(
-            -screen_size[0] / 2 * 1e3,
-            screen_size[0] / 2 * 1e3,
-            -screen_size[1] / 2 * 1e3,
-            screen_size[1] / 2 * 1e3,
-        ),
-    )
+        self.filter_indicies = filter_indicies
+        self.replace = replace
+
+        self.action_space = spaces.Box(
+            low=env.action_space.low[filter_indicies],
+            high=env.action_space.high[filter_indicies],
+            shape=env.action_space.low[filter_indicies].shape,
+            dtype=env.action_space.dtype,
+        )
+
+    def action(self, action):
+        if self.replace == "random":
+            unfiltered = self.env.action_space.sample()
+        else:
+            unfiltered = np.full(
+                self.env.action_space.shape,
+                self.replace,
+                dtype=self.env.action_space.dtype,
+            )
+
+        unfiltered[self.filter_indicies] = action
+
+        return unfiltered
+
+
+class NotVecNormalize(gym.Wrapper):
+    """
+    Normal Gym wrapper that replicates the functionality of Stable Baselines3's VecNormalize wrapper
+    for non VecEnvs (i.e. `gym.Env`) in production.
+    """
+
+    def __init__(self, env, path):
+        super().__init__(env)
+
+        with open(path, "rb") as file_handler:
+            self.vec_normalize = pickle.load(file_handler)
+
+    def reset(self):
+        observation = self.env.reset()
+        return self.vec_normalize.normalize_obs(observation)
+
+    def step(self, action):
+        observation, reward, done, info = self.env.step(action)
+        observation = self.vec_normalize.normalize_obs(observation)
+        reward = self.vec_normalize.normalize_reward(reward)
+        return observation, reward, done, info
 
 
 class PolishedDonkeyCompatibility(gym.Wrapper):
@@ -591,79 +568,122 @@ class PolishedDonkeyCompatibility(gym.Wrapper):
         )
 
 
-def send_to_elog(author, title, severity, text, elog, image=None):
-    """Send information to a supplied electronic logbook."""
-
-    # The DOOCS elog expects an XML string in a particular format. This string
-    # is beeing generated in the following as an initial list of strings.
-    succeded = True  # indicator for a completely successful job
-    # list beginning
-    elogXMLStringList = ['<?xml version="1.0" encoding="ISO-8859-1"?>', "<entry>"]
-    # author information
-    elogXMLStringList.append("<author>")
-    elogXMLStringList.append(author)
-    elogXMLStringList.append("</author>")
-    # title information
-    elogXMLStringList.append("<title>")
-    elogXMLStringList.append(title)
-    elogXMLStringList.append("</title>")
-    # severity information
-    elogXMLStringList.append("<severity>")
-    elogXMLStringList.append(severity)
-    elogXMLStringList.append("</severity>")
-    # text information
-    elogXMLStringList.append("<text>")
-    elogXMLStringList.append(text)
-    elogXMLStringList.append("</text>")
-    # image information
-    if image:
-        try:
-            encodedImage = base64.b64encode(image)
-            elogXMLStringList.append("<image>")
-            elogXMLStringList.append(encodedImage.decode())
-            elogXMLStringList.append("</image>")
-        except:  # make elog entry anyway, but return error (succeded = False)
-            succeded = False
-    # list end
-    elogXMLStringList.append("</entry>")
-    # join list to the final string
-    elogXMLString = "\n".join(elogXMLStringList)
-    # open printer process
-    try:
-        lpr = subprocess.Popen(
-            ["/usr/bin/lp", "-o", "raw", "-d", elog],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        # send printer job
-        lpr.communicate(elogXMLString.encode("utf-8"))
-    except Exception as e:
-        print(e)
-        succeded = False
-    return succeded
-
-
-class NotVecNormalize(gym.Wrapper):
+class RecordEpisode(gym.Wrapper):
     """
-    Normal Gym wrapper that replicates the functionality of Stable Baselines3's VecNormalize wrapper
-    for non VecEnvs (i.e. `gym.Env`) in production.
+    Wrapper for recording epsiode data such as observations, rewards, infos and actions.
+    Pass a `save_dir` other than `None` to save the recorded data to pickle files.
     """
 
-    def __init__(self, env, path):
+    def __init__(self, env, save_dir=None, name_prefix="recorded_episode"):
         super().__init__(env)
 
-        with open(path, "rb") as file_handler:
-            self.vec_normalize = pickle.load(file_handler)
+        self.save_dir = save_dir
+        if self.save_dir is not None:
+            self.save_dir = os.path.abspath(save_dir)
+            if os.path.isdir(self.save_dir):
+                print(
+                    f"Overwriting existing data recordings at {self.save_dir} folder. Specify a different `save_dir` for the `RecordEpisode` wrapper if this is not desired."
+                )
+            os.makedirs(self.save_dir, exist_ok=True)
+
+        self.name_prefix = name_prefix
+
+        self.n_episodes_recorded = 0
 
     def reset(self):
+        self.t_end = datetime.now()
+
+        if self.save_dir is not None and self.n_episodes_recorded > 0:
+            self.save_to_file()
+
+        if self.n_episodes_recorded > 0:
+            self.previous_observations = self.observations
+            self.previous_rewards = self.rewards
+            self.previous_infos = self.infos
+            self.previous_actions = self.actions
+            self.previous_t_start = self.t_start
+            self.previous_t_end = self.t_end
+            self.previous_steps_taken = self.steps_taken
+
+        self.n_episodes_recorded += 1
+
         observation = self.env.reset()
-        return self.vec_normalize.normalize_obs(observation)
+
+        self.observations = [observation]
+        self.rewards = []
+        self.infos = []
+        self.actions = []
+        self.t_start = datetime.now()
+        self.t_end = None
+        self.steps_taken = 0
+
+        self.has_previously_run = True
+
+        return observation
 
     def step(self, action):
         observation, reward, done, info = self.env.step(action)
-        observation = self.vec_normalize.normalize_obs(observation)
-        reward = self.vec_normalize.normalize_reward(reward)
+
+        self.observations.append(observation)
+        self.rewards.append(reward)
+        self.infos.append(info)
+        self.actions.append(action)
+        self.steps_taken += 1
+
         return observation, reward, done, info
+
+    def close(self):
+        super().close()
+
+        self.t_end = datetime.now()
+
+        if self.save_dir is not None and self.n_episodes_recorded > 0:
+            self.save_to_file()
+
+    def save_to_file(self):
+        """Save the data from the current episodes to a `.pkl` file."""
+        filename = f"{self.name_prefix}_{self.n_episodes_recorded}.pkl"
+        path = os.path.join(self.save_dir, filename)
+
+        d = {
+            "observations": self.observations,
+            "rewards": self.rewards,
+            "infos": self.infos,
+            "actions": self.actions,
+            "t_start": self.t_start,
+            "t_end": self.t_end,
+            "steps_taken": self.steps_taken,
+        }
+
+        with open(path, "wb") as f:
+            pickle.dump(d, f)
+
+
+class SLURMRescheduleCallback(BaseCallback):
+    def __init__(self, reserved_time, safety=timedelta(minutes=1), verbose=0):
+        super().__init__(verbose)
+        self.allowed_time = reserved_time - safety
+        self.t_start = datetime.now()
+        self.t_last = self.t_start
+
+    def _on_step(self):
+        t_now = datetime.now()
+        passed_time = t_now - self.t_start
+        dt = t_now - self.t_last
+        self.t_last = t_now
+        if passed_time + dt > self.allowed_time:
+            os.system(
+                f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh"
+            )
+            if self.verbose > 1:
+                print(f"Scheduling new batch job to continue training")
+            return False
+        else:
+            if self.verbose > 1:
+                print(
+                    f"Continue running with this SLURM job (passed={passed_time} / allowed={self.allowed_time} / dt={dt})"
+                )
+            return True
 
 
 class TQDMWrapper(gym.Wrapper):
@@ -697,23 +717,3 @@ class TQDMWrapper(gym.Wrapper):
             self.pbar.close()
 
         super().close()
-
-
-def load_config(path: str) -> dict:
-    """
-    Load a training setup config file to a config dictionary. The config file must be a
-    `.yaml` file. The `path` argument to this function should be given without the file
-    extension.
-    """
-    with open(f"{path}.yaml", "r") as f:
-        data = yaml.load(f.read(), Loader=yaml.Loader)
-    return data
-
-
-def save_config(data: dict, path: str) -> None:
-    """
-    Save a training setup config to a `.yaml` file. The `path` argument to this function
-    should be given without the file extension.
-    """
-    with open(f"{path}.yaml", "w") as f:
-        yaml.dump(data, f)
