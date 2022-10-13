@@ -185,7 +185,6 @@ def try_problem(
     if set_to_best:
         action = X[Y.argmax()].detach().numpy()
         observation, reward, done, _ = env.step(action)
-
     env.close()
 
 
@@ -197,29 +196,25 @@ def main():
         # run BO with fixed lengthscale
         executor.map(
             try_problem,
-            range(
-                len(problems),
-                problems,
-                repeat({"lengthsccale": [1, 1, 0.33, 1, 0.33]}),
-                repeat(save_dir="bo_evaluation_fixlengthscale"),
-            ),
+            range(len(problems)),
+            problems,
+            repeat({"lengthsccale": [1, 1, 0.33, 1, 0.33]}),
+            repeat("bo_evaluation_fixlengthscale"),
         )
         # fix everything
         executor.map(
             try_problem,
-            range(
-                len(problems),
-                problems,
-                repeat(
-                    {
-                        "lengthscale": [1, 1, 0.33, 1, 0.33],
-                        "scale": 0.3,
-                        "noise_var": 0.06,
-                        "mean_constant": 7.7,
-                    }
-                ),
-                repeat(save_dir="bo_evaluation_fixall"),
+            range(len(problems)),
+            problems,
+            repeat(
+                {
+                    "lengthscale": [1, 1, 0.33, 1, 0.33],
+                    "scale": 0.3,
+                    "noise_var": 0.06,
+                    "mean_constant": 7.7,
+                }
             ),
+            repeat("bo_evaluation_fixall"),
         )
 
 
