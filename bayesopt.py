@@ -152,8 +152,9 @@ def get_next_samples(
         gp.covar_module.output_scale = fixparam["scale"]
         gp.covar_module.raw_outputscale.requires_grad = False
 
-    # Fit GP
-    fit_gpytorch_model(mll)
+    # Fit GP if any parameter is not fixed
+    if any(param.requires_grad for _, param in gp.named_parameters()):
+        fit_gpytorch_model(mll)
 
     if acquisition == "EI":
         acq = ExpectedImprovement(model=gp, best_f=best_y)
@@ -166,7 +167,7 @@ def get_next_samples(
         acq_function=acq,
         bounds=bounds,
         q=n_points,
-        num_restarts=15,
+        num_restarts=10,
         raw_samples=128,
         options={"maxiter": 200},
     )
