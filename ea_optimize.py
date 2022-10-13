@@ -2,10 +2,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-import pydoocs
 # import dummypydoocs as pydoocs
 import gym
 import numpy as np
+import pydoocs
 from gym.wrappers import (
     FilterObservation,
     FlattenObservation,
@@ -17,7 +17,7 @@ from gym.wrappers import (
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from stable_baselines3 import PPO, TD3
 
-from ea_train import ARESEA, read_from_yaml
+from ea_train import ARESEA, load_config
 from utils import (
     ARESEAeLog,
     FilterAction,
@@ -47,7 +47,7 @@ def optimize(
     """
     Optimise beam in ARES EA using a reinforcement learning agent.
     """
-    config = read_from_yaml(f"models/{model_name}/config")
+    config = load_config(f"models/{model_name}/config")
 
     # Load the model
     model = PPO.load(f"models/{model_name}/model")
@@ -331,7 +331,9 @@ class ARESEADOOCS(ARESEA):
         for axis, direction in zip([0, 1], ["x", "y"]):
             projection = img.sum(axis=axis)
             minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
-            filtered = uniform_filter1d(minfiltered, size=5, mode="nearest")    # TODO rethink filters
+            filtered = uniform_filter1d(
+                minfiltered, size=5, mode="nearest"
+            )  # TODO rethink filters
 
             (half_values,) = np.where(filtered >= 0.5 * filtered.max())
 

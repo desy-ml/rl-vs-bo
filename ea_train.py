@@ -135,7 +135,7 @@ def train(config: dict) -> None:
     model.save(f"models/{wandb.run.name}/model")
     if config["normalize_observation"] or config["normalize_reward"]:
         env.save(f"models/{wandb.run.name}/vec_normalize.pkl")
-    save_to_yaml(config, f"models/{wandb.run.name}/config")
+    save_config(config, f"models/{wandb.run.name}/config")
 
 
 def make_env(config: dict, record_video: bool = False) -> gym.Env:
@@ -1009,13 +1009,22 @@ class ARESEACheetah(ARESEA):
         }
 
 
-def read_from_yaml(path: str) -> dict:
+def load_config(path: str) -> dict:
+    """
+    Load a training setup config file to a config dictionary. The config file must be a
+    `.yaml` file. The `path` argument to this function should be given without the file
+    extension.
+    """
     with open(f"{path}.yaml", "r") as f:
         data = yaml.load(f.read(), Loader=yaml.Loader)
     return data
 
 
-def save_to_yaml(data: dict, path: str) -> None:
+def save_config(data: dict, path: str) -> None:
+    """
+    Save a training setup config to a `.yaml` file. The `path` argument to this function
+    should be given without the file extension.
+    """
     with open(f"{path}.yaml", "w") as f:
         yaml.dump(data, f)
 
