@@ -6,12 +6,12 @@ from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, T
 from stable_baselines3 import TD3
 from tqdm.notebook import tqdm
 
-from bo_sim_evaluation import (
+from ea_train import ARESEACheetah
+from eval_bo_sim import (
     convert_incoming_from_problem,
     convert_misalignments_from_problem,
     convert_target_from_problem,
 )
-from ea_train import ARESEACheetah
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
 
