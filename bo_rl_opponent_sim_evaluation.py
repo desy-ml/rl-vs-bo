@@ -33,10 +33,10 @@ def try_problem(problem_index: dict, problem: int) -> None:
         reward_mode="differential",
         target_beam_mode="constant",
         target_beam_values=convert_target_from_problem(problem),
-        target_mu_x_threshold=3.3198e-6,
-        target_mu_y_threshold=3.3198e-6,
-        target_sigma_x_threshold=3.3198e-6,
-        target_sigma_y_threshold=3.3198e-6,
+        target_mu_x_threshold=None,
+        target_mu_y_threshold=None,
+        target_sigma_x_threshold=None,
+        target_sigma_y_threshold=None,
         threshold_hold=5,
     )
     env = TimeLimit(env, 150)
