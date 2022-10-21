@@ -74,7 +74,7 @@ def plot_best_mae_box(data: list[dict]) -> None:
     maes = [get_maes(episode) for episode in data]
     final_maes = [min(episode) for episode in maes]
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(5, 3))
     plt.title("Best MAEs")
     sns.boxplot(x=final_maes)
     plt.xscale("log")
@@ -96,7 +96,7 @@ def plot_best_mae_over_time(data: list[dict]) -> None:
     ]
     df = pd.concat(pd.DataFrame(d) for d in ds)
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5, 3))
     sns.lineplot(x="step", y="mae", data=df)
     plt.title("Mean Best MAE Over Time")
     plt.xlim(0, None)
@@ -114,7 +114,7 @@ def plot_final_mae_box(data: list[dict]) -> None:
     maes = [get_maes(episode) for episode in data]
     final_maes = [episode[:-1] for episode in maes]
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(5, 3))
     plt.title("Final MAEs")
     sns.boxplot(x=final_maes)
     plt.xscale("log")
@@ -134,7 +134,7 @@ def plot_mae_over_time(data: list[dict]) -> None:
     ]
     df = pd.concat(pd.DataFrame(d) for d in ds)
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5, 3))
     sns.lineplot(x="step", y="mae", data=df)
     plt.title("Mean MAE Over Time")
     plt.xlim(0, None)
@@ -153,7 +153,7 @@ def plot_steps_to_convergence_box(data: list[dict], threshold=20e-6) -> None:
     min_maes = [compute_min_maes(episode) for episode in maes]
     steps = [find_convergence(episode, threshold) for episode in min_maes]
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(5, 3))
     plt.title(f"Steps to convergence (limit = {threshold})")
     sns.boxplot(x=steps)
     plt.grid(ls="--")
@@ -170,7 +170,7 @@ def plot_steps_to_threshold_box(data: list[dict], threshold=20e-6) -> None:
     min_maes = [compute_min_maes(episode) for episode in maes]
     steps = [get_steps_to_treshold(episode, threshold) for episode in min_maes]
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(5, 3))
     plt.title(f"Steps to MAE below {threshold}")
     sns.boxplot(x=steps)
     plt.grid(ls="--")
