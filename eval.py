@@ -69,14 +69,22 @@ def load_eval_data(eval_dir: str, progress_bar: bool = False) -> list[dict]:
     return data
 
 
-def plot_best_mae_box(data: list[dict]) -> None:
+def plot_best_mae_box(data: dict) -> None:
     """Box plot of best MAEs seen until the very end of the episodes."""
-    maes = [get_maes(episode) for episode in data]
-    final_maes = [min(episode) for episode in maes]
+    combined_final_maes = []
+    combined_methods = []
+    for method, results in data.items():
+        maes = [get_maes(episode) for episode in results]
+        final_maes = [min(episode) for episode in maes]
 
-    plt.figure(figsize=(5, 3))
+        methods = [method] * len(final_maes)
+
+        combined_final_maes += final_maes
+        combined_methods += methods
+
+    plt.figure(figsize=(5, 2))
     plt.title("Best MAEs")
-    sns.boxplot(x=final_maes)
+    sns.boxplot(x=combined_final_maes, y=combined_methods)
     plt.xscale("log")
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
@@ -84,20 +92,30 @@ def plot_best_mae_box(data: list[dict]) -> None:
     plt.show()
 
 
-def plot_best_mae_over_time(data: list[dict]) -> None:
+def plot_best_mae_over_time(data: dict) -> None:
     """Plot mean best seen MAE over all episdoes over time."""
-    """Plot mean MAE of over episodes over time."""
-    maes = [get_maes(episode) for episode in data]
-    min_maes = [compute_min_maes(episode) for episode in maes]
+    dfs = []
+    for method, results in data.items():
+        maes = [get_maes(episode) for episode in results]
+        min_maes = [compute_min_maes(episode) for episode in maes]
 
-    ds = [
-        {"mae": episode, "step": range(len(episode)), "problem": i}
-        for i, episode in enumerate(min_maes)
-    ]
-    df = pd.concat(pd.DataFrame(d) for d in ds)
+        ds = [
+            {
+                "mae": episode,
+                "step": range(len(episode)),
+                "problem": i,
+                "method": method,
+            }
+            for i, episode in enumerate(min_maes)
+        ]
+        df = pd.concat(pd.DataFrame(d) for d in ds)
+
+        dfs.append(df)
+
+    combined_df = pd.concat(dfs)
 
     plt.figure(figsize=(5, 3))
-    sns.lineplot(x="step", y="mae", data=df)
+    sns.lineplot(x="step", y="mae", hue="method", data=combined_df)
     plt.title("Mean Best MAE Over Time")
     plt.xlim(0, None)
     plt.ylim(0, None)
@@ -106,17 +124,25 @@ def plot_best_mae_over_time(data: list[dict]) -> None:
     plt.show()
 
 
-def plot_final_mae_box(data: list[dict]) -> None:
+def plot_final_mae_box(data: dict) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
     seen.
     """
-    maes = [get_maes(episode) for episode in data]
-    final_maes = [episode[:-1] for episode in maes]
+    combined_final_maes = []
+    combined_methods = []
+    for method, results in data.items():
+        maes = [get_maes(episode) for episode in results]
+        final_maes = [episode[-2] for episode in maes]
 
-    plt.figure(figsize=(5, 3))
+        methods = [method] * len(final_maes)
+
+        combined_final_maes += final_maes
+        combined_methods += methods
+
+    plt.figure(figsize=(5, 2))
     plt.title("Final MAEs")
-    sns.boxplot(x=final_maes)
+    sns.boxplot(x=combined_final_maes, y=combined_methods)
     plt.xscale("log")
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
@@ -124,18 +150,29 @@ def plot_final_mae_box(data: list[dict]) -> None:
     plt.show()
 
 
-def plot_mae_over_time(data: list[dict]) -> None:
+def plot_mae_over_time(data: dict) -> None:
     """Plot mean MAE of over episodes over time."""
-    maes = [get_maes(episode) for episode in data]
+    dfs = []
+    for method, results in data.items():
+        maes = [get_maes(episode) for episode in results]
 
-    ds = [
-        {"mae": episode, "step": range(len(episode)), "problem": i}
-        for i, episode in enumerate(maes)
-    ]
-    df = pd.concat(pd.DataFrame(d) for d in ds)
+        ds = [
+            {
+                "mae": episode,
+                "step": range(len(episode)),
+                "problem": i,
+                "method": method,
+            }
+            for i, episode in enumerate(maes)
+        ]
+        df = pd.concat(pd.DataFrame(d) for d in ds)
+
+        dfs.append(df)
+
+    combined_df = pd.concat(dfs)
 
     plt.figure(figsize=(5, 3))
-    sns.lineplot(x="step", y="mae", data=df)
+    sns.lineplot(x="step", y="mae", hue="method", data=combined_df)
     plt.title("Mean MAE Over Time")
     plt.xlim(0, None)
     plt.ylim(0, None)
@@ -144,36 +181,54 @@ def plot_mae_over_time(data: list[dict]) -> None:
     plt.show()
 
 
-def plot_steps_to_convergence_box(data: list[dict], threshold=20e-6) -> None:
+def plot_steps_to_convergence_box(data: dict, threshold=20e-6) -> None:
     """
     Box plot number of steps until best seen MAE no longer improves by more than
     `threshold`.
     """
-    maes = [get_maes(episode) for episode in data]
-    min_maes = [compute_min_maes(episode) for episode in maes]
-    steps = [find_convergence(episode, threshold) for episode in min_maes]
+    combined_steps = []
+    combined_methods = []
+    for method, results in data.items():
+        maes = [get_maes(episode) for episode in results]
+        min_maes = [compute_min_maes(episode) for episode in maes]
+        steps = [find_convergence(episode, threshold) for episode in min_maes]
 
-    plt.figure(figsize=(5, 3))
+        methods = [method] * len(steps)
+
+        combined_steps += steps
+        combined_methods += methods
+
+    plt.figure(figsize=(5, 2))
     plt.title(f"Steps to convergence (limit = {threshold})")
-    sns.boxplot(x=steps)
+    sns.boxplot(x=combined_steps, y=combined_methods)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
+    plt.xlabel("No. of steps")
     plt.tight_layout()
     plt.show()
 
 
-def plot_steps_to_threshold_box(data: list[dict], threshold=20e-6) -> None:
+def plot_steps_to_threshold_box(data: dict, threshold=20e-6) -> None:
     """
     Box plot number of steps until best seen MAE drops below (resolution) `threshold`.
     """
-    maes = [get_maes(episode) for episode in data]
-    min_maes = [compute_min_maes(episode) for episode in maes]
-    steps = [get_steps_to_treshold(episode, threshold) for episode in min_maes]
+    combined_steps = []
+    combined_methods = []
+    for method, results in data.items():
+        maes = [get_maes(episode) for episode in results]
+        min_maes = [compute_min_maes(episode) for episode in maes]
+        steps = [get_steps_to_treshold(episode, threshold) for episode in min_maes]
 
-    plt.figure(figsize=(5, 3))
+        methods = [method] * len(steps)
+
+        combined_steps += steps
+        combined_methods += methods
+
+    plt.figure(figsize=(5, 2))
     plt.title(f"Steps to MAE below {threshold}")
-    sns.boxplot(x=steps)
+    sns.boxplot(x=combined_steps, y=combined_methods)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
+    plt.xlabel("No. of steps")
     plt.tight_layout()
     plt.show()
