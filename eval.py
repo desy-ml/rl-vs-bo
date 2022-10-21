@@ -69,6 +69,44 @@ def load_eval_data(eval_dir: str, progress_bar: bool = False) -> list[dict]:
     return data
 
 
+def median_best_mae(data: list[dict]) -> float:
+    """Compute median of best MAEs seen until the very end of the episodes."""
+    maes = [get_maes(episode) for episode in data]
+    final_maes = [min(episode) for episode in maes]
+    return np.median(final_maes)
+
+
+def median_final_mae(data: list[dict]) -> float:
+    """
+    Median of the final MAE that the algorithm stopped at (without returning to best
+    seen).
+    """
+    maes = [get_maes(episode) for episode in data]
+    final_maes = [episode[-2] for episode in maes]
+    return np.median(final_maes)
+
+
+def median_steps_to_convergence(data: list[dict], threshold=20e-6) -> float:
+    """
+    Median number of steps until best seen MAE no longer improves by more than
+    `threshold`.
+    """
+    maes = [get_maes(episode) for episode in data]
+    min_maes = [compute_min_maes(episode) for episode in maes]
+    steps = [find_convergence(episode, threshold) for episode in min_maes]
+    return np.median(steps)
+
+
+def median_steps_to_threshold(data: dict, threshold=20e-6) -> float:
+    """
+    Median number of steps until best seen MAE drops below (resolution) `threshold`.
+    """
+    maes = [get_maes(episode) for episode in data]
+    min_maes = [compute_min_maes(episode) for episode in maes]
+    steps = [get_steps_to_treshold(episode, threshold) for episode in min_maes]
+    return np.median(steps)
+
+
 def plot_best_mae_box(data: dict) -> None:
     """Box plot of best MAEs seen until the very end of the episodes."""
     combined_final_maes = []
@@ -127,7 +165,7 @@ def plot_best_mae_over_time(data: dict) -> None:
 def plot_final_mae_box(data: dict) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
-    seen.
+    seen).
     """
     combined_final_maes = []
     combined_methods = []
