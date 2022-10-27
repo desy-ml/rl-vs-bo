@@ -8,10 +8,25 @@ import seaborn as sns
 from tqdm import tqdm
 
 
+def compute_final_min_mae(episode: list) -> float:
+    """Compute list of the smallest MAE seen the run over the course of the entire episode."""
+    maes = get_maes(episode)
+    min_maes = compute_min_maes(maes)
+
+    return min_maes[-1]
+
+
 def compute_min_maes(maes: list) -> list:
     """From the sequence of MAEs compute the sequence of lowest already seen MAEs."""
     min_maes = [min(maes[: i + 1]) for i in range(len(maes))]
     return min_maes
+
+
+def compute_target_size(episode: list) -> float:
+    """Compute a measure for the size of the target beam."""
+    target = episode["observations"][-1]["target"]
+    # return np.min([target[1], target[3]])
+    return target[1] * target[3]
 
 
 def find_convergence(episode: list, threshold: float = 20e-6) -> int:
@@ -62,7 +77,7 @@ def load_eval_data(eval_dir: str, progress_bar: bool = False) -> list[dict]:
     Load all episode pickle files from an evaluation firectory. Expects `problem_xxx`
     directories, each of which has a `recorded_episdoe_1.pkl file in it.
     """
-    paths = sorted(glob(f"{eval_dir}/problem_*/recorded_episode_1.pkl"))
+    paths = sorted(glob(f"{eval_dir}/*problem_*/recorded_episode_1.pkl"))
     if progress_bar:
         paths = tqdm(paths)
     data = [load_episode_data(p) for p in paths]
@@ -127,6 +142,37 @@ def plot_best_mae_box(data: dict) -> None:
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
+    plt.show()
+
+
+def plot_best_mae_diff_over_problem(rl: dict, bo: dict) -> None:
+    """Plot the differences of the best MAE achieved for each problem to see if certain problems stand out."""
+
+    final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
+    final_min_maes_bo = [compute_final_min_mae(episode) for episode in bo]
+
+    diff = np.array(final_min_maes_rl) - np.array(final_min_maes_bo)
+
+    plt.figure(figsize=(5, 3))
+    plt.scatter(range(len(final_min_maes_rl)), diff, s=3, label="RL")
+    plt.xlabel("Problem Index")
+    plt.ylabel("Best MAE")
+    plt.grid()
+    plt.show()
+
+
+def plot_best_mae_over_problem(rl: list, bo: list) -> None:
+    """Plot the best MAE achieved for each problem to see if certain problems stand out."""
+
+    final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
+    final_min_maes_bo = [compute_final_min_mae(episode) for episode in bo]
+
+    plt.figure(figsize=(5, 3))
+    plt.scatter(range(len(final_min_maes_rl)), final_min_maes_rl, s=3, label="RL")
+    plt.scatter(range(len(final_min_maes_rl)), final_min_maes_bo, s=3, label="BO")
+    plt.legend()
+    plt.xlabel("Problem Index")
+    plt.ylabel("Best MAE")
     plt.show()
 
 
@@ -269,4 +315,22 @@ def plot_steps_to_threshold_box(data: dict, threshold=20e-6) -> None:
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
     plt.tight_layout()
+    plt.show()
+
+
+def plot_target_beam_size_mae_correlation(rl: list, bo: list) -> None:
+    """Plot best MAEs over mean target beam size to see possible correlation."""
+
+    final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
+    final_min_maes_bo = [compute_final_min_mae(episode) for episode in bo]
+
+    target_sizes_rl = [compute_target_size(episode) for episode in rl]
+    target_sizes_bo = [compute_target_size(episode) for episode in bo]
+
+    plt.figure(figsize=(5, 3))
+    plt.scatter(target_sizes_rl, final_min_maes_rl, s=3, label="RL")
+    plt.scatter(target_sizes_bo, final_min_maes_bo, s=3, label="BO")
+    plt.legend()
+    plt.xlabel("Mean beam size x/y")
+    plt.ylabel("Best MAE")
     plt.show()
