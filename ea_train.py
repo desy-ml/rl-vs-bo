@@ -39,6 +39,8 @@ def main() -> None:
         "magnet_init_mode": "constant",
         "magnet_init_values": np.zeros(5),
         "max_misalignment": 5e-4,
+        "max_quad_delta": 72,
+        "max_steerer_delta": 6.1782e-3,
         "misalignment_mode": "random",
         "misalignment_values": None,
         "n_envs": 40,
@@ -46,7 +48,7 @@ def main() -> None:
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
-        "reward_mode": "feedback",
+        "reward_mode": "differential",
         "sb3_device": "auto",
         "target_beam_mode": "random",
         "target_beam_values": None,
@@ -149,6 +151,8 @@ def make_env(config: dict, record_video: bool = False) -> gym.Env:
         log_beam_distance=config["log_beam_distance"],
         magnet_init_mode=config["magnet_init_mode"],
         magnet_init_values=config["magnet_init_values"],
+        max_quad_delta=config["max_quad_delta"],
+        max_steerer_delta=config["max_steerer_delta"],
         normalize_beam_distance=config["normalize_beam_distance"],
         reward_mode=config["reward_mode"],
         target_beam_mode=config["target_beam_mode"],
@@ -221,6 +225,8 @@ class ARESEA(gym.Env):
         log_beam_distance: bool = False,
         magnet_init_mode: Optional[str] = None,
         magnet_init_values: Optional[np.ndarray] = None,
+        max_quad_delta: Optional[float] = None,
+        max_steerer_delta: Optional[float] = None,
         normalize_beam_distance: bool = True,
         reward_mode: str = "differential",
         target_beam_mode: str = "random",
@@ -249,6 +255,8 @@ class ARESEA(gym.Env):
         self.log_beam_distance = log_beam_distance
         self.magnet_init_mode = magnet_init_mode
         self.magnet_init_values = magnet_init_values
+        self.max_quad_delta = max_quad_delta
+        self.max_steerer_delta = max_steerer_delta
         self.normalize_beam_distance = normalize_beam_distance
         self.reward_mode = reward_mode
         self.target_beam_mode = target_beam_mode
@@ -284,10 +292,26 @@ class ARESEA(gym.Env):
             )
         elif self.action_mode == "delta":
             self.action_space = spaces.Box(
-                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32)
-                * 0.1,
-                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32)
-                * 0.1,
+                low=np.array(
+                    [
+                        -self.max_quad_delta,
+                        -self.max_quad_delta,
+                        -self.max_steerer_delta,
+                        -self.max_quad_delta,
+                        -self.max_steerer_delta,
+                    ],
+                    dtype=np.float32,
+                ),
+                high=np.array(
+                    [
+                        self.max_quad_delta,
+                        self.max_quad_delta,
+                        self.max_steerer_delta,
+                        self.max_quad_delta,
+                        self.max_steerer_delta,
+                    ],
+                    dtype=np.float32,
+                ),
             )
         else:
             raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
@@ -785,6 +809,8 @@ class ARESEACheetah(ARESEA):
         log_beam_distance: bool = False,
         magnet_init_mode: Optional[str] = None,
         magnet_init_values: Optional[np.ndarray] = None,
+        max_quad_delta: Optional[float] = None,
+        max_steerer_delta: Optional[float] = None,
         normalize_beam_distance: bool = True,
         reward_mode: str = "differential",
         target_beam_mode: str = "random",
@@ -820,6 +846,8 @@ class ARESEACheetah(ARESEA):
             log_beam_distance=log_beam_distance,
             magnet_init_mode=magnet_init_mode,
             magnet_init_values=magnet_init_values,
+            max_quad_delta=max_quad_delta,
+            max_steerer_delta=max_steerer_delta,
             normalize_beam_distance=normalize_beam_distance,
             reward_mode=reward_mode,
             target_beam_mode=target_beam_mode,
