@@ -122,7 +122,7 @@ def median_steps_to_threshold(data: dict, threshold=20e-6) -> float:
     return np.median(steps)
 
 
-def plot_best_mae_box(data: dict) -> None:
+def plot_best_mae_box(data: dict, save_path: str = None) -> None:
     """Box plot of best MAEs seen until the very end of the episodes."""
     combined_final_maes = []
     combined_methods = []
@@ -142,10 +142,14 @@ def plot_best_mae_box(data: dict) -> None:
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
-def plot_best_mae_diff_over_problem(rl: dict, bo: dict) -> None:
+def plot_best_mae_diff_over_problem(rl: dict, bo: dict, save_path: str = None) -> None:
     """Plot the differences of the best MAE achieved for each problem to see if certain problems stand out."""
 
     final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
@@ -158,6 +162,10 @@ def plot_best_mae_diff_over_problem(rl: dict, bo: dict) -> None:
     plt.xlabel("Problem Index")
     plt.ylabel("Best MAE")
     plt.grid()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
@@ -176,7 +184,7 @@ def plot_best_mae_over_problem(rl: list, bo: list) -> None:
     plt.show()
 
 
-def plot_best_mae_over_time(data: dict) -> None:
+def plot_best_mae_over_time(data: dict, save_path: str = None) -> None:
     """Plot mean best seen MAE over all episdoes over time."""
     dfs = []
     for method, results in data.items():
@@ -205,10 +213,14 @@ def plot_best_mae_over_time(data: dict) -> None:
     plt.ylim(0, None)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
-def plot_final_mae_box(data: dict) -> None:
+def plot_final_mae_box(data: dict, save_path: str = None) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
     seen).
@@ -231,10 +243,14 @@ def plot_final_mae_box(data: dict) -> None:
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
-def plot_mae_over_time(data: dict) -> None:
+def plot_mae_over_time(data: dict, save_path: str = None) -> None:
     """Plot mean MAE of over episodes over time."""
     dfs = []
     for method, results in data.items():
@@ -262,10 +278,16 @@ def plot_mae_over_time(data: dict) -> None:
     plt.ylim(0, None)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
-def plot_steps_to_convergence_box(data: dict, threshold=20e-6) -> None:
+def plot_steps_to_convergence_box(
+    data: dict, threshold=20e-6, save_path: str = None
+) -> None:
     """
     Box plot number of steps until best seen MAE no longer improves by more than
     `threshold`.
@@ -289,10 +311,16 @@ def plot_steps_to_convergence_box(data: dict, threshold=20e-6) -> None:
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
     plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
-def plot_steps_to_threshold_box(data: dict, threshold=20e-6) -> None:
+def plot_steps_to_threshold_box(
+    data: dict, threshold=20e-6, save_path: str = None
+) -> None:
     """
     Box plot number of steps until best seen MAE drops below (resolution) `threshold`.
     """
@@ -315,6 +343,10 @@ def plot_steps_to_threshold_box(data: dict, threshold=20e-6) -> None:
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
     plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show()
 
 
