@@ -1,9 +1,9 @@
 # git+https://gitlab.desy.de/msk-ipc/dummy-pydoocs.git
-black
+# black
 # botorch
 cheetah-accelerator>=0.5.14
 gym
-isort
+# isort
 jupyter
 matplotlib
 numpy
@@ -12,6 +12,7 @@ opencv-python
 pyyaml
 # pyqtgraph
 scipy
+seaborn
 stable-baselines3
 tensorboard
 tqdm
