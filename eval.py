@@ -1,5 +1,6 @@
 import pickle
 from glob import glob
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -184,8 +185,13 @@ def plot_best_mae_over_problem(rl: list, bo: list) -> None:
     plt.show()
 
 
-def plot_best_mae_over_time(data: dict, save_path: str = None) -> None:
-    """Plot mean best seen MAE over all episdoes over time."""
+def plot_best_mae_over_time(
+    data: dict, threshold: Optional[float] = None, save_path: str = None
+) -> None:
+    """
+    Plot mean best seen MAE over all episdoes over time. Optionally display a
+    `threshold` line to mark measurement limit.
+    """
     dfs = []
     for method, results in data.items():
         maes = [get_maes(episode) for episode in results]
@@ -207,6 +213,8 @@ def plot_best_mae_over_time(data: dict, save_path: str = None) -> None:
     combined_df = pd.concat(dfs)
 
     plt.figure(figsize=(5, 3))
+    if threshold is not None:
+        plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
     sns.lineplot(x="step", y="mae", hue="method", data=combined_df)
     plt.title("Mean Best MAE Over Time")
     plt.xlim(0, None)
@@ -250,8 +258,13 @@ def plot_final_mae_box(data: dict, save_path: str = None) -> None:
     plt.show()
 
 
-def plot_mae_over_time(data: dict, save_path: str = None) -> None:
-    """Plot mean MAE of over episodes over time."""
+def plot_mae_over_time(
+    data: dict, save_path: str = None, threshold: Optional[float] = None
+) -> None:
+    """
+    Plot mean MAE of over episodes over time. Optionally display a `threshold` line to
+    mark measurement limit.
+    """
     dfs = []
     for method, results in data.items():
         maes = [get_maes(episode) for episode in results]
@@ -272,6 +285,8 @@ def plot_mae_over_time(data: dict, save_path: str = None) -> None:
     combined_df = pd.concat(dfs)
 
     plt.figure(figsize=(5, 3))
+    if threshold is not None:
+        plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
     sns.lineplot(x="step", y="mae", hue="method", data=combined_df)
     plt.title("Mean MAE Over Time")
     plt.xlim(0, None)
