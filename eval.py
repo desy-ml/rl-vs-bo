@@ -28,7 +28,8 @@ def compute_target_size(episode: list) -> float:
     """Compute a measure for the size of the target beam."""
     target = episode["observations"][-1]["target"]
     # return np.min([target[1], target[3]])
-    return target[1] * target[3]
+    # return target[1] * target[3]
+    return np.mean([target[1], target[3]])
 
 
 def find_convergence(episode: list, threshold: float = 20e-6) -> int:
@@ -145,7 +146,7 @@ def load_episode_data(path: str) -> dict:
     return data
 
 
-def load_eval_data(eval_dir: str, progress_bar: bool = False) -> list[dict]:
+def load_eval_data(eval_dir: str, progress_bar: bool = False) -> dict[dict]:
     """
     Load all episode pickle files from an evaluation firectory. Expects `problem_xxx`
     directories, each of which has a `recorded_episdoe_1.pkl file in it.
@@ -154,7 +155,10 @@ def load_eval_data(eval_dir: str, progress_bar: bool = False) -> list[dict]:
     if progress_bar:
         paths = tqdm(paths)
     data = [load_episode_data(p) for p in paths]
-    return data
+    idxs = [parse_problem_index(p) for p in paths]
+    data_dict = {i: rec for i, rec in zip(idxs, data)}
+
+    return data_dict
 
 
 def median_best_mae(data: list[dict]) -> float:
@@ -195,12 +199,26 @@ def median_steps_to_threshold(data: dict, threshold=20e-6) -> float:
     return np.median(steps)
 
 
-def plot_best_mae_box(data: dict, save_path: str = None) -> None:
+def parse_problem_index(path: str) -> int:
+    """
+    Take a `path` to an episode recording according to a problems file and parse the
+    problem index for it. Assumes that the recording is in some subdirectory of shape
+    `*problem_*`.
+    """
+    directories = path.split("/")
+    for d in directories:
+        if "problem" in d:
+            problem_string = d
+
+    return int(problem_string.split("problem_")[-1])
+
+
+def plot_best_mae_box(data: dict[dict], save_path: str = None) -> None:
     """Box plot of best MAEs seen until the very end of the episodes."""
     combined_final_maes = []
     combined_methods = []
     for method, results in data.items():
-        maes = [get_maes(episode) for episode in results]
+        maes = [get_maes(episode) for episode in results.values()]
         final_maes = [min(episode) for episode in maes]
 
         methods = [method] * len(final_maes)
@@ -208,7 +226,7 @@ def plot_best_mae_box(data: dict, save_path: str = None) -> None:
         combined_final_maes += final_maes
         combined_methods += methods
 
-    plt.figure(figsize=(5, 2))
+    plt.figure(figsize=(5, 0.6 * len(data)))
     plt.title("Best MAEs")
     sns.boxplot(x=combined_final_maes, y=combined_methods)
     plt.xscale("log")
@@ -222,16 +240,27 @@ def plot_best_mae_box(data: dict, save_path: str = None) -> None:
     plt.show()
 
 
-def plot_best_mae_diff_over_problem(rl: dict, bo: dict, save_path: str = None) -> None:
+def plot_best_mae_diff_over_problem(
+    results_1: dict[dict],
+    results_2: dict[dict],
+    name_1: str = None,
+    name_2: str = None,
+    save_path: str = None,
+) -> None:
     """Plot the differences of the best MAE achieved for each problem to see if certain problems stand out."""
+    assert set(results_1.keys()) == set(
+        results_2.keys()
+    ), "Results 1 and 2 do not cover the same set of problems."
 
-    final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
-    final_min_maes_bo = [compute_final_min_mae(episode) for episode in bo]
+    problem_idxs = results_1.keys()
+    final_min_maes_1 = [compute_final_min_mae(results_1[p]) for p in problem_idxs]
+    final_min_maes_2 = [compute_final_min_mae(results_2[p]) for p in problem_idxs]
 
-    diff = np.array(final_min_maes_rl) - np.array(final_min_maes_bo)
+    diff = np.array(final_min_maes_1) - np.array(final_min_maes_2)
 
     plt.figure(figsize=(5, 3))
-    plt.scatter(range(len(final_min_maes_rl)), diff, s=3, label="RL")
+    plt.bar(problem_idxs, diff, label=f"{name_1} vs. {name_2}")
+    plt.legend()
     plt.xlabel("Problem Index")
     plt.ylabel("Best MAE")
     plt.grid()
@@ -242,15 +271,13 @@ def plot_best_mae_diff_over_problem(rl: dict, bo: dict, save_path: str = None) -
     plt.show()
 
 
-def plot_best_mae_over_problem(rl: list, bo: list) -> None:
+def plot_best_mae_over_problem(results: dict[dict], name: str = None) -> None:
     """Plot the best MAE achieved for each problem to see if certain problems stand out."""
-
-    final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
-    final_min_maes_bo = [compute_final_min_mae(episode) for episode in bo]
+    problem_idxs = results.keys()
+    final_min_maes = [compute_final_min_mae(results[p]) for p in problem_idxs]
 
     plt.figure(figsize=(5, 3))
-    plt.scatter(range(len(final_min_maes_rl)), final_min_maes_rl, s=3, label="RL")
-    plt.scatter(range(len(final_min_maes_rl)), final_min_maes_bo, s=3, label="BO")
+    plt.bar(problem_idxs, final_min_maes, label=name)
     plt.legend()
     plt.xlabel("Problem Index")
     plt.ylabel("Best MAE")
@@ -258,7 +285,7 @@ def plot_best_mae_over_problem(rl: list, bo: list) -> None:
 
 
 def plot_best_mae_over_time(
-    data: dict, threshold: Optional[float] = None, save_path: str = None
+    data: dict[dict], threshold: Optional[float] = None, save_path: str = None
 ) -> None:
     """
     Plot mean best seen MAE over all episdoes over time. Optionally display a
@@ -266,7 +293,7 @@ def plot_best_mae_over_time(
     """
     dfs = []
     for method, results in data.items():
-        maes = [get_maes(episode) for episode in results]
+        maes = [get_maes(episode) for episode in results.values()]
         min_maes = [compute_min_maes(episode) for episode in maes]
 
         ds = [
@@ -300,7 +327,7 @@ def plot_best_mae_over_time(
     plt.show()
 
 
-def plot_final_mae_box(data: dict, save_path: str = None) -> None:
+def plot_final_mae_box(data: dict[dict], save_path: str = None) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
     seen).
@@ -308,7 +335,7 @@ def plot_final_mae_box(data: dict, save_path: str = None) -> None:
     combined_final_maes = []
     combined_methods = []
     for method, results in data.items():
-        maes = [get_maes(episode) for episode in results]
+        maes = [get_maes(episode) for episode in results.values()]
         final_maes = [episode[-2] for episode in maes]
 
         methods = [method] * len(final_maes)
@@ -316,7 +343,7 @@ def plot_final_mae_box(data: dict, save_path: str = None) -> None:
         combined_final_maes += final_maes
         combined_methods += methods
 
-    plt.figure(figsize=(5, 2))
+    plt.figure(figsize=(5, 0.6 * len(data)))
     plt.title("Final MAEs")
     sns.boxplot(x=combined_final_maes, y=combined_methods)
     plt.xscale("log")
@@ -331,7 +358,7 @@ def plot_final_mae_box(data: dict, save_path: str = None) -> None:
 
 
 def plot_mae_over_time(
-    data: dict, save_path: str = None, threshold: Optional[float] = None
+    data: dict[dict], save_path: str = None, threshold: Optional[float] = None
 ) -> None:
     """
     Plot mean MAE of over episodes over time. Optionally display a `threshold` line to
@@ -339,7 +366,7 @@ def plot_mae_over_time(
     """
     dfs = []
     for method, results in data.items():
-        maes = [get_maes(episode) for episode in results]
+        maes = [get_maes(episode) for episode in results.values()]
 
         ds = [
             {
@@ -373,7 +400,7 @@ def plot_mae_over_time(
 
 
 def plot_steps_to_convergence_box(
-    data: dict, threshold=20e-6, save_path: str = None
+    data: dict[dict], threshold=20e-6, save_path: str = None
 ) -> None:
     """
     Box plot number of steps until best seen MAE no longer improves by more than
@@ -382,7 +409,7 @@ def plot_steps_to_convergence_box(
     combined_steps = []
     combined_methods = []
     for method, results in data.items():
-        maes = [get_maes(episode) for episode in results]
+        maes = [get_maes(episode) for episode in results.values()]
         min_maes = [compute_min_maes(episode) for episode in maes]
         steps = [find_convergence(episode, threshold) for episode in min_maes]
 
@@ -391,7 +418,7 @@ def plot_steps_to_convergence_box(
         combined_steps += steps
         combined_methods += methods
 
-    plt.figure(figsize=(5, 2))
+    plt.figure(figsize=(5, 0.6 * len(data)))
     plt.title(f"Steps to convergence (limit = {threshold})")
     sns.boxplot(x=combined_steps, y=combined_methods)
     plt.grid(ls="--")
@@ -406,7 +433,9 @@ def plot_steps_to_convergence_box(
 
 
 def plot_steps_to_threshold_box(
-    data: dict, threshold=20e-6, save_path: str = None
+    data: dict[dict],
+    threshold=20e-6,
+    save_path: str = None,
 ) -> None:
     """
     Box plot number of steps until best seen MAE drops below (resolution) `threshold`.
@@ -414,7 +443,7 @@ def plot_steps_to_threshold_box(
     combined_steps = []
     combined_methods = []
     for method, results in data.items():
-        maes = [get_maes(episode) for episode in results]
+        maes = [get_maes(episode) for episode in results.values()]
         min_maes = [compute_min_maes(episode) for episode in maes]
         steps = [get_steps_to_treshold(episode, threshold) for episode in min_maes]
 
@@ -423,7 +452,7 @@ def plot_steps_to_threshold_box(
         combined_steps += steps
         combined_methods += methods
 
-    plt.figure(figsize=(5, 2))
+    plt.figure(figsize=(5, 0.6 * len(data)))
     plt.title(f"Steps to MAE below {threshold}")
     sns.boxplot(x=combined_steps, y=combined_methods)
     plt.grid(ls="--")
@@ -437,18 +466,14 @@ def plot_steps_to_threshold_box(
     plt.show()
 
 
-def plot_target_beam_size_mae_correlation(rl: list, bo: list) -> None:
+def plot_target_beam_size_mae_correlation(result: dict[dict], name: str = None) -> None:
     """Plot best MAEs over mean target beam size to see possible correlation."""
 
-    final_min_maes_rl = [compute_final_min_mae(episode) for episode in rl]
-    final_min_maes_bo = [compute_final_min_mae(episode) for episode in bo]
-
-    target_sizes_rl = [compute_target_size(episode) for episode in rl]
-    target_sizes_bo = [compute_target_size(episode) for episode in bo]
+    final_min_maes = [compute_final_min_mae(episode) for episode in result.values()]
+    target_sizes = [compute_target_size(episode) for episode in result.values()]
 
     plt.figure(figsize=(5, 3))
-    plt.scatter(target_sizes_rl, final_min_maes_rl, s=3, label="RL")
-    plt.scatter(target_sizes_bo, final_min_maes_bo, s=3, label="BO")
+    plt.scatter(target_sizes, final_min_maes, s=3, label=name)
     plt.legend()
     plt.xlabel("Mean beam size x/y")
     plt.ylabel("Best MAE")
