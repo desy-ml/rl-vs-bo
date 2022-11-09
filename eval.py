@@ -50,6 +50,69 @@ def find_convergence(episode: list, threshold: float = 20e-6) -> int:
     return convergence_step
 
 
+def full_evaluation(rl: list[dict], bo: list[dict], save_dir: str = None) -> None:
+    print(f"Evaluating rl = {len(rl)} vs. bo = {len(bo)} problems")
+
+    print_seperator()
+
+    print(f"RL -> {median_steps_to_threshold(rl)}")
+    print(f"BO -> {median_steps_to_threshold(bo)}")
+    plot_steps_to_threshold_box(
+        {"RL": rl, "BO": bo},
+        save_path=f"{save_dir}/steps_to_target.pdf" if save_dir is not None else None,
+    )
+
+    print_seperator()
+
+    print(f"RL -> {median_steps_to_convergence(rl)}")
+    print(f"BO -> {median_steps_to_convergence(bo)}")
+
+    plot_steps_to_convergence_box(
+        {"RL": rl, "BO": bo},
+        save_path=f"{save_dir}/steps_to_convergence.pdf"
+        if save_dir is not None
+        else None,
+    )
+
+    print_seperator()
+
+    plot_mae_over_time(
+        {"RL": rl, "BO": bo},
+        threshold=20e-6,
+        save_path=f"{save_dir}/mae_over_time.pdf" if save_dir is not None else None,
+    )
+
+    print_seperator()
+
+    plot_best_mae_over_time(
+        {"RL": rl, "BO": bo},
+        threshold=20e-6,
+        save_path=f"{save_dir}/best_mae_over_time.pdf"
+        if save_dir is not None
+        else None,
+    )
+
+    print_seperator()
+
+    print(f"RL -> {median_final_mae(rl)}")
+    print(f"BO -> {median_final_mae(bo)}")
+
+    plot_final_mae_box(
+        {"RL": rl, "BO": bo},
+        save_path=f"{save_dir}/final_mae.pdf" if save_dir is not None else None,
+    )
+
+    print_seperator()
+
+    print(f"RL -> {median_best_mae(rl)}")
+    print(f"BO -> {median_best_mae(bo)}")
+
+    plot_best_mae_box(
+        {"RL": rl, "BO": bo},
+        save_path=f"{save_dir}/final_best_mae.pdf" if save_dir is not None else None,
+    )
+
+
 def get_maes(episode: dict) -> list:
     """Get sequence of step-wise MAEs from episode data in `episode`."""
     beams = [obs["beam"] for obs in episode["observations"]]
@@ -381,3 +444,8 @@ def plot_target_beam_size_mae_correlation(rl: list, bo: list) -> None:
     plt.xlabel("Mean beam size x/y")
     plt.ylabel("Best MAE")
     plt.show()
+
+
+def print_seperator() -> None:
+    """Print a seperator line to help structure outputs."""
+    print("-----------------------------------------------------------")
