@@ -6,6 +6,8 @@ __pycache__
 slurm-*.out
 wandb
 
+data_recordings_bo
+kit_shift_data
 log
 models
 old
