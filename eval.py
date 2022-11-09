@@ -52,6 +52,10 @@ def find_convergence(episode: list, threshold: float = 20e-6) -> int:
 
 
 def full_evaluation(rl: list[dict], bo: list[dict], save_dir: str = None) -> None:
+    """
+    Fully evaluate a number of things about two different algorithms, showing plots and
+    metrics.
+    """
     if save_dir is not None:
         save_dir = os.path.abspath(save_dir)
         os.makedirs(save_dir, exist_ok=True)
