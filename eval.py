@@ -352,7 +352,7 @@ def plot_best_return_deviation_box(results: dict[dict], save_path: str = None) -
     plt.show()
 
 
-def plot_best_return_example(episode: dict) -> None:
+def plot_best_return_deviation_example(episode: dict) -> None:
     """
     Plot an example of MAE over time with markings of the location and value of the best
     setting, to help understand deviations when returning to that setting.
