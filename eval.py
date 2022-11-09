@@ -327,6 +327,31 @@ def plot_best_mae_over_time(
     plt.show()
 
 
+def plot_best_return_deviation_box(results: dict[dict], save_path: str = None) -> None:
+    """
+    Plot a boxplot showing how far the MAE in the final return step differed from the
+    MAE seen the first time the optimal magnets were set. This should show effects of
+    hysteresis (and simular effects).
+    """
+    maes = [get_maes(episode) for episode in results.values()]
+    best = [min(episode) for episode in maes]
+    final = [episode[-1] for episode in maes]
+    deviations = np.abs(np.array(best) - np.array(final))
+
+    plt.figure(figsize=(5, 2))
+    plt.title(f"Deviation when returning to best")
+    sns.boxplot(x=deviations, y=["Deviation"] * len(deviations))
+    plt.grid(ls="--")
+    plt.gca().set_axisbelow(True)
+    plt.xlabel("MAE")
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
+    plt.show()
+
+
 def plot_final_mae_box(data: dict[dict], save_path: str = None) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
