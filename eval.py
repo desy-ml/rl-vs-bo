@@ -1,3 +1,4 @@
+import os
 import pickle
 from glob import glob
 from typing import Optional
@@ -51,6 +52,10 @@ def find_convergence(episode: list, threshold: float = 20e-6) -> int:
 
 
 def full_evaluation(rl: list[dict], bo: list[dict], save_dir: str = None) -> None:
+    if save_dir is not None:
+        save_dir = os.path.abspath(save_dir)
+        os.makedirs(save_dir, exist_ok=True)
+
     print(f"Evaluating rl = {len(rl)} vs. bo = {len(bo)} problems")
 
     print_seperator()
