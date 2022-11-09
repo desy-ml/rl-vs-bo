@@ -9,6 +9,7 @@ from botorch.acquisition import (
 )
 from botorch.optim import optimize_acqf
 from gpytorch.mlls import ExactMarginalLogLikelihood
+from gpytorch.means.mean import Mean
 import gym
 from gym.spaces.utils import unflatten
 import numpy as np
@@ -132,25 +133,27 @@ def get_next_samples(
     n_points: int = 1,
     acquisition: str = "EI",
     fixparam: Optional[dict] = None,
+    mean_module: Optional[Mean] = None,
 ):
     """
     Suggest Next Sample for BO
     """
-    gp = SingleTaskGP(X, Y)
+    gp = SingleTaskGP(X, Y, mean_module=mean_module)
     mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
     # Exclude fixed hyperparameters
-    if "lengthscale" in fixparam.keys():
-        gp.covar_module.base_kernel.lengthscale = fixparam["lengthscale"]
-        gp.covar_module.base_kernel.raw_lengthscale.requires_grad = False
-    if "noise_var" in fixparam.keys():
-        gp.likelihood.noise_covar.noise = fixparam["noise_var"]
-        gp.likelihood.noise_covar.raw_noise.requires_grad = False
-    if "mean_constant" in fixparam.keys():
-        gp.mean_module.constant = fixparam["mean_constant"]
-        gp.mean_module.raw_constant.requires_grad = False
-    if "scale" in fixparam.keys():
-        gp.covar_module.output_scale = fixparam["scale"]
-        gp.covar_module.raw_outputscale.requires_grad = False
+    if fixparam is not None:
+        if "lengthscale" in fixparam.keys():
+            gp.covar_module.base_kernel.lengthscale = fixparam["lengthscale"]
+            gp.covar_module.base_kernel.raw_lengthscale.requires_grad = False
+        if "noise_var" in fixparam.keys():
+            gp.likelihood.noise_covar.noise = fixparam["noise_var"]
+            gp.likelihood.noise_covar.raw_noise.requires_grad = False
+        if "mean_constant" in fixparam.keys():
+            gp.mean_module.constant = fixparam["mean_constant"]
+            gp.mean_module.raw_constant.requires_grad = False
+        if "scale" in fixparam.keys():
+            gp.covar_module.output_scale = fixparam["scale"]
+            gp.covar_module.raw_outputscale.requires_grad = False
 
     # Fit GP if any parameter is not fixed
     if any(param.requires_grad for _, param in gp.named_parameters()):
