@@ -1,5 +1,6 @@
 from typing import Optional, Union
 import torch
+import torch.nn as nn
 from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_model
 from botorch.acquisition import (
@@ -9,6 +10,7 @@ from botorch.acquisition import (
 )
 from botorch.optim import optimize_acqf
 from gpytorch.mlls import ExactMarginalLogLikelihood
+from gpytorch.means.mean import Mean
 import gym
 from gym.spaces.utils import unflatten
 import numpy as np
@@ -132,25 +134,27 @@ def get_next_samples(
     n_points: int = 1,
     acquisition: str = "EI",
     fixparam: Optional[dict] = None,
+    mean_module: Optional[Mean] = None,
 ):
     """
     Suggest Next Sample for BO
     """
-    gp = SingleTaskGP(X, Y)
+    gp = SingleTaskGP(X, Y, mean_module=mean_module)
     mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
     # Exclude fixed hyperparameters
-    if "lengthscale" in fixparam.keys():
-        gp.covar_module.base_kernel.lengthscale = fixparam["lengthscale"]
-        gp.covar_module.base_kernel.raw_lengthscale.requires_grad = False
-    if "noise_var" in fixparam.keys():
-        gp.likelihood.noise_covar.noise = fixparam["noise_var"]
-        gp.likelihood.noise_covar.raw_noise.requires_grad = False
-    if "mean_constant" in fixparam.keys():
-        gp.mean_module.constant = fixparam["mean_constant"]
-        gp.mean_module.raw_constant.requires_grad = False
-    if "scale" in fixparam.keys():
-        gp.covar_module.output_scale = fixparam["scale"]
-        gp.covar_module.raw_outputscale.requires_grad = False
+    if fixparam is not None:
+        if "lengthscale" in fixparam.keys():
+            gp.covar_module.base_kernel.lengthscale = fixparam["lengthscale"]
+            gp.covar_module.base_kernel.raw_lengthscale.requires_grad = False
+        if "noise_var" in fixparam.keys():
+            gp.likelihood.noise_covar.noise = fixparam["noise_var"]
+            gp.likelihood.noise_covar.raw_noise.requires_grad = False
+        if "mean_constant" in fixparam.keys():
+            gp.mean_module.constant = fixparam["mean_constant"]
+            gp.mean_module.raw_constant.requires_grad = False
+        if "scale" in fixparam.keys():
+            gp.covar_module.output_scale = fixparam["scale"]
+            gp.covar_module.raw_outputscale.requires_grad = False
 
     # Fit GP if any parameter is not fixed
     if any(param.requires_grad for _, param in gp.named_parameters()):
@@ -222,3 +226,60 @@ def bo_optimize(
             break
 
     return X.detach().numpy(), Y.detach().numpy()
+
+
+# Use a NN as GP prior for BO
+class SimpleBeamPredictNN(nn.Module):
+    """A simple FCNN to predict the output beam parameters assuming centered incoming beam"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(
+                5,
+                8,
+                bias=True,
+            ),
+            nn.Tanh(),
+            nn.Linear(8, 8),
+            nn.Tanh(),
+            nn.Linear(8, 8),
+            nn.Tanh(),
+            nn.Linear(8, 4),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+class BeamNNPrior(Mean):
+    """Use a NN as GP prior mean function
+    The NN predicts the output beam, which is used to calculate the logmae objective
+    Use as
+    ```python
+    my_prior_mean = BeamNNPrior(target=torch.tensor(target_beam))  # define prior mean
+    gp = SingleTask(X, Y, mean_module=my_prior_mean)   # and construct GP model using it
+    ```
+    Optional, set the prior mean as fixed and not fit it:
+    ```
+    for param in custom_mean.mlp.parameters():
+        param.requires_grad = False
+    ```
+
+    Parameters
+    ----------
+    target : torch.Tensor
+        Target beam in [mu_x, sigma_x, mu_y, sigma_y]
+    """
+
+    def __init__(self, target: torch.Tensor):
+        super().__init__()
+        self.mlp = SimpleBeamPredictNN()
+        self.mlp.load_state_dict(torch.load(f"nn_for_bo/v2_model_weights.pth"))
+        self.mlp.eval()
+        self.mlp.double()  # for double input from GPyTorch
+        self.target = target
+
+    def forward(self, x):
+        logmae = -torch.log(torch.mean(torch.abs(self.mlp(x) - self.target), dim=-1))
+        return logmae
