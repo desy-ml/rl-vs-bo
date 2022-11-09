@@ -352,6 +352,23 @@ def plot_best_return_deviation_box(results: dict[dict], save_path: str = None) -
     plt.show()
 
 
+def plot_best_return_example(episode: dict) -> None:
+    """
+    Plot an example of MAE over time with markings of the location and value of the best
+    setting, to help understand deviations when returning to that setting.
+    """
+    maes = get_maes(episode)
+    first = np.argmin(maes)
+
+    # print(abs(maes[first] - maes[-1]))
+
+    plt.figure(figsize=(5, 3))
+    plt.plot(maes)
+    plt.axvline(first, c="red")
+    plt.axhline(maes[first], c="green")
+    plt.show()
+
+
 def plot_final_mae_box(data: dict[dict], save_path: str = None) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
