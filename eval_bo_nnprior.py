@@ -1,3 +1,4 @@
+"""Evaluate BO with a NN prior"""
 import json
 from concurrent.futures import ProcessPoolExecutor
 
@@ -6,7 +7,13 @@ import torch
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
-from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
+from bayesopt import (
+    calculate_objective,
+    get_new_bound,
+    get_next_samples,
+    scale_action,
+    BeamNNPrior,
+)
 from ea_train import ARESEACheetah
 from utils import FilterAction, RecordEpisode
 
@@ -113,7 +120,9 @@ def try_problem(problem_index: int, problem: dict):
         w_time=config["w_time"],
     )
     env = TimeLimit(env, config["max_steps"])
-    env = RecordEpisode(env, save_dir=f"bo_evaluation/problem_{problem_index:03d}")
+    env = RecordEpisode(
+        env, save_dir=f"bo_nnprior_evaluation/problem_{problem_index:03d}"
+    )
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
     if config["filter_action"] is not None:
@@ -133,6 +142,13 @@ def try_problem(problem_index: int, problem: dict):
     # Actual optimisation
     observation = env.reset()
     done = False
+
+    # Construct the NN prior for BO
+    target_beam = torch.tensor(config["target_beam_values"])
+    nn_priormean = BeamNNPrior(target=target_beam)
+    # Try without refitting the prior mean
+    for param in nn_priormean.mlp.parameters():
+        param.requires_grad = False
 
     # Initialization
     x_dim = env.action_space.shape[0]
@@ -167,16 +183,17 @@ def try_problem(problem_index: int, problem: dict):
             torch.tensor(bounds, dtype=torch.float32),
             n_points=1,
             acquisition=acquisition,
+            mean_module=nn_priormean,  # Use NN as prior mean
         )
         action = action_t.detach().numpy().flatten()
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, _ = env.step(action)
         objective = calculate_objective(env, observation, reward, obj=obj_function)
 
         # append data
         X = torch.cat([X, action_t])
         Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
 
-    # Set back to
+    # Set back to best values found
     set_to_best = True
     if set_to_best:
         action = X[Y.argmax()].detach().numpy()
@@ -190,10 +207,7 @@ def main():
         problems = json.load(f)
 
     with ProcessPoolExecutor() as executor:
-        futures = tqdm(
-            executor.map(try_problem, range(len(problems)), problems), total=300
-        )
-
+        _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
 
 if __name__ == "__main__":
     main()
