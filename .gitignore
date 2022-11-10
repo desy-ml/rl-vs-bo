@@ -4,14 +4,12 @@ __pycache__
 .ipynb_checkpoints
 .vscode
 slurm-*.out
-wandb
+.wandb
 
-data_recordings_bo
-kit_shift_data
+data
+figures
 log
 models
 old
 recordings
-recordings_function_test
 recordings_real
-recordings_test
