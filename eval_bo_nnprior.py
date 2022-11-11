@@ -1,6 +1,7 @@
 """Evaluate BO with a NN prior"""
 import json
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from itertools import repeat
 
 import numpy as np
 import torch
@@ -51,7 +52,14 @@ def convert_target_from_problem(problem: dict) -> np.ndarray:
     )
 
 
-def try_problem(problem_index: int, problem: dict):
+def try_problem(
+    problem_index: int,
+    problem: dict,
+    folder_name: str = "bo_nnprior",
+    use_nn_prior: bool = True,
+    fit_weight: bool = False,
+    acquisition: str = "EI",
+):
     config = {
         "action_mode": "direct_unidirectional_quads",
         "filter_action": None,
@@ -77,14 +85,14 @@ def try_problem(problem_index: int, problem: dict):
         "w_mu_x_in_threshold": 0.0,
         "w_mu_y": 1.0,
         "w_mu_y_in_threshold": 0.0,
-        "w_on_screen": 100.0,
+        "w_on_screen": 10.0,
         "w_sigma_x": 1.0,
         "w_sigma_x_in_threshold": 0.0,
         "w_sigma_y": 1.0,
         "w_sigma_y_in_threshold": 0.0,
         "w_time": 0.0,
         "obj_function": "logmae",
-        "acquisition": "EI",
+        "acquisition": acquisition,
         "init_x": None,
         "init_samples": 5,
         "stepsize": 0.1,
@@ -120,9 +128,7 @@ def try_problem(problem_index: int, problem: dict):
         w_time=config["w_time"],
     )
     env = TimeLimit(env, config["max_steps"])
-    env = RecordEpisode(
-        env, save_dir=f"bo_nnprior_evaluation_2/problem_{problem_index:03d}"
-    )
+    env = RecordEpisode(env, save_dir=f"{folder_name}/problem_{problem_index:03d}")
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
     if config["filter_action"] is not None:
@@ -145,10 +151,17 @@ def try_problem(problem_index: int, problem: dict):
 
     # Construct the NN prior for BO
     target_beam = torch.tensor(config["target_beam_values"])
-    nn_priormean = BeamNNPrior(target=target_beam)
-    # Try without refitting the prior mean
-    for param in nn_priormean.mlp.parameters():
-        param.requires_grad = False
+    if use_nn_prior:
+        nn_priormean = BeamNNPrior(
+            target=target_beam, w_on_screen=config["w_on_screen"]
+        )
+
+        if not fit_weight:
+            # Try without refitting the prior mean
+            for param in nn_priormean.mlp.parameters():
+                param.requires_grad = False
+    else:
+        nn_priormean = None  # Use default mean module for nn
 
     # Initialization
     x_dim = env.action_space.shape[0]
@@ -168,7 +181,7 @@ def try_problem(problem_index: int, problem: dict):
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, _ = env.step(action)
         objective = calculate_objective(env, observation, reward, obj=obj_function)
         Y[i] = torch.tensor(objective)
 
@@ -187,7 +200,13 @@ def try_problem(problem_index: int, problem: dict):
         )
         action = action_t.detach().numpy().flatten()
         observation, reward, done, _ = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function)
+        objective = calculate_objective(
+            env,
+            observation,
+            reward,
+            obj=obj_function,
+            w_on_screen=config["w_on_screen"],
+        )
 
         # append data
         X = torch.cat([X, action_t])
@@ -197,7 +216,7 @@ def try_problem(problem_index: int, problem: dict):
     set_to_best = True
     if set_to_best:
         action = X[Y.argmax()].detach().numpy()
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, _ = env.step(action)
 
     env.close()
 
@@ -206,8 +225,126 @@ def main():
     with open("problems.json", "r") as f:
         problems = json.load(f)
 
+    print("Starting default prior with UCB acq")
     with ThreadPoolExecutor(max_workers=1) as executor:
-        _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
+        _ = tqdm(
+            executor.map(
+                try_problem,
+                range(len(problems)),
+                problems,
+                repeat("bo_noprior_ucb"),
+                repeat(False),
+                repeat(False),
+                repeat("UCB"),
+            ),
+            total=300,
+        )
+
+    print("Starting default prior with PI acq")
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        _ = tqdm(
+            executor.map(
+                try_problem,
+                range(len(problems)),
+                problems,
+                repeat("bo_noprior_pi"),
+                repeat(False),
+                repeat(False),
+                repeat("PI"),
+            ),
+            total=300,
+        )
+
+    print("Starting NN no fit with EI acq")
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        _ = tqdm(
+            executor.map(
+                try_problem,
+                range(len(problems)),
+                problems,
+                repeat("bo_nnprior_ei"),
+                repeat(True),
+                repeat(False),
+                repeat("EI"),
+            ),
+            total=300,
+        )
+
+    print("Starting NN no fit with UCB acq")
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        _ = tqdm(
+            executor.map(
+                try_problem,
+                range(len(problems)),
+                problems,
+                repeat("bo_nnprior_ucb"),
+                repeat(True),
+                repeat(False),
+                repeat("UCB"),
+            ),
+            total=300,
+        )
+
+    print("Starting NN no fit with PI acq")
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        _ = tqdm(
+            executor.map(
+                try_problem,
+                range(len(problems)),
+                problems,
+                repeat("bo_nnprior_pi"),
+                repeat(True),
+                repeat(False),
+                repeat("PI"),
+            ),
+            total=300,
+        )
+
+    #
+    # # test another version with NN weight fitting
+    # with ThreadPoolExecutor(max_workers=1) as executor:
+    #     _ = tqdm(
+    #         executor.map(
+    #             try_problem,
+    #             range(len(problems)),
+    #             problems,
+    #             repeat("bo_nnprior_fitweight"),
+    #             repeat(True),
+    #             repeat(True),
+    #         ),
+    #         total=300,
+    #     )
+
+    # Testing
+    # try_problem(
+    #     0,
+    #     problems[0],
+    #     "bo_nnprior_nofit",
+    #     False,
+    # )
+    # try_problem(
+    #     0,
+    #     problems[0],
+    #     "bo_nnprior_ucb",
+    #     False,
+    #     acquisition="UCB",
+    # )
+    # try_problem(
+    #     0,
+    #     problems[0],
+    #     "bo_nnprior_pi",
+    #     False,
+    #     acquisition="PI",
+    # )
+    # print("Finishing no fit")
+    # try_problem(
+    #     0,
+    #     problems[0],
+    #     # "bo_nnprior_nofit",
+    #     # False,
+    #     "bo_nnprior_fitweight",
+    #     True,
+    # )
 
 
 if __name__ == "__main__":
