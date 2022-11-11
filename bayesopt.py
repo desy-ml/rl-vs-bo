@@ -1,19 +1,20 @@
 from typing import Optional, Union
+
+import gym
+import numpy as np
 import torch
 import torch.nn as nn
-from botorch.models import SingleTaskGP
-from botorch.fit import fit_gpytorch_model
 from botorch.acquisition import (
-    UpperConfidenceBound,
     ExpectedImprovement,
+    UpperConfidenceBound,
     qExpectedImprovement,
 )
+from botorch.fit import fit_gpytorch_model
+from botorch.models import SingleTaskGP
 from botorch.optim import optimize_acqf
-from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.means.mean import Mean
-import gym
+from gpytorch.mlls import ExactMarginalLogLikelihood
 from gym.spaces.utils import unflatten
-import numpy as np
 
 config = {
     "action_mode": "direct",

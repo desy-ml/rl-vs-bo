@@ -6,6 +6,8 @@ __pycache__
 slurm-*.out
 .wandb
 
+bo_nnprior_evaluation
+bo_nnprior_evaluation_2
 data
 figures
 log

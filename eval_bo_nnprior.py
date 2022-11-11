@@ -1,6 +1,6 @@
 """Evaluate BO with a NN prior"""
 import json
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import numpy as np
 import torch
@@ -8,11 +8,11 @@ from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, T
 from tqdm.notebook import tqdm
 
 from bayesopt import (
+    BeamNNPrior,
     calculate_objective,
     get_new_bound,
     get_next_samples,
     scale_action,
-    BeamNNPrior,
 )
 from ea_train import ARESEACheetah
 from utils import FilterAction, RecordEpisode
@@ -121,7 +121,7 @@ def try_problem(problem_index: int, problem: dict):
     )
     env = TimeLimit(env, config["max_steps"])
     env = RecordEpisode(
-        env, save_dir=f"bo_nnprior_evaluation/problem_{problem_index:03d}"
+        env, save_dir=f"bo_nnprior_evaluation_2/problem_{problem_index:03d}"
     )
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
@@ -206,8 +206,9 @@ def main():
     with open("problems.json", "r") as f:
         problems = json.load(f)
 
-    with ProcessPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
+
 
 if __name__ == "__main__":
     main()
