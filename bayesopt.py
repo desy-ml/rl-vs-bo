@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from botorch.acquisition import (
     ExpectedImprovement,
+    ProbabilityOfImprovement,
     UpperConfidenceBound,
     qExpectedImprovement,
 )
@@ -165,8 +166,10 @@ def get_next_samples(
         acq = ExpectedImprovement(model=gp, best_f=best_y)
     elif acquisition == "qEI":
         acq = qExpectedImprovement(model=gp, best_f=best_y)
+    elif acquisition == "PI":
+        acq = ProbabilityOfImprovement(model=gp, best_f=best_y)
     elif acquisition == "UCB":
-        acq = UpperConfidenceBound(gp, beta=0.1)
+        acq = UpperConfidenceBound(gp, beta=0.2)
 
     candidates, _ = optimize_acqf(
         acq_function=acq,
@@ -188,6 +191,7 @@ def bo_optimize(
     acq="EI",
     obj="reward",
     filter_action=None,
+    w_on_screen=10,
 ):
     """Complete BO loop, not quite fit into the ea_optimize logic yet"""
     observation = env.reset()
@@ -207,7 +211,7 @@ def bo_optimize(
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, _ = env.step(action)
         objective = calculate_objective(env, observation, reward, obj=obj)
         # _, reward, done, _ = env.step(action)
         Y[i] = torch.tensor(objective)
@@ -216,7 +220,9 @@ def bo_optimize(
     for i in range(budget):
         action = get_next_samples(X, Y, Y.max(), bounds, n_points=1, acquisition=acq)
         observation, _, done, _ = env.step(action.detach().numpy().flatten())
-        objective = calculate_objective(env, observation, reward, obj=obj)
+        objective = calculate_objective(
+            env, observation, reward, obj=obj, w_on_screen=w_on_screen
+        )
 
         # append data
         X = torch.cat([X, action])
@@ -271,16 +277,41 @@ class BeamNNPrior(Mean):
     ----------
     target : torch.Tensor
         Target beam in [mu_x, sigma_x, mu_y, sigma_y]
+    w_on_screen: float (optional)
+        Weight of the reward given for beam being on/off screen
     """
 
-    def __init__(self, target: torch.Tensor):
+    def __init__(
+        self,
+        target: torch.Tensor,
+        w_on_screen: float = 10,
+        screen_resolution=(2448, 2040),
+        screen_pixel_size=(3.3198e-6, 2.4469e-6),
+    ):
         super().__init__()
         self.mlp = SimpleBeamPredictNN()
         self.mlp.load_state_dict(torch.load(f"nn_for_bo/v2_model_weights.pth"))
         self.mlp.eval()
         self.mlp.double()  # for double input from GPyTorch
         self.target = target
+        # Screen Size calculation for on screen reward
+        self.w_on_screen_reward = w_on_screen
+        self.half_x_size = screen_resolution[0] * screen_pixel_size[0] / 2
+        self.half_y_size = screen_resolution[1] * screen_pixel_size[1] / 2
 
     def forward(self, x):
-        logmae = -torch.log(torch.mean(torch.abs(self.mlp(x) - self.target), dim=-1))
-        return logmae
+        out_beam = self.mlp(x)
+        logmae = -torch.log(torch.mean(torch.abs(out_beam - self.target), dim=-1))
+
+        is_beam_on_screen = torch.logical_and(
+            torch.abs(out_beam[..., 0]) < self.half_x_size,
+            torch.abs(out_beam[..., 2]) < self.half_y_size,
+        )  # check if both x and y position are inside the screen
+        is_beam_on_screen = torch.where(is_beam_on_screen == True, 1, -1)
+
+        on_screen_reward = self.w_on_screen_reward * is_beam_on_screen
+
+        return logmae + on_screen_reward
+
+
+# TODO: Just for testing, we can also add proximal biasing?
