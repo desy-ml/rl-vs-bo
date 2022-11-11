@@ -38,8 +38,8 @@ config = {
     "n_envs": 40,
     "normalize_observation": True,
     "normalize_reward": True,
-    "rescale_action": (-3, 3),
-    "reward_mode": "logl1",
+    "rescale_action": (-1, 1),
+    "reward_mode": "differential",
     "sb3_device": "auto",
     "target_beam_mode": "constant",
     "target_beam_values": np.zeros(4),
@@ -90,6 +90,7 @@ def optimize(
     filter_action=None,
     magnet_init_values=np.array([10, -10, 0, 10, 0]),
     set_to_best=True,  # set back to best found setting after opt.
+    mean_module=None,
 ):
     callback = setup_callback(callback)
 
@@ -162,14 +163,20 @@ def optimize(
         X = torch.tensor([action_i], dtype=torch.float32)
         bounds = get_new_bound(env, action_i, stepsize)
         for i in range(init_samples - 1):
-            new_action = np.random.uniform(low=bounds[0], high=bounds[1]).reshape(1,-1)
+            new_action = np.random.uniform(low=bounds[0], high=bounds[1]).reshape(1, -1)
             X = torch.cat([X, torch.tensor(new_action)])
     # Sample initial Ys to build GP
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
         observation, reward, done, info = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function, w_on_screen=config["w_on_screen"])
+        objective = calculate_objective(
+            env,
+            observation,
+            reward,
+            obj=obj_function,
+            w_on_screen=config["w_on_screen"],
+        )
         Y[i] = torch.tensor(objective)
 
     # Actual BO Loop
@@ -183,10 +190,17 @@ def optimize(
             torch.tensor(bounds, dtype=torch.float32),
             n_points=1,
             acquisition=acquisition,
+            mean_module=mean_module,
         )
         action = action_t.detach().numpy().flatten()
         observation, reward, done, info = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function, w_on_screen=config["w_on_screen"])
+        objective = calculate_objective(
+            env,
+            observation,
+            reward,
+            obj=obj_function,
+            w_on_screen=config["w_on_screen"],
+        )
 
         # append data
         X = torch.cat([X, action_t])
