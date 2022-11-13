@@ -225,79 +225,64 @@ def main():
     with open("problems.json", "r") as f:
         problems = json.load(f)
 
-    print("Starting default prior with UCB acq")
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        _ = tqdm(
-            executor.map(
-                try_problem,
-                range(len(problems)),
-                problems,
-                repeat("bo_noprior_ucb"),
-                repeat(False),
-                repeat(False),
-                repeat("UCB"),
-            ),
-            total=300,
+    with ProcessPoolExecutor() as executor:
+        print("Starting default prior with UCB acq")
+        executor.map(
+            try_problem,
+            range(len(problems)),
+            problems,
+            repeat("bo_noprior_ucb"),
+            repeat(False),
+            repeat(False),
+            repeat("UCB"),
         )
 
-    print("Starting default prior with PI acq")
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        _ = tqdm(
-            executor.map(
-                try_problem,
-                range(len(problems)),
-                problems,
-                repeat("bo_noprior_pi"),
-                repeat(False),
-                repeat(False),
-                repeat("PI"),
-            ),
-            total=300,
+    with ProcessPoolExecutor() as executor:
+        print("Starting default prior with PI acq")
+        executor.map(
+            try_problem,
+            range(len(problems)),
+            problems,
+            repeat("bo_noprior_pi"),
+            repeat(False),
+            repeat(False),
+            repeat("PI"),
         )
 
-    print("Starting NN no fit with EI acq")
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        _ = tqdm(
-            executor.map(
-                try_problem,
-                range(len(problems)),
-                problems,
-                repeat("bo_nnprior_ei"),
-                repeat(True),
-                repeat(False),
-                repeat("EI"),
-            ),
-            total=300,
+    with ProcessPoolExecutor() as executor:
+        print("Starting NN no fit with EI acq")
+        executor.map(
+            try_problem,
+            range(len(problems)),
+            problems,
+            repeat("bo_nnprior_ei"),
+            repeat(True),
+            repeat(False),
+            repeat("EI"),
         )
 
-    print("Starting NN no fit with UCB acq")
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        _ = tqdm(
-            executor.map(
-                try_problem,
-                range(len(problems)),
-                problems,
-                repeat("bo_nnprior_ucb"),
-                repeat(True),
-                repeat(False),
-                repeat("UCB"),
-            ),
-            total=300,
+    with ProcessPoolExecutor() as executor:
+        print("Starting NN no fit with UCB acq")
+        executor.map(
+            try_problem,
+            range(len(problems)),
+            problems,
+            repeat("bo_nnprior_ucb"),
+            repeat(True),
+            repeat(False),
+            repeat("UCB"),
         )
 
-    print("Starting NN no fit with PI acq")
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        _ = tqdm(
-            executor.map(
-                try_problem,
-                range(len(problems)),
-                problems,
-                repeat("bo_nnprior_pi"),
-                repeat(True),
-                repeat(False),
-                repeat("PI"),
-            ),
-            total=300,
+    with ProcessPoolExecutor() as executor:
+        print("Starting NN no fit with PI acq")
+        executor.map(
+            try_problem,
+            range(len(problems)),
+            problems,
+            repeat("bo_nnprior_pi"),
+            repeat(True),
+            repeat(False),
+            repeat("PI"),
         )
 
     # Testing
