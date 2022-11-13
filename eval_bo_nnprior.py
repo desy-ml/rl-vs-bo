@@ -191,7 +191,7 @@ def try_problem(
         bounds = get_new_bound(env, current_action, stepsize)
         action_t = get_next_samples(
             X,
-            Y,
+            Y.double(),
             Y.max(),
             torch.tensor(bounds, dtype=torch.float32),
             n_points=1,
@@ -300,27 +300,14 @@ def main():
             total=300,
         )
 
-    #
-    # # test another version with NN weight fitting
-    # with ThreadPoolExecutor(max_workers=1) as executor:
-    #     _ = tqdm(
-    #         executor.map(
-    #             try_problem,
-    #             range(len(problems)),
-    #             problems,
-    #             repeat("bo_nnprior_fitweight"),
-    #             repeat(True),
-    #             repeat(True),
-    #         ),
-    #         total=300,
-    #     )
-
     # Testing
     # try_problem(
     #     0,
     #     problems[0],
-    #     "bo_nnprior_nofit",
+    #     "bo_noprior_ucb",
     #     False,
+    #     False,
+    #     "UCB",
     # )
     # try_problem(
     #     0,
