@@ -12,6 +12,8 @@ from botorch.acquisition import (
 )
 from botorch.fit import fit_gpytorch_model
 from botorch.models import SingleTaskGP
+from botorch.models.transforms import Standardize
+from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.optim import optimize_acqf
 from gpytorch.means.mean import Mean
 from gpytorch.mlls import ExactMarginalLogLikelihood
@@ -137,11 +139,14 @@ def get_next_samples(
     acquisition: str = "EI",
     fixparam: Optional[dict] = None,
     mean_module: Optional[Mean] = None,
+    outcome_transform: Optional[OutcomeTransform] = Standardize(m=1),
 ):
     """
     Suggest Next Sample for BO
     """
-    gp = SingleTaskGP(X, Y, mean_module=mean_module)
+    gp = SingleTaskGP(
+        X, Y, mean_module=mean_module, outcome_transform=outcome_transform
+    )
     mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
     # Exclude fixed hyperparameters
     if fixparam is not None:
@@ -259,6 +264,21 @@ class SimpleBeamPredictNN(nn.Module):
         return self.layers(x)
 
 
+class SimpleBeamPredictNNV3(nn.Module):
+    def __init__(self, include_bias=False) -> None:
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(5, 16),
+            nn.Tanh(),
+            nn.Linear(16, 16),
+            nn.Tanh(),
+            nn.Linear(16, 4, bias=include_bias),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+
+
 class BeamNNPrior(Mean):
     """Use a NN as GP prior mean function
     The NN predicts the output beam, which is used to calculate the logmae objective
@@ -289,8 +309,8 @@ class BeamNNPrior(Mean):
         screen_pixel_size=(3.3198e-6, 2.4469e-6),
     ):
         super().__init__()
-        self.mlp = SimpleBeamPredictNN()
-        self.mlp.load_state_dict(torch.load(f"nn_for_bo/v2_model_weights.pth"))
+        self.mlp = SimpleBeamPredictNNV3()
+        self.mlp.load_state_dict(torch.load(f"nn_for_bo/v3_model_weights.pth"))
         self.mlp.eval()
         self.mlp.double()  # for double input from GPyTorch
         self.target = target
@@ -301,6 +321,7 @@ class BeamNNPrior(Mean):
 
     def forward(self, x):
         out_beam = self.mlp(x)
+        out_beam = denormalize_output(out_beam)
         logmae = -torch.log(torch.mean(torch.abs(out_beam - self.target), dim=-1))
 
         is_beam_on_screen = torch.logical_and(
@@ -312,6 +333,11 @@ class BeamNNPrior(Mean):
         on_screen_reward = self.w_on_screen_reward * is_beam_on_screen
 
         return logmae + on_screen_reward
+
+
+def denormalize_output(y_nn: torch.Tensor) -> torch.Tensor:
+    y_nn = (y_nn + torch.tensor([0, 1, 0, 1])) * 0.005  # denormalize to 5 mm
+    return y_nn
 
 
 # TODO: Just for testing, we can also add proximal biasing?
