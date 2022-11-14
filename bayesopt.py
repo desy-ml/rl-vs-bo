@@ -65,43 +65,15 @@ config = {
 
 
 def calculate_objective(env, observation, reward, obj="reward", w_on_screen=10):
-    """A wrapper for getting objective not (yet) defined in the class
+    """Obsolete
+    A wrapper for getting objective not (yet) defined in the class
 
     Could be interesting objectives:
         worstlogl1: take the log of the worst L1 value of the beam parameters
         logmae: as used before log(MAE(current_beam - target_beam))
     """
-    if obj == "reward":
-        objective = reward
-    else:
-        obs = unflatten(env.unwrapped.observation_space, observation)
-        cb = obs["beam"]
-        tb = obs["target"]
-
-        if obj == "clipped_l1":
-            logl1 = -np.log(np.abs(cb - tb))
-            # resolution limit -log(3e-6) ~ 12.5
-            objective = np.clip(logl1, None, 12.5).sum()
-
-        elif obj == "worstl1":
-            l1 = -np.abs(cb - tb)
-            objective = np.min(l1)
-        elif obj == "worstlogl1":
-            logl1 = -np.log(np.abs(cb - tb))
-            objective = np.min(logl1)
-        elif obj == "worstl2":
-            l2 = -((cb - tb) ** 2)
-            objective = np.min(l2)
-        elif obj == "logmae":
-            mae = np.mean(np.abs(cb - tb))
-            objective = -np.log(mae)
-        elif obj == "mae":
-            objective = np.mean(np.abs(cb - tb))
-        else:
-            raise NotImplementedError(f"Objective {obj} not known")
-    on_screen_reward = 1 if env.is_beam_on_screen() else -1
-    objective += w_on_screen * on_screen_reward
-    return objective
+    print("Obsolete now, use directly the reward in environment!")
+    return reward
 
 
 def scale_action(env, observation, filter_action=None):
@@ -216,19 +188,13 @@ def bo_optimize(
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, _ = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj)
-        # _, reward, done, _ = env.step(action)
+        _, objective, done, _ = env.step(action)
         Y[i] = torch.tensor(objective)
 
     # In the loop
     for i in range(budget):
         action = get_next_samples(X, Y, Y.max(), bounds, n_points=1, acquisition=acq)
-        observation, _, done, _ = env.step(action.detach().numpy().flatten())
-        objective = calculate_objective(
-            env, observation, reward, obj=obj, w_on_screen=w_on_screen
-        )
-
+        _, objective, done, _ = env.step(action.detach().numpy().flatten())
         # append data
         X = torch.cat([X, action])
         Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])

@@ -6,15 +6,8 @@ from itertools import repeat
 import numpy as np
 import torch
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
-from tqdm.notebook import tqdm
 
-from bayesopt import (
-    BeamNNPrior,
-    calculate_objective,
-    get_new_bound,
-    get_next_samples,
-    scale_action,
-)
+from bayesopt import BeamNNPrior, get_new_bound, get_next_samples, scale_action
 from ea_train import ARESEACheetah
 from utils import FilterAction, RecordEpisode
 
@@ -72,7 +65,7 @@ def try_problem(
         "misalignment_mode": "constant",
         "misalignment_values": convert_misalignments_from_problem(problem),
         "rescale_action": (-1, 1),
-        "reward_mode": "differential",
+        "reward_mode": "feedback",
         "target_beam_mode": "constant",
         "target_beam_values": convert_target_from_problem(problem),
         "target_mu_x_threshold": None,
@@ -91,7 +84,6 @@ def try_problem(
         "w_sigma_y": 1.0,
         "w_sigma_y_in_threshold": 0.0,
         "w_time": 0.0,
-        "obj_function": "logmae",
         "acquisition": acquisition,
         "init_x": None,
         "init_samples": 5,
@@ -126,6 +118,8 @@ def try_problem(
         w_sigma_y=config["w_sigma_y"],
         w_sigma_y_in_threshold=config["w_sigma_y_in_threshold"],
         w_time=config["w_time"],
+        log_beam_distance=True,
+        normalize_beam_distance=False,
     )
     env = TimeLimit(env, config["max_steps"])
     env = RecordEpisode(env, save_dir=f"{folder_name}/problem_{problem_index:03d}")
@@ -140,7 +134,6 @@ def try_problem(
         )
 
     stepsize = config["stepsize"]
-    obj_function = config["obj_function"]
     acquisition = config["acquisition"]
     init_x = config["init_x"]
     init_samples = config["init_samples"]
@@ -181,8 +174,7 @@ def try_problem(
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, _ = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function)
+        _, objective, done, _ = env.step(action)
         Y[i] = torch.tensor(objective)
 
     # Actual BO Loop
@@ -199,14 +191,7 @@ def try_problem(
             mean_module=nn_priormean,  # Use NN as prior mean
         )
         action = action_t.detach().numpy().flatten()
-        observation, reward, done, _ = env.step(action)
-        objective = calculate_objective(
-            env,
-            observation,
-            reward,
-            obj=obj_function,
-            w_on_screen=config["w_on_screen"],
-        )
+        _, objective, done, _ = env.step(action)
 
         # append data
         X = torch.cat([X, action_t])
@@ -224,6 +209,18 @@ def try_problem(
 def main():
     with open("problems.json", "r") as f:
         problems = json.load(f)
+
+    with ProcessPoolExecutor() as executor:
+        print("Starting default prior with EI acq")
+        executor.map(
+            try_problem,
+            range(len(problems)),
+            problems,
+            repeat("bo_noprior_ei"),
+            repeat(False),
+            repeat(False),
+            repeat("EI"),
+        )
 
     with ProcessPoolExecutor() as executor:
         print("Starting default prior with UCB acq")
