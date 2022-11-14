@@ -15,7 +15,8 @@ from gym.wrappers import (
     RescaleAction,
     TimeLimit,
 )
-from stable_baselines3 import PPO
+from sb3_contrib import TRPO
+from stable_baselines3 import PPO, SAC, TD3
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
@@ -36,11 +37,11 @@ def main() -> None:
         "incoming_mode": "random",
         "incoming_values": None,
         "log_beam_distance": False,
-        "magnet_init_mode": "constant",
-        "magnet_init_values": np.zeros(5),
+        "magnet_init_mode": "random",
+        "magnet_init_values": None,
         "max_misalignment": 5e-4,
-        "max_quad_delta": 72,
-        "max_steerer_delta": 6.1782e-3,
+        "max_quad_delta": 72 * 0.1,
+        "max_steerer_delta": 6.1782e-3 * 0.1,
         "misalignment_mode": "random",
         "misalignment_values": None,
         "n_envs": 40,
@@ -48,7 +49,7 @@ def main() -> None:
         "normalize_observation": True,
         "normalize_reward": True,
         "rescale_action": (-1, 1),
-        "reward_mode": "differential",
+        "reward_mode": "feedback",
         "sb3_device": "auto",
         "target_beam_mode": "random",
         "target_beam_values": None,
@@ -125,7 +126,7 @@ def train(config: dict) -> None:
         batch_size=100,
     )
 
-    eval_callback = EvalCallback(eval_env, eval_freq=500)
+    eval_callback = EvalCallback(eval_env, eval_freq=1_000, n_eval_episodes=100)
     wandb_callback = WandbCallback()
 
     model.learn(
