@@ -153,7 +153,7 @@ def get_next_samples(
         bounds=bounds,
         q=n_points,
         num_restarts=10,
-        raw_samples=128,
+        raw_samples=256,
         options={"maxiter": 200},
     )
 
@@ -285,6 +285,14 @@ class BeamNNPrior(Mean):
         self.half_x_size = screen_resolution[0] * screen_pixel_size[0] / 2
         self.half_y_size = screen_resolution[1] * screen_pixel_size[1] / 2
 
+        # additional scaling and shift
+        self.register_parameter(
+            name="out_weight", parameter=torch.nn.Parameter(torch.tensor([0.]))
+        )
+        self.register_parameter(
+            name="out_bias", parameter=torch.nn.Parameter(torch.tensor([0.]))
+        )
+
     def forward(self, x):
         out_beam = self.mlp(x)
         out_beam = denormalize_output(out_beam)
@@ -297,8 +305,11 @@ class BeamNNPrior(Mean):
         is_beam_on_screen = torch.where(is_beam_on_screen == True, 1, -1)
 
         on_screen_reward = self.w_on_screen_reward * is_beam_on_screen
-
-        return logmae + on_screen_reward
+        pred_reward = logmae + on_screen_reward
+        pred_reward = (
+            pred_reward * torch.nn.functional.softplus(self.out_weight) + self.out_bias
+        )
+        return pred_reward
 
 
 def denormalize_output(y_nn: torch.Tensor) -> torch.Tensor:
