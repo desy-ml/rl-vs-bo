@@ -135,7 +135,7 @@ class MatlabSafeBO:
     SHUTDOWN_FILE = f"{PREFIX}_good_night"
 
     def __init__(self) -> None:
-        # os.popen("matlab", "safe_bo.m")  # TODO Is this correct?
+        # os.popen("matlab -nodesktop matlab/BayesOpt/Ares_BayesOpt.m")
 
         self.last_communication = "none"
 
@@ -165,9 +165,11 @@ class MatlabSafeBO:
             sleep(1.0)
         with open(self.SAMPLE_FILE, "r") as f:
             sample = f.read()
-        sample = sample.split(",")
+        sample = sample.split(",")[:-1]
         sample = [float(x) for x in sample]
         sample = np.array(sample)
+
+        os.remove(self.SAMPLE_FILE)
 
         self.last_communication = "sample"
 
@@ -212,6 +214,8 @@ class MatlabSafeBO:
         sample = [float(x) for x in sample]
         sample = np.array(sample)
 
+        os.remove(self.BEST_FILE)
+
         self.last_communication = "best"
 
         print(f"Got {sample = }")
@@ -225,6 +229,7 @@ def main():
 
     for i, problem in tqdm(enumerate(problems)):
         try_problem(i, problem)
+        break  # TODO allow for more than one optimisation
 
 
 if __name__ == "__main__":
