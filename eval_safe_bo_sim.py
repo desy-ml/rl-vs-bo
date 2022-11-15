@@ -88,7 +88,7 @@ def try_problem(problem_index: int, problem: dict):
     while not done:
         action = safe_bo.request_sample()
         _, reward, done, _ = env.step(action)
-        safe_bo.report_objective(reward)
+        safe_bo.report_objective(-reward)   # NOTE minisation
 
     # Return to best seen sample
     set_to_best = True
@@ -97,6 +97,7 @@ def try_problem(problem_index: int, problem: dict):
         _ = env.step(action)
 
     env.close()
+    del safe_bo
 
 
 class MatlabSafeBO:
@@ -135,7 +136,7 @@ class MatlabSafeBO:
     SHUTDOWN_FILE = f"{PREFIX}_good_night"
 
     def __init__(self) -> None:
-        # os.popen("matlab -nodesktop matlab/BayesOpt/Ares_BayesOpt.m")
+        os.popen("matlab -nodesktop -r start_matlab")
 
         self.last_communication = "none"
 
@@ -148,6 +149,7 @@ class MatlabSafeBO:
         # and shut down
         while os.path.exists(self.SHUTDOWN_FILE):
             sleep(1.0)
+        sleep(5.0)
 
     def request_sample(self) -> np.ndarray:
         """Request the position of the next sample from Matlab."""
