@@ -88,7 +88,7 @@ def try_problem(problem_index: int, problem: dict):
     while not done:
         action = safe_bo.request_sample()
         _, reward, done, _ = env.step(action)
-        safe_bo.report_objective(reward)
+        safe_bo.report_objective(-reward)   # NOTE minisation
 
     # Return to best seen sample
     set_to_best = True
@@ -97,6 +97,7 @@ def try_problem(problem_index: int, problem: dict):
         _ = env.step(action)
 
     env.close()
+    del safe_bo
 
 
 class MatlabSafeBO:
@@ -135,7 +136,7 @@ class MatlabSafeBO:
     SHUTDOWN_FILE = f"{PREFIX}_good_night"
 
     def __init__(self) -> None:
-        # os.popen("matlab", "safe_bo.m")  # TODO Is this correct?
+        os.popen("matlab -nodesktop -r start_matlab")
 
         self.last_communication = "none"
 
@@ -148,6 +149,7 @@ class MatlabSafeBO:
         # and shut down
         while os.path.exists(self.SHUTDOWN_FILE):
             sleep(1.0)
+        sleep(5.0)
 
     def request_sample(self) -> np.ndarray:
         """Request the position of the next sample from Matlab."""
@@ -165,9 +167,11 @@ class MatlabSafeBO:
             sleep(1.0)
         with open(self.SAMPLE_FILE, "r") as f:
             sample = f.read()
-        sample = sample.split(",")
+        sample = sample.split(",")[:-1]
         sample = [float(x) for x in sample]
         sample = np.array(sample)
+
+        os.remove(self.SAMPLE_FILE)
 
         self.last_communication = "sample"
 
@@ -212,6 +216,8 @@ class MatlabSafeBO:
         sample = [float(x) for x in sample]
         sample = np.array(sample)
 
+        os.remove(self.BEST_FILE)
+
         self.last_communication = "best"
 
         print(f"Got {sample = }")
@@ -225,6 +231,7 @@ def main():
 
     for i, problem in tqdm(enumerate(problems)):
         try_problem(i, problem)
+        break  # TODO allow for more than one optimisation
 
 
 if __name__ == "__main__":
