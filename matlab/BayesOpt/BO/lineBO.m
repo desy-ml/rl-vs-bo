@@ -106,7 +106,9 @@ function [xopt, X, Y, DIM] = lineBO(hyp,inf_,mean_,cov_,lik_,acq_func,obj_func,c
         l_t(c,:) = l;
         c = c + 1;
         if all(l_t ~= 0)
-            disp("Optimum reached")
+            buildObservedArray(opts_lineBO,D);
+            %disp("Optimum reached")
+
             break;
         end
     end
