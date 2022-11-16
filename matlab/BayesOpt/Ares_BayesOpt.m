@@ -20,7 +20,7 @@ lik_ = {@likGauss};
 cov_ = {@(varargin)covMaternard(3,varargin{:})};
 hyp.lik = log(0.1);
 hyp.mean = 0;
-hyp.cov = log([(cond(:,2)-cond(:,1)).*scale;15]);
+hyp.cov = log([0.1;0.1;0.1;0.1;0.1;5]);
 acq = {@EI};
 
 %x0 = [25,24,18,0.43,7,7.4];
