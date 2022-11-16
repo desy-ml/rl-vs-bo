@@ -39,7 +39,7 @@ config = {
     "normalize_observation": True,
     "normalize_reward": True,
     "rescale_action": (-1, 1),
-    "reward_mode": "differential",
+    "reward_mode": "feedback",
     "sb3_device": "auto",
     "target_beam_mode": "constant",
     "target_beam_values": np.zeros(4),
@@ -83,7 +83,6 @@ def optimize(
     progress_bar=False,
     callback=BaseCallback(),
     stepsize=0.1,  # comparable to RL env
-    obj_function="logmae",
     acquisition="EI",
     init_x=None,
     init_samples=5,
@@ -120,6 +119,8 @@ def optimize(
         w_sigma_y=config["w_sigma_y"],
         w_sigma_y_in_threshold=config["w_sigma_y_in_threshold"],
         w_time=config["w_time"],
+        log_beam_distance=True,
+        normalize_beam_distance=False,
     )
     if max_steps is not None:
         env = TimeLimit(env, max_steps)
@@ -169,14 +170,7 @@ def optimize(
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, info = env.step(action)
-        objective = calculate_objective(
-            env,
-            observation,
-            reward,
-            obj=obj_function,
-            w_on_screen=config["w_on_screen"],
-        )
+        _, objective, done, _ = env.step(action)
         Y[i] = torch.tensor(objective)
 
     # Actual BO Loop
@@ -193,14 +187,7 @@ def optimize(
             mean_module=mean_module,
         )
         action = action_t.detach().numpy().flatten()
-        observation, reward, done, info = env.step(action)
-        objective = calculate_objective(
-            env,
-            observation,
-            reward,
-            obj=obj_function,
-            w_on_screen=config["w_on_screen"],
-        )
+        _, objective, done, _ = env.step(action)
 
         # append data
         X = torch.cat([X, action_t])
@@ -209,6 +196,6 @@ def optimize(
     # Set back to
     if set_to_best:
         action = X[Y.argmax()].detach().numpy()
-        observation, reward, done, info = env.step(action)
+        env.step(action)
 
     env.close()
