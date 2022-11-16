@@ -148,12 +148,12 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
     
     for i=1:opts.maxIt
         %fprintf("\niteration: %d\n", i);
-        start = tic;
+        %start = tic;
         
 %         try
-            s2=tic;
+            %s2=tic;
             [x_new, min_nacq, algo_data] = find_new_parameters(hyp,inf_,mean_,cov_,lik_,xt(1:counter,:),yt(1:counter,:),acq_func,cond_acq,opts,algo_data,xs);  
-            toc(s2)
+            %toc(s2)
 %         catch ME
 %             if strcmp(ME.identifier,'MATLAB:posdef') || strcmp(ME.identifier, 'MATLAB:unassignedOutputs')
 %                 fprintf("\nCovariance Matrix lost full rank!\nAbort BO and return current optimal values!\n\n")
@@ -208,7 +208,7 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
             fun_out(x_new)
         end
 
-        stop=toc(start);
+        %stop=toc(start);
         %disp("time per interation: "+num2str(stop))
         if isfield(opts,'dir_timeData')
             time_str = load(opts.dir_timeData+'/time_data.mat',"time");
