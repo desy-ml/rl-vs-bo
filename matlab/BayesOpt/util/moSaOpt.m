@@ -64,6 +64,9 @@ if length(algo_data.l) == 1
         I(I_t+1) = 1;
         G = union(G,S(I),'rows');
     end
+    if safeOpts.onlyOptiDir
+        G = intersect(G,M,'rows');
+    end
     G_re = G;
 end
 
