@@ -64,7 +64,7 @@ function [xopt, X, Y, DIM] = lineBO(hyp,inf_,mean_,cov_,lik_,acq_func,obj_func,c
     
 
     for i=1:opts_lineBO.maxIt
-        fprintf("\n\n BO subspace no. %d/%d\n\n",i,opts_lineBO.maxIt)
+        %fprintf("\n\n BO subspace no. %d/%d\n\n",i,opts_lineBO.maxIt)
 %         [yopt,I] = obj_eval(yt);
 %         xopt = xt(I,:);
         switch opts_lineBO.oracle
@@ -89,7 +89,7 @@ function [xopt, X, Y, DIM] = lineBO(hyp,inf_,mean_,cov_,lik_,acq_func,obj_func,c
         algoStruct.post.yopt = yt_old;
         algoStruct.post.xopt = xopt;
         DIM(i,1:opts_lineBO.subspaceDim) = l;
-        fprintf("Dim: %d\n",algoStruct.subspace)
+        %fprintf("Dim: %d\n",algoStruct.subspace)
         %pause(1)
         [xopt,yt_new, xt, yt] = bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_func,cond,opts_BO,xopt,algoStruct);
 %         yt_new = obj_eval(yt);
