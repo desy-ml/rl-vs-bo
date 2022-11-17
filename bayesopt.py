@@ -12,6 +12,8 @@ from botorch.acquisition import (
 )
 from botorch.fit import fit_gpytorch_model
 from botorch.models import SingleTaskGP
+from botorch.models.transforms import Standardize
+from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.optim import optimize_acqf
 from gpytorch.means.mean import Mean
 from gpytorch.mlls import ExactMarginalLogLikelihood
@@ -63,43 +65,15 @@ config = {
 
 
 def calculate_objective(env, observation, reward, obj="reward", w_on_screen=10):
-    """A wrapper for getting objective not (yet) defined in the class
+    """Obsolete
+    A wrapper for getting objective not (yet) defined in the class
 
     Could be interesting objectives:
         worstlogl1: take the log of the worst L1 value of the beam parameters
         logmae: as used before log(MAE(current_beam - target_beam))
     """
-    if obj == "reward":
-        objective = reward
-    else:
-        obs = unflatten(env.unwrapped.observation_space, observation)
-        cb = obs["beam"]
-        tb = obs["target"]
-
-        if obj == "clipped_l1":
-            logl1 = -np.log(np.abs(cb - tb))
-            # resolution limit -log(3e-6) ~ 12.5
-            objective = np.clip(logl1, None, 12.5).sum()
-
-        elif obj == "worstl1":
-            l1 = -np.abs(cb - tb)
-            objective = np.min(l1)
-        elif obj == "worstlogl1":
-            logl1 = -np.log(np.abs(cb - tb))
-            objective = np.min(logl1)
-        elif obj == "worstl2":
-            l2 = -((cb - tb) ** 2)
-            objective = np.min(l2)
-        elif obj == "logmae":
-            mae = np.mean(np.abs(cb - tb))
-            objective = -np.log(mae)
-        elif obj == "mae":
-            objective = np.mean(np.abs(cb - tb))
-        else:
-            raise NotImplementedError(f"Objective {obj} not known")
-    on_screen_reward = 1 if env.is_beam_on_screen() else -1
-    objective += w_on_screen * on_screen_reward
-    return objective
+    print("Obsolete now, use directly the reward in environment!")
+    return reward
 
 
 def scale_action(env, observation, filter_action=None):
@@ -137,11 +111,14 @@ def get_next_samples(
     acquisition: str = "EI",
     fixparam: Optional[dict] = None,
     mean_module: Optional[Mean] = None,
+    outcome_transform: Optional[OutcomeTransform] = Standardize(m=1),
 ):
     """
     Suggest Next Sample for BO
     """
-    gp = SingleTaskGP(X, Y, mean_module=mean_module)
+    gp = SingleTaskGP(
+        X, Y, mean_module=mean_module, outcome_transform=outcome_transform
+    )
     mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
     # Exclude fixed hyperparameters
     if fixparam is not None:
@@ -176,7 +153,7 @@ def get_next_samples(
         bounds=bounds,
         q=n_points,
         num_restarts=10,
-        raw_samples=128,
+        raw_samples=256,
         options={"maxiter": 200},
     )
 
@@ -211,19 +188,13 @@ def bo_optimize(
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, _ = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj)
-        # _, reward, done, _ = env.step(action)
+        _, objective, done, _ = env.step(action)
         Y[i] = torch.tensor(objective)
 
     # In the loop
     for i in range(budget):
         action = get_next_samples(X, Y, Y.max(), bounds, n_points=1, acquisition=acq)
-        observation, _, done, _ = env.step(action.detach().numpy().flatten())
-        objective = calculate_objective(
-            env, observation, reward, obj=obj, w_on_screen=w_on_screen
-        )
-
+        _, objective, done, _ = env.step(action.detach().numpy().flatten())
         # append data
         X = torch.cat([X, action])
         Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
@@ -253,6 +224,21 @@ class SimpleBeamPredictNN(nn.Module):
             nn.Linear(8, 8),
             nn.Tanh(),
             nn.Linear(8, 4),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+class SimpleBeamPredictNNV3(nn.Module):
+    def __init__(self, include_bias=False) -> None:
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(5, 16),
+            nn.Tanh(),
+            nn.Linear(16, 16),
+            nn.Tanh(),
+            nn.Linear(16, 4, bias=include_bias),
         )
 
     def forward(self, x):
@@ -289,8 +275,8 @@ class BeamNNPrior(Mean):
         screen_pixel_size=(3.3198e-6, 2.4469e-6),
     ):
         super().__init__()
-        self.mlp = SimpleBeamPredictNN()
-        self.mlp.load_state_dict(torch.load(f"nn_for_bo/v2_model_weights.pth"))
+        self.mlp = SimpleBeamPredictNNV3()
+        self.mlp.load_state_dict(torch.load(f"nn_for_bo/v3_model_weights.pth"))
         self.mlp.eval()
         self.mlp.double()  # for double input from GPyTorch
         self.target = target
@@ -299,8 +285,17 @@ class BeamNNPrior(Mean):
         self.half_x_size = screen_resolution[0] * screen_pixel_size[0] / 2
         self.half_y_size = screen_resolution[1] * screen_pixel_size[1] / 2
 
+        # additional scaling and shift
+        self.register_parameter(
+            name="out_weight", parameter=torch.nn.Parameter(torch.tensor([0.]))
+        )
+        self.register_parameter(
+            name="out_bias", parameter=torch.nn.Parameter(torch.tensor([0.]))
+        )
+
     def forward(self, x):
         out_beam = self.mlp(x)
+        out_beam = denormalize_output(out_beam)
         logmae = -torch.log(torch.mean(torch.abs(out_beam - self.target), dim=-1))
 
         is_beam_on_screen = torch.logical_and(
@@ -310,8 +305,16 @@ class BeamNNPrior(Mean):
         is_beam_on_screen = torch.where(is_beam_on_screen == True, 1, -1)
 
         on_screen_reward = self.w_on_screen_reward * is_beam_on_screen
+        pred_reward = logmae + on_screen_reward
+        pred_reward = (
+            pred_reward * torch.nn.functional.softplus(self.out_weight) + self.out_bias
+        )
+        return pred_reward
 
-        return logmae + on_screen_reward
+
+def denormalize_output(y_nn: torch.Tensor) -> torch.Tensor:
+    y_nn = (y_nn + torch.tensor([0, 1, 0, 1])) * 0.005  # denormalize to 5 mm
+    return y_nn
 
 
 # TODO: Just for testing, we can also add proximal biasing?
