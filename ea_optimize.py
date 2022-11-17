@@ -2,10 +2,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-# import dummypydoocs as pydoocs
+import dummypydoocs as pydoocs
 import gym
 import numpy as np
-import pydoocs
+# import pydoocs
 from gym.wrappers import (
     FilterObservation,
     FlattenObservation,
@@ -203,8 +203,10 @@ class ARESEADOOCS(ARESEA):
         self,
         action_mode="direct",
         include_beam_image_in_info=True,
+        log_beam_distance: bool = False,
         magnet_init_mode="zero",
         magnet_init_values=None,
+        normalize_beam_distance: bool = True,
         reward_mode="differential",
         target_beam_mode="random",
         target_beam_values=None,
@@ -228,8 +230,10 @@ class ARESEADOOCS(ARESEA):
         super().__init__(
             action_mode=action_mode,
             include_beam_image_in_info=include_beam_image_in_info,
+            log_beam_distance=log_beam_distance,
             magnet_init_mode=magnet_init_mode,
             magnet_init_values=magnet_init_values,
+            normalize_beam_distance=normalize_beam_distance,
             reward_mode=reward_mode,
             target_beam_mode=target_beam_mode,
             target_beam_values=target_beam_values,
