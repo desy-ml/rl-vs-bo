@@ -277,6 +277,8 @@ class ARESEAeLog(gym.Wrapper):
         ]  # TODO this may become an issue when magnet_init_values is None
         beam_after = self.observations[-1]["beam"]
         target_beam = self.observations[0]["target"]
+        final_deltas = beam_after - target_beam
+        final_mae = np.mean(np.abs(final_deltas))
         target_threshold = np.array(
             [
                 self.env.target_mu_x_threshold,
@@ -313,6 +315,14 @@ Target beam:
     sigma_x = {target_beam[1] * 1e3: 5.4f} mm    (e = {target_threshold[1] * 1e3:5.4f} mm) {';)' if success[1] else ':/'}
     mu_y    = {target_beam[2] * 1e3: 5.4f} mm    (e = {target_threshold[2] * 1e3:5.4f} mm) {';)' if success[2] else ':/'}
     sigma_y = {target_beam[3] * 1e3: 5.4f} mm    (e = {target_threshold[3] * 1e3:5.4f} mm) {';)' if success[3] else ':/'}
+
+Result:
+    |delta_mu_x|    = {abs(final_deltas[0]) * 1e3: 5.4f} mm
+    |delta_sigma_x| = {abs(final_deltas[1]) * 1e3: 5.4f} mm
+    |delta_mu_y|    = {abs(final_deltas[2]) * 1e3: 5.4f} mm
+    |delta_sigma_y| = {abs(final_deltas[3]) * 1e3: 5.4f} mm
+    
+    MAE = {final_mae * 1e3: 5.4f} mm
 
 Final magnet settings:
     AREAMQZM1 strength = {final_magnets[0]: 8.4f} 1/m^2
