@@ -178,10 +178,10 @@ def optimize(
         current_action = X[-1].detach().numpy()
         bounds = get_new_bound(env, current_action, stepsize)
         action_t = get_next_samples(
-            X,
-            Y,
+            X.double(),
+            Y.double(),
             Y.max(),
-            torch.tensor(bounds, dtype=torch.float32),
+            torch.tensor(bounds, dtype=torch.double),
             n_points=1,
             acquisition=acquisition,
             mean_module=mean_module,
