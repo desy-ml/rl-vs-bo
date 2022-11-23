@@ -106,7 +106,7 @@ class Study:
     def __init__(
         self,
         data_dir: Union[Path, str],
-        runs: Optional[list[str]] = None,
+        runs: Union[str, list[str]] = "*problem_*",
         name: Optional[str] = None,
     ) -> None:
 
@@ -114,8 +114,8 @@ class Study:
             data_dir = Path(data_dir)
 
         run_paths = (
-            data_dir.glob("*problem_*")
-            if runs is None
+            data_dir.glob(runs)
+            if isinstance(runs, str)
             else [data_dir / run for run in runs]
         )
         paths = [p / "recorded_episode_1.pkl" for p in run_paths]
@@ -316,7 +316,7 @@ def parse_problem_index(path: Path) -> int:
     problem index for it. Assumes that the recording is in some subdirectory of shape
     `*problem_*`.
     """
-    return int(path.parent.name.split("problem_")[-1])
+    return int(path.parent.name.split("_")[-1])
 
 
 def plot_best_mae_box(studies: list[Study], save_path: str = None) -> None:
