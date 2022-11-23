@@ -332,77 +332,6 @@ def problem_aligned(studies: list[Study]) -> list[Study]:
     return new_studies
 
 
-def full_evaluation(rl: Study, bo: Study, save_dir: str = None) -> None:
-    """
-    Fully evaluate a number of things about two different algorithms, showing plots and
-    metrics.
-    """
-    if save_dir is not None:
-        save_dir = os.path.abspath(save_dir)
-        os.makedirs(save_dir, exist_ok=True)
-
-    print(f"Evaluating rl = {len(rl)} vs. bo = {len(bo)} problems")
-
-    print_seperator()
-
-    print(f"RL -> {median_steps_to_threshold(rl)}")
-    print(f"BO -> {median_steps_to_threshold(bo)}")
-    plot_steps_to_threshold_box(
-        {"RL": rl, "BO": bo},
-        save_path=f"{save_dir}/steps_to_target.pdf" if save_dir is not None else None,
-    )
-
-    print_seperator()
-
-    print(f"RL -> {median_steps_to_convergence(rl)}")
-    print(f"BO -> {median_steps_to_convergence(bo)}")
-
-    plot_steps_to_convergence_box(
-        {"RL": rl, "BO": bo},
-        save_path=f"{save_dir}/steps_to_convergence.pdf"
-        if save_dir is not None
-        else None,
-    )
-
-    print_seperator()
-
-    plot_mae_over_time(
-        {"RL": rl, "BO": bo},
-        threshold=20e-6,
-        save_path=f"{save_dir}/mae_over_time.pdf" if save_dir is not None else None,
-    )
-
-    print_seperator()
-
-    plot_best_mae_over_time(
-        {"RL": rl, "BO": bo},
-        threshold=20e-6,
-        save_path=f"{save_dir}/best_mae_over_time.pdf"
-        if save_dir is not None
-        else None,
-    )
-
-    print_seperator()
-
-    print(f"RL -> {median_final_mae(rl)}")
-    print(f"BO -> {median_final_mae(bo)}")
-
-    plot_final_mae_box(
-        {"RL": rl, "BO": bo},
-        save_path=f"{save_dir}/final_mae.pdf" if save_dir is not None else None,
-    )
-
-    print_seperator()
-
-    print(f"RL -> {median_best_mae(rl)}")
-    print(f"BO -> {median_best_mae(bo)}")
-
-    plot_best_mae_box(
-        {"RL": rl, "BO": bo},
-        save_path=f"{save_dir}/final_best_mae.pdf" if save_dir is not None else None,
-    )
-
-
 def parse_problem_index(path: Path) -> int:
     """
     Take a `path` to an episode recording according to a problems file and parse the
@@ -646,8 +575,3 @@ def plot_steps_to_threshold_box(
         plt.savefig(save_path)
 
     plt.show()
-
-
-def print_seperator() -> None:
-    """Print a seperator line to help structure outputs."""
-    print("-----------------------------------------------------------")
