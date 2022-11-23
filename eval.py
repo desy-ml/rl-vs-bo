@@ -36,7 +36,7 @@ class Episode:
 
     def __len__(self) -> int:
         return len(
-            self.actions
+            self.observations
         )  # Number of steps this episode ran for (including reset)
 
     def head(self, n: int, keep_last: bool = False) -> Episode:
@@ -181,6 +181,23 @@ class Study:
             name=f"{self.name} - tail",
         )
 
+    def problem_intersection(self, other: Study, rename: bool = False) -> Study:
+        """
+        Return a new study from the intersection of problems with the `other` study.
+        """
+        my_problems = set(self.problem_indicies())
+        other_problems = set(other.problem_indicies())
+
+        episodes = [
+            self.get_episodes_by_problem(problem)[0]
+            for problem in my_problems.intersection(other_problems)
+        ]
+
+        return Study(
+            episodes=episodes,
+            name=f"{self.name} ∩ {other.name}" if rename else self.name,
+        )
+
     def median_best_mae(self) -> float:
         """Compute median of best MAEs seen until the very end of the episodes."""
         maes = [episode.maes() for episode in self.episodes]
@@ -292,6 +309,27 @@ class Study:
             plt.savefig(save_path)
 
         plt.show()
+
+
+def problem_aligned(studies: list[Study]) -> list[Study]:
+    """
+    Intersect the problems of all `studies` such that the studies in the returned list
+    all cover exactly the same problems.
+    """
+    # Find the smallest intersection of problem indicies
+    intersected = set(studies[0].problem_indicies())
+    for study in studies:
+        intersected = intersected.intersection(set(study.problem_indicies()))
+
+    new_studies = []
+    for study in studies:
+        intersected_study = Study(
+            episodes=[study.get_episodes_by_problem(i)[0] for i in intersected],
+            name=study.name,
+        )
+        new_studies.append(intersected_study)
+
+    return new_studies
 
 
 def full_evaluation(rl: Study, bo: Study, save_dir: str = None) -> None:
