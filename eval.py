@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 import pickle
-from glob import glob
+from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
 
@@ -8,28 +10,60 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from tqdm import tqdm
 
 
 class Episode:
     """An episode of an ARES EA optimisation."""
 
-    def __init__(self, path: Union[Path, str], problem_index: bool = False) -> dict:
+    def __init__(self, data: dict, problem_index: Optional[int] = None):
+        self.data = data
+        self.problem_index = problem_index
+
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    @classmethod
+    def load(cls, path: Union[Path, str], use_problem_index: bool = False) -> Episode:
         """Load the data from one episode recording .pkl file."""
         if isinstance(path, str):
             path = Path(path)
 
         with open(path, "rb") as f:
-            self.data = pickle.load(f)
+            data = pickle.load(f)
+        problem_index = parse_problem_index(path) if use_problem_index else None
 
-        for key, value in self.data.items():
-            setattr(self, key, value)
-
-        if problem_index:
-            self.problem_index = parse_problem_index(path)
+        return cls(data, problem_index=problem_index)
 
     def __len__(self) -> int:
-        return len(self.observations)
+        return len(
+            self.actions
+        )  # Number of steps this episode ran for (including reset)
+
+    def head(self, n: int, keep_last: bool = False) -> Episode:
+        """Return an episode with only the first `n` steps of this one."""
+        data_head = deepcopy(self.data)
+        for key in data_head.keys():
+            if key == "observations":
+                data_head["observations"] = data_head["observations"][: n + 1]
+                if keep_last:
+                    data_head["observations"][-1] = self.data["observations"][-1]
+            elif isinstance(data_head[key], list):
+                data_head[key] = data_head[key][:n]
+                if keep_last:
+                    data_head[key][-1] = self.data[key][-1]
+
+        return self.__class__(data_head, problem_index=self.problem_index)
+
+    def tail(self, n: int) -> Episode:
+        """Return an episode with the last `n` steps of this one."""
+        data_tail = deepcopy(self.data)
+        for key in data_tail.keys():
+            if key == "observations":
+                data_tail["observations"] = data_tail["observations"][-n - 1 :]
+            elif isinstance(data_tail[key], list):
+                data_tail[key] = data_tail[key][-n:]
+
+        return self.__class__(data_tail, problem_index=self.problem_index)
 
     def maes(self) -> list:
         """Get the sequence of MAEs over the episdoe."""
@@ -98,33 +132,54 @@ class Episode:
 class Study:
     """
     A study comprising multiple optimisation runs.
-
-    Loads all episode pickle files from an evaluation firectory. Expects `problem_xxx`
-    directories, each of which has a `recorded_episdoe_1.pkl file in it.
     """
 
-    def __init__(
-        self,
+    def __init__(self, episodes: list[Episode], name: Optional[str] = None) -> None:
+        self.episodes = episodes
+        self.name = name
+
+    @classmethod
+    def load(
+        cls,
         data_dir: Union[Path, str],
         runs: Union[str, list[str]] = "*problem_*",
         name: Optional[str] = None,
-    ) -> None:
-
+    ) -> Study:
+        """
+        Loads all episode pickle files from an evaluation firectory. Expects
+        `problem_xxx` directories, each of which has a `recorded_episdoe_1.pkl file in
+        it.
+        """
         if isinstance(data_dir, str):
             data_dir = Path(data_dir)
-
         run_paths = (
             data_dir.glob(runs)
             if isinstance(runs, str)
             else [data_dir / run for run in runs]
         )
         paths = [p / "recorded_episode_1.pkl" for p in run_paths]
+        episodes = [Episode.load(p, use_problem_index=True) for p in paths]
 
-        self.episodes = [Episode(p, problem_index=True) for p in paths]
-        self.name = name
+        return Study(episodes, name=name)
 
     def __len__(self) -> int:
         return len(self.episodes)
+
+    def head(self, n: int, keep_last: bool = False) -> Study:
+        """Return study with `n` first steps from all episodes in this study."""
+        return Study(
+            episodes=[
+                episode.head(n, keep_last=keep_last) for episode in self.episodes
+            ],
+            name=f"{self.name} - head",
+        )
+
+    def tail(self, n: int) -> Study:
+        """Return study with `n` last steps from all episodes in this study."""
+        return Study(
+            episodes=[episode.tail(n) for episode in self.episodes],
+            name=f"{self.name} - tail",
+        )
 
     def median_best_mae(self) -> float:
         """Compute median of best MAEs seen until the very end of the episodes."""
