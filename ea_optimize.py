@@ -1,6 +1,7 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from typing import Optional
 
 # import dummypydoocs as pydoocs
 import gym
@@ -60,6 +61,8 @@ def optimize(
         action_mode=config["action_mode"],
         magnet_init_mode=config["magnet_init_mode"],
         magnet_init_values=config["magnet_init_values"],
+        max_quad_delta=config["max_quad_delta"],
+        max_steerer_delta=config["max_steerer_delta"],
         reward_mode=config["reward_mode"],
         target_beam_mode=config["target_beam_mode"],
         target_beam_values=np.array(
@@ -153,6 +156,8 @@ def optimize_donkey(
         action_mode="delta",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
+        max_quad_delta=30 * 0.1,
+        max_steerer_delta=6e-3 * 0.1,
         reward_mode="differential",
         target_beam_mode="constant",
         target_beam_values=np.array(
@@ -203,8 +208,12 @@ class ARESEADOOCS(ARESEA):
         self,
         action_mode="direct",
         include_beam_image_in_info=True,
+        log_beam_distance: bool = False,
         magnet_init_mode="zero",
         magnet_init_values=None,
+        max_quad_delta: Optional[float] = None,
+        max_steerer_delta: Optional[float] = None,
+        normalize_beam_distance: bool = True,
         reward_mode="differential",
         target_beam_mode="random",
         target_beam_values=None,
@@ -228,8 +237,12 @@ class ARESEADOOCS(ARESEA):
         super().__init__(
             action_mode=action_mode,
             include_beam_image_in_info=include_beam_image_in_info,
+            log_beam_distance=log_beam_distance,
             magnet_init_mode=magnet_init_mode,
             magnet_init_values=magnet_init_values,
+            max_quad_delta=max_quad_delta,
+            max_steerer_delta=max_steerer_delta,
+            normalize_beam_distance=normalize_beam_distance,
             reward_mode=reward_mode,
             target_beam_mode=target_beam_mode,
             target_beam_values=target_beam_values,
