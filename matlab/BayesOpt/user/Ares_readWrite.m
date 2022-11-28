@@ -21,6 +21,10 @@ function y = Ares_readWrite(params,dir)
     end
     fileID = fopen(dir+"/MSBO_objective",'r+');
     y = fscanf(fileID,'%f');
+    if y<0
+        y = ((y+10)*10-10)*3;
+    end
+    disp(y)
     fclose(fileID);
     delete(dir+"/MSBO_objective")
     fprintf("MSBO Matlab received objective file\n")
