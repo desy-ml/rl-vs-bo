@@ -107,8 +107,12 @@ function [xopt, X, Y, DIM] = lineBO(hyp,inf_,mean_,cov_,lik_,acq_func,obj_func,c
         c = c + 1;
         if all(l_t ~= 0)
             buildObservedArray(opts_lineBO,D);
-            %disp("Optimum reached")
-            %break;
+            disp("Optimum reached")
+            fileID = fopen("/home/kaiserja/beegfs/ares-ea-v2/MSBO_optimum_reached",'w+');
+            fprintf(fileID,' ');
+            fclose(fileID);
+            % break;
+            exit;
         end
     end
 end
