@@ -62,7 +62,7 @@ def try_problem(problem_index: int, problem: dict):
         target_sigma_y_threshold=None,
         threshold_hold=5,
         w_done=0.0,
-        w_mu_x=1.1,
+        w_mu_x=1.0,
         w_mu_x_in_threshold=0.0,
         w_mu_y=1.0,
         w_mu_y_in_threshold=0.0,
