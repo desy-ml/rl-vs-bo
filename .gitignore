@@ -5,6 +5,7 @@ __pycache__
 .vscode
 slurm-*.out
 .wandb
+wandb
 
 bo_nnprior_evaluation
 bo_nnprior_evaluation_2

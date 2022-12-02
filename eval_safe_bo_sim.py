@@ -4,7 +4,6 @@ from time import sleep
 
 import numpy as np
 from gym.wrappers import RescaleAction, TimeLimit
-from tqdm.notebook import tqdm
 
 from ea_train import ARESEACheetah
 from utils import RecordEpisode
@@ -63,7 +62,7 @@ def try_problem(problem_index: int, problem: dict):
         target_sigma_y_threshold=None,
         threshold_hold=5,
         w_done=0.0,
-        w_mu_x=1.1,
+        w_mu_x=1.0,
         w_mu_x_in_threshold=0.0,
         w_mu_y=1.0,
         w_mu_y_in_threshold=0.0,
@@ -86,12 +85,17 @@ def try_problem(problem_index: int, problem: dict):
     _ = env.reset()
     done = False
     while not done:
-        action = safe_bo.request_sample()
+        try:
+            action = safe_bo.request_sample()
+        except MatlabSafeBO.OptimumReachedException:
+            done = True
+            break
+
         _, reward, done, _ = env.step(action)
-        safe_bo.report_objective(-reward)   # NOTE minisation
+        safe_bo.report_objective(-reward)  # NOTE minimisation?
 
     # Return to best seen sample
-    set_to_best = True
+    set_to_best = False
     if set_to_best:
         action = safe_bo.request_best()
         _ = env.step(action)
@@ -134,9 +138,13 @@ class MatlabSafeBO:
     REQUEST_SAMPLE_FILE = f"{PREFIX}_sample_request"
     SAMPLE_FILE = f"{PREFIX}_sample"
     SHUTDOWN_FILE = f"{PREFIX}_good_night"
+    OPTIMUM_REACHED_FILE = f"{PREFIX}_optimum_reached"
+
+    class OptimumReachedException(Exception):
+        pass
 
     def __init__(self) -> None:
-        os.popen("matlab -nodesktop -r start_matlab")
+        # os.popen("matlab -nosplash -nodesktop -nojvm -r start_matlab")
 
         self.last_communication = "none"
 
@@ -147,9 +155,9 @@ class MatlabSafeBO:
 
         # Wait until shutdown file has disappeared, i.e. Matlab acknoledged the request
         # and shut down
-        while os.path.exists(self.SHUTDOWN_FILE):
-            sleep(1.0)
-        sleep(5.0)
+        sleep(60.0)
+
+        os.remove(self.SHUTDOWN_FILE)
 
     def request_sample(self) -> np.ndarray:
         """Request the position of the next sample from Matlab."""
@@ -161,9 +169,13 @@ class MatlabSafeBO:
 
         # Wait for the sample answer file to exist and then read it
         print("Wait for the sample answer file to exist and then read it")
-        while os.path.exists(self.REQUEST_SAMPLE_FILE) and not os.path.exists(
+        while os.path.exists(self.REQUEST_SAMPLE_FILE) or not os.path.exists(
             self.SAMPLE_FILE
         ):
+            if os.path.exists(self.OPTIMUM_REACHED_FILE):
+                os.remove(self.REQUEST_SAMPLE_FILE)
+                os.remove(self.OPTIMUM_REACHED_FILE)
+                raise self.OptimumReachedException()
             sleep(1.0)
         with open(self.SAMPLE_FILE, "r") as f:
             sample = f.read()
@@ -206,7 +218,7 @@ class MatlabSafeBO:
 
         # Wait for the sample answer file to exist and then read it
         print("Wait for the best answer file to exist and then read it")
-        while os.path.exists(self.REQUEST_BEST_FILE) and not os.path.exists(
+        while os.path.exists(self.REQUEST_BEST_FILE) or not os.path.exists(
             self.BEST_FILE
         ):
             sleep(1.0)
@@ -229,9 +241,8 @@ def main():
     with open("problems.json", "r") as f:
         problems = json.load(f)
 
-    for i, problem in tqdm(enumerate(problems)):
-        try_problem(i, problem)
-        break  # TODO allow for more than one optimisation
+    i = 34
+    try_problem(i, problems[i])
 
 
 if __name__ == "__main__":

@@ -12,7 +12,6 @@ source ~/.bashrc
 conda activate rl39
 cd /beegfs/desy/user/kaiserja/ares-ea-v2
 
-# python ea_train.py
-wandb agent --count 1 msk-ipc/ares-ea-v2/gun6p5gd
+python eval_bo_nnprior.py
 
 exit
