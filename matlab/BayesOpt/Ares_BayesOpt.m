@@ -21,7 +21,7 @@ hyp.mean = -1;
 hyp.cov = log([0.3;0.3;0.3;0.3;0.5;6]);
 acq = {@EI};
 x0 = [-0.7222, 0.7222, 0.0, -0.7222, 0.0];
-opts.plot=1;
+opts.plot=0;
 
 opts.minFunc.mode=2;
 opts.acqFunc.xi = 0.0;
