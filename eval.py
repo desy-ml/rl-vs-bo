@@ -157,7 +157,7 @@ class Study:
             if isinstance(runs, str)
             else [data_dir / run for run in runs]
         )
-        paths = [p / "recorded_episode_1.pkl" for p in run_paths]
+        paths = [p / "recorded_episode_1.pkl" for p in sorted(run_paths)]
         episodes = [Episode.load(p, use_problem_index=True) for p in paths]
 
         return Study(episodes, name=name)
