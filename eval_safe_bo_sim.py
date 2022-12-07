@@ -66,12 +66,13 @@ def try_problem(problem_index: int, problem: dict):
         w_mu_x_in_threshold=0.0,
         w_mu_y=1.0,
         w_mu_y_in_threshold=0.0,
-        w_on_screen=10.0,
+        w_on_screen=5.0,
         w_sigma_x=1.0,
         w_sigma_x_in_threshold=0.0,
         w_sigma_y=1.0,
         w_sigma_y_in_threshold=0.0,
         w_time=0.0,
+        normalize_beam_distance=False,
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(

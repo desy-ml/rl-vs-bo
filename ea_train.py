@@ -612,6 +612,7 @@ class ARESEA(gym.Env):
         )
 
         # TODO I'm not sure if the order with log is okay this way
+        
         if self.log_beam_distance:
             compute_raw_beam_distance = compute_beam_distance
             compute_beam_distance = lambda beam: np.log(compute_raw_beam_distance(beam))
