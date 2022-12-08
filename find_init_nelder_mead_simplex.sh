@@ -11,6 +11,6 @@ source ~/.bashrc
 conda activate rl39
 cd /beegfs/desy/user/kaiserja/ares-ea-v2
 
-wandb agent --count 1 msk-ipc/ares-ea-nelder-mead-init-simplex/i36mm3is
+wandb agent --count 1 msk-ipc/ares-ea-nelder-mead-init-simplex/1h5okp8v
 
 exit
