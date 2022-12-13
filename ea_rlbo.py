@@ -34,6 +34,7 @@ def optimize_donkey_bo_combo(
     progress_bar=False,
     callback=None,
     rl_steps=10,
+    bo_takeover=None,  # Set to MAE obove which BO takes over or to None for no takeover (e.g. 0.00015˚)
     stepsize=0.1,  # comparable to RL env
     acquisition="EI",
     set_to_best=True,  # set back to best found setting after opt.
@@ -107,49 +108,52 @@ def optimize_donkey_bo_combo(
         observation, reward, done, info = env.step(action)
         i += 1
 
-    # Prepare env for BO
-    env = unwrap_wrapper(env, FlattenObservation)
-    env.unwrapped.action_mode = "direct"  # TODO direct vs direct_unidirectional?
-    env.unwrapped.action_space = spaces.Box(
-        low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
-        high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
-    )
-    env.unwrapped.threshold_hold = 1
-    env = RescaleAction(env, -1, 1)
-
-    # Retreive past examples and them feed to BO
-    record_episode = unwrap_wrapper(env, RecordEpisode)
-    # rl_magents = [obs["magnets"] for obs in record_episode.observations]
-    rl_magents = [scale_action(env, obs) for obs in record_episode.observations][1:]
-    X = torch.tensor(rl_magents)
-    rl_objectives = record_episode.rewards
-    Y = torch.tensor(rl_objectives).reshape(-1, 1)
-
-    # BO's turn
-    while not done:
-        current_action = X[-1].detach().numpy()
-        bounds = get_new_bound(env, current_action, stepsize)
-        action_t = get_next_samples(
-            X.double(),
-            Y.double(),
-            Y.max(),
-            torch.tensor(bounds, dtype=torch.double),
-            n_points=1,
-            acquisition=acquisition,
-            mean_module=mean_module,
+    if unwrap_wrapper(env, RecordEpisode).rewards[-1] > bo_takeover:
+        # Prepare env for BO
+        env = unwrap_wrapper(env, FlattenObservation)
+        env.unwrapped.action_mode = "direct"  # TODO direct vs direct_unidirectional?
+        env.unwrapped.action_space = spaces.Box(
+            low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
+            high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
         )
-        action = action_t.detach().numpy().flatten()
-        _, objective, done, _ = env.step(action)
+        env.unwrapped.threshold_hold = 1
+        env = RescaleAction(env, -1, 1)
 
-        # append data
-        X = torch.cat([X, action_t])
-        Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
+        # Retreive past examples and them feed to BO
+        record_episode = unwrap_wrapper(env, RecordEpisode)
+        # rl_magents = [obs["magnets"] for obs in record_episode.observations]
+        rl_magents = [scale_action(env, obs) for obs in record_episode.observations][1:]
+        X = torch.tensor(rl_magents)
+        rl_objectives = record_episode.rewards
+        Y = torch.tensor(rl_objectives).reshape(-1, 1)
 
-    # Set back to
-    if set_to_best:
-        action = X[Y.argmax()].detach().numpy()
-        print(f"{action = }")
-        print(f"{env.action_space = }")
-        env.step(action)
+        # BO's turn
+        while not done:
+            current_action = X[-1].detach().numpy()
+            bounds = get_new_bound(env, current_action, stepsize)
+            action_t = get_next_samples(
+                X.double(),
+                Y.double(),
+                Y.max(),
+                torch.tensor(bounds, dtype=torch.double),
+                n_points=1,
+                acquisition=acquisition,
+                mean_module=mean_module,
+            )
+            action = action_t.detach().numpy().flatten()
+            _, objective, done, _ = env.step(action)
+
+            # append data
+            X = torch.cat([X, action_t])
+            Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
+
+        # Set back to
+        if set_to_best:
+            action = X[Y.argmax()].detach().numpy()
+            env.step(action)
+    else:
+        while not done:
+            action, _ = model.predict(observation, deterministic=True)
+            observation, reward, done, info = env.step(action)
 
     env.close()
