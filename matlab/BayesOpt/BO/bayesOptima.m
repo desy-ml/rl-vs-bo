@@ -68,7 +68,7 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
         yt(1,:)= fun_in(xt(1,:));
     end
     if length(varargin) == 1
-        %print_vector("X0 = ", varargin{1})
+        % print_vector("X0 = ", varargin{1})  % Commented out by Jannis earlier
         xt(1,:)=varargin{1};
         yt(1,:) = fun_in(xt(1,:));
     end
@@ -111,7 +111,7 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
     end
     algo_data.observed = 0;
     
-    %fprintf("y_start = %.5f", obj_eval(yt(1:counter)));
+    % fprintf("y_start = %.5f", obj_eval(yt(1:counter))); % Commented out by Jannis earlier
     if D > 2 && opts.plot
         error("Plot only for (subspace) dim <= 2 supported")
     end
@@ -147,7 +147,7 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
     opts.algo_data = algo_data;
     
     for i=1:opts.maxIt
-        %fprintf("\niteration: %d\n", i);
+        % fprintf("\niteration: %d\n", i);    % Commented out by Jannis earlier
         %start = tic;
         
 %         try
@@ -189,7 +189,7 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
 %             end
         end
 
-        %print_vector("new parameter: ", x_new)
+        % print_vector("new parameter: ", x_new)  % Commented out by Jannis earlier
 
         if abs(min_nacq) < opts.termCondAcq || skip_dim
             break;
@@ -240,10 +240,10 @@ function [xopt,yopt,xt,yt]=bayesOptima(hyp,inf_,mean_,cov_,lik_,acq_func,obj_fun
     end
 
     % print optimal parameters to screen 
-    %print_vector("x0 = ", algo_data.x0)
-    %print_vector("xopt = ", xopt)
-    %print_vector("y0 = ",algo_data.y0)
-    %print_vector("yopt = ", yopt)
+    % print_vector("x0 = ", algo_data.x0) % Commented out by Jannis earlier
+    % print_vector("xopt = ", xopt)       % Commented out by Jannis earlier
+    % print_vector("y0 = ",algo_data.y0)  % Commented out by Jannis earlier
+    % print_vector("yopt = ", yopt)       % Commented out by Jannis earlier
 %     pause(2)
 end
 

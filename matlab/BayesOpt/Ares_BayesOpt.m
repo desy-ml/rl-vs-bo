@@ -16,12 +16,12 @@ inf_ = {@infGaussLik};
 mean_ = {@meanConst};
 lik_ = {@likGauss};
 cov_ = {@(varargin)covMaternard(3,varargin{:})};
-hyp.lik = log(0.01);
-hyp.mean = 10;
-hyp.cov = log([0.3;0.3;0.3;0.3;0.5;10]);
+hyp.lik = log(0.1);
+hyp.mean = -1;
+hyp.cov = log([0.3;0.3;0.3;0.3;0.5;6]);
 acq = {@EI};
 x0 = [-0.7222, 0.7222, 0.0, -0.7222, 0.0];
-opts.plot=1;
+opts.plot=0;
 
 opts.minFunc.mode=2;
 opts.acqFunc.xi = 0.0;
@@ -29,13 +29,13 @@ opts.acqFunc.beta = 2;
 
 opts.trainGP.acqVal = 2;%0.055;%0.5 %1D       %%% 0.05 D=1 with EI; 0.5 D = 1
 opts.maxProb = 0;
-opts.termCondAcq = 0.3;%0.05;%0.25;%0.5 %1D    %%% 0.05 D=1 with EI; 0.25 or 0.5 D=1; 0.2 D=2 with EI sf = 5
-opts.maxIt = 500;
+opts.termCondAcq = 0.15;%0.05;%0.25;%0.5 %1D    %%% 0.05 D=1 with EI; 0.25 or 0.5 D=1; 0.2 D=2 with EI sf = 5
+opts.maxIt = 150;
 opts.trainGP.It = 10000;
 opts.trainGP.train = 0;
 opts.safeOpt = 1;
 opts.moSaOpt = 1;
-opts.safeOpts.threshold = 10;   % Find out what's worst acceptable (0 is acceptable)
+opts.safeOpts.threshold = -1;   % Find out what's worst acceptable (0 is acceptable)
 opts.safeOpts.thresholdOffset = 100;
 opts.safeOpts.searchCond = 1;
 opts.safeOpts.onlyOptiDir = false;

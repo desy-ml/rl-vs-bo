@@ -78,7 +78,12 @@ def calculate_objective(env, observation, reward, obj="reward", w_on_screen=10):
 
 def scale_action(env, observation, filter_action=None):
     """Scale the observed magnet settings to proper action values"""
-    magnet_values = unflatten(env.unwrapped.observation_space, observation)["magnets"]
+    unflattened = (
+        unflatten(env.unwrapped.observation_space, observation)
+        if not isinstance(observation, dict)
+        else observation
+    )
+    magnet_values = unflattened["magnets"]
     action_values = []
     if filter_action is None:
         filter_action = [0, 1, 2, 3, 4]
@@ -287,10 +292,10 @@ class BeamNNPrior(Mean):
 
         # additional scaling and shift
         self.register_parameter(
-            name="out_weight", parameter=torch.nn.Parameter(torch.tensor([0.]))
+            name="out_weight", parameter=torch.nn.Parameter(torch.tensor([0.0]))
         )
         self.register_parameter(
-            name="out_bias", parameter=torch.nn.Parameter(torch.tensor([0.]))
+            name="out_bias", parameter=torch.nn.Parameter(torch.tensor([0.0]))
         )
 
     def forward(self, x):

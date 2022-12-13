@@ -5,7 +5,6 @@ import cheetah
 import cv2
 import gym
 import numpy as np
-import wandb
 from gym import spaces
 from gym.wrappers import (
     FilterObservation,
@@ -22,6 +21,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
 
+import wandb
 from ARESlatticeStage3v1_9 import cell as ares_lattice
 from utils import FilterAction, save_config
 
@@ -29,6 +29,7 @@ from utils import FilterAction, save_config
 def main() -> None:
     config = {
         "action_mode": "delta",
+        "batch_size": 100,
         "beam_distance_ord": 2,
         "gamma": 0.99,
         "filter_action": None,
@@ -36,6 +37,7 @@ def main() -> None:
         "frame_stack": None,
         "incoming_mode": "random",
         "incoming_values": None,
+        "learning_rate": 0.0003,
         "log_beam_distance": False,
         "magnet_init_mode": "random",
         "magnet_init_values": None,
@@ -45,6 +47,7 @@ def main() -> None:
         "misalignment_mode": "random",
         "misalignment_values": None,
         "n_envs": 40,
+        "n_steps": 100,
         "normalize_beam_distance": True,
         "normalize_observation": True,
         "normalize_reward": True,
@@ -87,6 +90,7 @@ def train(config: dict) -> None:
         config=config,
         dir=".wandb",
     )
+    config = dict(wandb.config)
     config["run_name"] = wandb.run.name
 
     # Setup environments
@@ -122,8 +126,9 @@ def train(config: dict) -> None:
         device=config["sb3_device"],
         gamma=config["gamma"],
         tensorboard_log=f"log/{config['run_name']}",
-        n_steps=100,
-        batch_size=100,
+        n_steps=config["n_steps"],
+        batch_size=config["batch_size"],
+        learning_rate=config["learning_rate"],
     )
 
     eval_callback = EvalCallback(eval_env, eval_freq=1_000, n_eval_episodes=100)
@@ -611,6 +616,7 @@ class ARESEA(gym.Env):
         )
 
         # TODO I'm not sure if the order with log is okay this way
+        
         if self.log_beam_distance:
             compute_raw_beam_distance = compute_beam_distance
             compute_beam_distance = lambda beam: np.log(compute_raw_beam_distance(beam))
