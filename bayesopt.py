@@ -114,6 +114,7 @@ def get_next_samples(
     bounds: torch.Tensor,
     n_points: int = 1,
     acquisition: str = "EI",
+    beta=0.2,
     fixparam: Optional[dict] = None,
     mean_module: Optional[Mean] = None,
     outcome_transform: Optional[OutcomeTransform] = Standardize(m=1),
@@ -151,7 +152,7 @@ def get_next_samples(
     elif acquisition == "PI":
         acq = ProbabilityOfImprovement(model=gp, best_f=best_y)
     elif acquisition == "UCB":
-        acq = UpperConfidenceBound(gp, beta=0.2)
+        acq = UpperConfidenceBound(gp, beta=beta)
 
     candidates, _ = optimize_acqf(
         acq_function=acq,

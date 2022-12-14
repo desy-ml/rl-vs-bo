@@ -37,6 +37,7 @@ def optimize_donkey_bo_combo(
     bo_takeover=None,  # Set to MAE obove which BO takes over or to None for no takeover (e.g. 0.00015˚)
     stepsize=0.1,  # comparable to RL env
     acquisition="EI",
+    beta=0.2,
     set_to_best=True,  # set back to best found setting after opt.
     mean_module=None,
 ):
@@ -96,6 +97,8 @@ def optimize_donkey_bo_combo(
     env.unwrapped.log_beam_distance = True
     env.unwrapped.normalize_beam_distance = False
 
+    elog_wrapper = unwrap_wrapper(env, ARESEAeLog)
+
     callback.env = env
 
     observation = env.reset()
@@ -108,7 +111,8 @@ def optimize_donkey_bo_combo(
         observation, reward, done, info = env.step(action)
         i += 1
 
-    if unwrap_wrapper(env, RecordEpisode).rewards[-1] > bo_takeover:
+    if bo_takeover is not None and unwrap_wrapper(env, RecordEpisode).infos[-1]["l1_distance"] > bo_takeover * 4:
+        print("BO is taking over")
         # Prepare env for BO
         env = unwrap_wrapper(env, FlattenObservation)
         env.unwrapped.action_mode = "direct"  # TODO direct vs direct_unidirectional?
@@ -139,6 +143,7 @@ def optimize_donkey_bo_combo(
                 n_points=1,
                 acquisition=acquisition,
                 mean_module=mean_module,
+                beta=beta,
             )
             action = action_t.detach().numpy().flatten()
             _, objective, done, _ = env.step(action)
@@ -151,9 +156,15 @@ def optimize_donkey_bo_combo(
         if set_to_best:
             action = X[Y.argmax()].detach().numpy()
             env.step(action)
+
+        elog_wrapper.model_name += f" taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
     else:
+        print("RL is continuing")
         while not done:
             action, _ = model.predict(observation, deterministic=True)
             observation, reward, done, info = env.step(action)
 
+        elog_wrapper.model_name += f" not taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
+
+    f"{model_name} followed taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
     env.close()
