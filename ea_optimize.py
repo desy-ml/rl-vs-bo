@@ -484,6 +484,11 @@ class ARESEADOOCS(ARESEA):
             info["screen_after_reset"] = self.screen_after_reset
             del self.screen_after_reset
 
+        # Steerers upstream of Experimental Area
+        for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
+            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK_MRAD.RBV")
+            info[steerer] = response["data"] / 1000
+
         return info
 
 
