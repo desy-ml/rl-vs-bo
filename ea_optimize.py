@@ -484,6 +484,11 @@ class ARESEADOOCS(ARESEA):
             info["screen_after_reset"] = self.screen_after_reset
             del self.screen_after_reset
 
+        # Gain of camera for AREABSCR1
+        info["camera_gain"] = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/GAINRAW")[
+            "data"
+        ]
+
         # Steerers upstream of Experimental Area
         for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
             response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK_MRAD.RBV")
