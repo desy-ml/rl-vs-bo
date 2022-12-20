@@ -2,8 +2,10 @@ import base64
 import os
 import pickle
 import subprocess
+import time
 from datetime import datetime, timedelta
 from io import BytesIO
+from typing import Union
 
 import gym
 import matplotlib.pyplot as plt
@@ -727,3 +729,54 @@ class TQDMWrapper(gym.Wrapper):
             self.pbar.close()
 
         super().close()
+
+
+class SetUpstreamSteererAtStep(gym.Wrapper):
+    """Before the `n`-th step change the value of an upstream `steerer`."""
+
+    def __init__(self, env: gym.Env, n: int, steerer: str, mrad: float) -> None:
+        super().__init__(env)
+
+        assert steerer in [
+            "ARLIMCHM1",
+            "ARLIMCVM1",
+            "ARLIMCHM2",
+            "ARLIMCVM2",
+        ], f"{steerer} is not one of the four upstream steerers"
+
+        import pydoocs
+
+        self.n = n
+        self.steerer = steerer
+        self.mrad = mrad
+
+    def reset(self) -> Union[np.ndarray, dict]:
+        self.step = 0
+        self.is_steerer_set = False
+        return super().reset()
+
+    def step(self, action: np.ndarray) -> tuple:
+        self.step += 1
+        if self.step > self.n and not self.is_steerer_set:
+            self.set_steerer()
+            self.is_steerer_set = True
+        return super().step(action)
+
+    def set_steerer(self) -> None:
+        pydoocs.write(
+            f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", self.mrad
+        )
+
+        # Wait until magnets have reached their setpoints
+
+        time.sleep(3.0)  # Wait for magnets to realise they received a command
+
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/BUSY")[
+                "data"
+            ]
+            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/PS_ON")[
+                "data"
+            ]

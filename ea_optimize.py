@@ -25,6 +25,7 @@ from utils import (
     NotVecNormalize,
     PolishedDonkeyCompatibility,
     RecordEpisode,
+    SetUpstreamSteererAtStep,
     TQDMWrapper,
     load_config,
 )
@@ -183,6 +184,9 @@ def optimize_donkey(
     env = PolishedDonkeyCompatibility(env)
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
     env = RescaleAction(env, -1, 1)
+
+    # TODO temporary for experiment 20 December 2022
+    env = SetUpstreamSteererAtStep(env, n=40, steerer="ARLIMCHM1", mrad=-2.0)
 
     callback.env = env
 
