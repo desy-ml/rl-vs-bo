@@ -10,6 +10,7 @@ from typing import Union
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
+import pydoocs
 import wandb
 import yaml
 from gym import spaces
@@ -323,7 +324,7 @@ Result:
     |delta_sigma_x| = {abs(final_deltas[1]) * 1e3: 5.4f} mm
     |delta_mu_y|    = {abs(final_deltas[2]) * 1e3: 5.4f} mm
     |delta_sigma_y| = {abs(final_deltas[3]) * 1e3: 5.4f} mm
-    
+
     MAE = {final_mae * 1e3: 5.4f} mm
 
 Final magnet settings:
@@ -734,7 +735,7 @@ class TQDMWrapper(gym.Wrapper):
 class SetUpstreamSteererAtStep(gym.Wrapper):
     """Before the `n`-th step change the value of an upstream `steerer`."""
 
-    def __init__(self, env: gym.Env, n: int, steerer: str, mrad: float) -> None:
+    def __init__(self, env: gym.Env, steps_to_trigger: int, steerer: str, mrad: float) -> None:
         super().__init__(env)
 
         assert steerer in [
@@ -744,20 +745,39 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
             "ARLIMCVM2",
         ], f"{steerer} is not one of the four upstream steerers"
 
-        import pydoocs
-
-        self.n = n
+        self.steps_to_trigger = steps_to_trigger
         self.steerer = steerer
         self.mrad = mrad
 
     def reset(self) -> Union[np.ndarray, dict]:
-        self.step = 0
+        self.steps_taken = 0
         self.is_steerer_set = False
+
+        # Reset steerer to default
+        pydoocs.write(
+            f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", 0.8196
+        )
+
+        # Wait until magnets have reached their setpoints
+
+        time.sleep(3.0)  # Wait for magnets to realise they received a command
+
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/BUSY")[
+                "data"
+            ]
+            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/PS_ON")[
+                "data"
+            ]
+
         return super().reset()
 
     def step(self, action: np.ndarray) -> tuple:
-        self.step += 1
-        if self.step > self.n and not self.is_steerer_set:
+        self.steps_taken += 1
+        if self.steps_taken > self.steps_to_trigger and not self.is_steerer_set:
+            print("Triggering disturbance")
             self.set_steerer()
             self.is_steerer_set = True
         return super().step(action)

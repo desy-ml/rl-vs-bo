@@ -20,7 +20,7 @@ from ea_optimize import (
     TQDMWrapper,
     setup_callback,
 )
-from utils import FilterAction, RecordEpisode
+from utils import FilterAction, RecordEpisode, SetUpstreamSteererAtStep
 
 config = {
     "action_mode": "direct_unidirectional_quads",
@@ -145,6 +145,9 @@ def optimize(
         )
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
     # env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
+
+    # TODO temporary for experiment 20 December 2022
+    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=0.2196)
 
     callback.env = env
 

@@ -186,7 +186,7 @@ def optimize_donkey(
     env = RescaleAction(env, -1, 1)
 
     # TODO temporary for experiment 20 December 2022
-    env = SetUpstreamSteererAtStep(env, n=40, steerer="ARLIMCHM1", mrad=-2.0)
+    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=0.2196)
 
     callback.env = env
 
