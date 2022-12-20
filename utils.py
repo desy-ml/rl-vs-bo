@@ -743,6 +743,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
             "ARLIMCVM1",
             "ARLIMCHM2",
             "ARLIMCVM2",
+            "ARLIMSOG1+-",
         ], f"{steerer} is not one of the four upstream steerers"
 
         self.steps_to_trigger = steps_to_trigger
@@ -754,8 +755,11 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         self.is_steerer_set = False
 
         # Reset steerer to default
+        # pydoocs.write(
+        #     f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", 0.8196
+        # )
         pydoocs.write(
-            f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", 0.8196
+            f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", -0.1468
         )
 
         # Wait until magnets have reached their setpoints
@@ -765,10 +769,10 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         is_busy = True
         is_ps_on = True
         while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/BUSY")[
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")[
                 "data"
             ]
-            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/PS_ON")[
+            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
                 "data"
             ]
 
@@ -784,7 +788,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
 
     def set_steerer(self) -> None:
         pydoocs.write(
-            f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", self.mrad
+            f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", self.mrad
         )
 
         # Wait until magnets have reached their setpoints
@@ -794,9 +798,9 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         is_busy = True
         is_ps_on = True
         while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/BUSY")[
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")[
                 "data"
             ]
-            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/PS_ON")[
+            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
                 "data"
             ]

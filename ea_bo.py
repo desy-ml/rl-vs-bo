@@ -147,7 +147,7 @@ def optimize(
     # env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
 
     # TODO temporary for experiment 20 December 2022
-    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=0.2196)
+    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=-0.1518)
 
     callback.env = env
 

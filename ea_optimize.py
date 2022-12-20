@@ -186,7 +186,7 @@ def optimize_donkey(
     env = RescaleAction(env, -1, 1)
 
     # TODO temporary for experiment 20 December 2022
-    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=0.2196)
+    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=-0.1518)
 
     callback.env = env
 
@@ -497,6 +497,9 @@ class ARESEADOOCS(ARESEA):
         for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
             response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK_MRAD.RBV")
             info[steerer] = response["data"] / 1000
+
+        # Gun solenoid
+        info["gun_solenoid"] = pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV")["data"]
 
         return info
 
