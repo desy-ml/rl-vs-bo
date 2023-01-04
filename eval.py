@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pickle
 from copy import deepcopy
 from pathlib import Path
@@ -79,6 +78,13 @@ class Episode:
         maes = self.maes()
         min_maes = [min(maes[: i + 1]) for i in range(len(maes))]
         return min_maes
+
+    def abs_delta_beam_parameters(self) -> np.ndarray:
+        """Get the sequence of mu_x over the episdoe."""
+        beams = [obs["beam"] for obs in self.observations]
+        target = self.observations[0]["target"]
+        abs_deltas = np.abs(np.array(beams) - np.array(target))
+        return abs_deltas
 
     @property
     def target(self) -> np.ndarray:
@@ -309,6 +315,46 @@ class Study:
             plt.savefig(save_path)
 
         plt.show()
+
+
+def number_of_better_final_beams(
+    study_1: Study,
+    study_2: Study,
+) -> None:
+    """
+    Computer the number of times that the best MAE of a run in `study_1` is better than
+    the best MAE of the same run in `study_2`.
+    """
+    assert study_1.are_problems_unique(), "The problems in study 1 are note unique."
+    assert study_2.are_problems_unique(), "The problems in study 2 are note unique."
+
+    study_1_idxs = sorted(study_1.problem_indicies())
+    study_2_idxs = sorted(study_2.problem_indicies())
+    assert study_1_idxs == study_2_idxs, "The studies do not cover the same problems."
+
+    problem_idxs = study_1_idxs
+    best_maes_1 = [
+        min(study_1.get_episodes_by_problem(i)[0].maes()) for i in problem_idxs
+    ]
+    best_maes_2 = [
+        min(study_2.get_episodes_by_problem(i)[0].maes()) for i in problem_idxs
+    ]
+
+    diff = np.array(best_maes_1) - np.array(best_maes_2)
+
+    return sum(diff < 0)
+
+
+def screen_extent(
+    resolution: tuple[int, int], pixel_size: tuple[float, float]
+) -> tuple[float, float, float, float]:
+    """Compute extent of a diagnostic screen for Matplotlib plotting."""
+    return (
+        -resolution[0] * pixel_size[0] / 2,
+        resolution[0] * pixel_size[0] / 2,
+        -resolution[1] * pixel_size[1] / 2,
+        resolution[1] * pixel_size[1] / 2,
+    )
 
 
 def problem_aligned(studies: list[Study]) -> list[Study]:
