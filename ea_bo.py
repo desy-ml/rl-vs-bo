@@ -11,7 +11,7 @@ from gym.wrappers import (
     TimeLimit,
 )
 
-from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
+from bayesopt import get_new_bound, get_next_samples, scale_action
 from ea_optimize import (
     ARESEADOOCS,
     ARESEAeLog,
@@ -147,7 +147,9 @@ def optimize(
     # env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
 
     # TODO temporary for experiment 20 December 2022
-    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=-0.1518)
+    env = SetUpstreamSteererAtStep(
+        env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=-0.1518
+    )
 
     callback.env = env
 
