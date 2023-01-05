@@ -219,7 +219,7 @@ class Study:
         final_maes = [episode[-1] for episode in maes]  # TODO Why was there index -2 ?
         return np.median(final_maes)
 
-    def median_steps_to_convergence(self, threshold=20e-6) -> float:
+    def median_steps_to_convergence(self, threshold: float = 20e-6) -> float:
         """
         Median number of steps until best seen MAE no longer improves by more than
         `threshold`.
@@ -227,7 +227,7 @@ class Study:
         steps = [episode.steps_to_convergence(threshold) for episode in self.episodes]
         return np.median(steps)
 
-    def median_steps_to_threshold(self, threshold=20e-6) -> float:
+    def median_steps_to_threshold(self, threshold: float = 20e-6) -> float:
         """
         Median number of steps until best seen MAE drops below (resolution) `threshold`.
         """
@@ -293,7 +293,7 @@ class Study:
         plt.show()
 
     def plot_best_return_deviation_box(
-        self, print_results: bool = True, save_path: str = None
+        self, print_results: bool = True, save_path: Optional[str] = None
     ) -> None:
         """
         Plot a boxplot showing how far the MAE in the final return step differed from the
@@ -326,7 +326,7 @@ class Study:
 def number_of_better_final_beams(
     study_1: Study,
     study_2: Study,
-) -> None:
+) -> int:
     """
     Computer the number of times that the best MAE of a run in `study_1` is better than
     the best MAE of the same run in `study_2`.
@@ -393,7 +393,7 @@ def parse_problem_index(path: Path) -> int:
     return int(path.parent.name.split("_")[-1])
 
 
-def plot_best_mae_box(studies: list[Study], save_path: str = None) -> None:
+def plot_best_mae_box(studies: list[Study], save_path: Optional[str] = None) -> None:
     """Box plot of best MAEs seen until the very end of the episodes."""
     combined_best_maes = []
     combined_names = []
@@ -423,7 +423,7 @@ def plot_best_mae_box(studies: list[Study], save_path: str = None) -> None:
 def plot_best_mae_diff_over_problem(
     study_1: Study,
     study_2: Study,
-    save_path: str = None,
+    save_path: Optional[str] = None,
 ) -> None:
     """Plot the differences of the best MAE achieved for each problem to see if certain problems stand out."""
     assert study_1.are_problems_unique(), "The problems in study 1 are note unique."
@@ -461,7 +461,7 @@ def plot_best_mae_over_time(
     threshold: Optional[float] = None,
     title: Optional[str] = "Mean Best MAE Over Time",
     study_name_str: str = "Study",
-    save_path: str = None,
+    save_path: Optional[str] = None,
 ) -> None:
     """
     Plot mean best seen MAE over all episdoes over time. Optionally display a
@@ -504,7 +504,7 @@ def plot_best_mae_over_time(
     plt.show()
 
 
-def plot_final_mae_box(studies: list[Study], save_path: str = None) -> None:
+def plot_final_mae_box(studies: list[Study], save_path: Optional[str] = None) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
     seen).
@@ -539,7 +539,7 @@ def plot_mae_over_time(
     threshold: Optional[float] = None,
     title: Optional[str] = "Mean MAE Over Time",
     study_name_str: str = "Study",
-    save_path: str = None,
+    save_path: Optional[str] = None,
 ) -> None:
     """
     Plot mean MAE of over episodes over time. Optionally display a `threshold` line to
