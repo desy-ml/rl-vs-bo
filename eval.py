@@ -292,7 +292,9 @@ class Study:
         plt.ylabel("Best MAE")
         plt.show()
 
-    def plot_best_return_deviation_box(self, save_path: str = None) -> None:
+    def plot_best_return_deviation_box(
+        self, print_results: bool = True, save_path: str = None
+    ) -> None:
         """
         Plot a boxplot showing how far the MAE in the final return step differed from the
         MAE seen the first time the optimal magnets were set. This should show effects of
@@ -302,6 +304,10 @@ class Study:
         best = [min(episode) for episode in maes]
         final = [episode[-1] for episode in maes]
         deviations = np.abs(np.array(best) - np.array(final))
+
+        if print_results:
+            print(f"Median deviation = {np.median(deviations)}")
+            print(f"Max deviation = {np.max(deviations)}")
 
         plt.figure(figsize=(5, 2))
         plt.title(f"Deviation when returning to best")
@@ -451,7 +457,11 @@ def plot_best_mae_diff_over_problem(
 
 
 def plot_best_mae_over_time(
-    studies: list[Study], threshold: Optional[float] = None, save_path: str = None
+    studies: list[Study],
+    threshold: Optional[float] = None,
+    title: Optional[str] = "Mean Best MAE Over Time",
+    study_name_str: str = "Study",
+    save_path: str = None,
 ) -> None:
     """
     Plot mean best seen MAE over all episdoes over time. Optionally display a
@@ -461,10 +471,10 @@ def plot_best_mae_over_time(
     for study in studies:
         ds = [
             {
-                "min_mae": episode.min_maes(),
-                "step": range(len(episode)),
-                "problem": episode.problem_index,
-                "study_name": study.name,
+                "MAE (m)": episode.min_maes(),
+                "Step": range(len(episode)),
+                "Problem Index": episode.problem_index,
+                study_name_str: study.name,
             }
             for episode in study.episodes
         ]
@@ -474,15 +484,19 @@ def plot_best_mae_over_time(
 
     combined_df = pd.concat(dfs)
 
+    # Convert unit to mm
+    combined_df["MAE (mm)"] = combined_df["MAE (m)"] * 1e3
+
     plt.figure(figsize=(5, 3))
     if threshold is not None:
         plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
-    sns.lineplot(x="step", y="min_mae", hue="study_name", data=combined_df)
-    plt.title("Mean Best MAE Over Time")
+    sns.lineplot(x="Step", y="MAE (mm)", hue=study_name_str, data=combined_df)
+    plt.title(title)
     plt.xlim(0, None)
     plt.ylim(0, None)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
+    plt.tight_layout()
 
     if save_path is not None:
         plt.savefig(save_path)
@@ -521,7 +535,11 @@ def plot_final_mae_box(studies: list[Study], save_path: str = None) -> None:
 
 
 def plot_mae_over_time(
-    studies: list[Study], save_path: str = None, threshold: Optional[float] = None
+    studies: list[Study],
+    threshold: Optional[float] = None,
+    title: Optional[str] = "Mean MAE Over Time",
+    study_name_str: str = "Study",
+    save_path: str = None,
 ) -> None:
     """
     Plot mean MAE of over episodes over time. Optionally display a `threshold` line to
@@ -531,10 +549,10 @@ def plot_mae_over_time(
     for study in studies:
         ds = [
             {
-                "mae": episode.maes(),
-                "step": range(len(episode)),
-                "problem": episode.problem_index,
-                "study_name": study.name,
+                "MAE (m)": episode.maes(),
+                "Step": range(len(episode)),
+                "Problem Index": episode.problem_index,
+                study_name_str: study.name,
             }
             for episode in study.episodes
         ]
@@ -544,15 +562,19 @@ def plot_mae_over_time(
 
     combined_df = pd.concat(dfs)
 
+    # Convert unit to mm
+    combined_df["MAE (mm)"] = combined_df["MAE (m)"] * 1e3
+
     plt.figure(figsize=(5, 3))
     if threshold is not None:
         plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
-    sns.lineplot(x="step", y="mae", hue="study_name", data=combined_df)
-    plt.title("Mean MAE Over Time")
+    sns.lineplot(x="Step", y="MAE (mm)", hue=study_name_str, data=combined_df)
+    plt.title(title)
     plt.xlim(0, None)
     plt.ylim(0, None)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
+    plt.tight_layout()
 
     if save_path is not None:
         plt.savefig(save_path)
