@@ -322,6 +322,21 @@ class Study:
 
         plt.show()
 
+    def average_inference_times(self):
+        """
+        Return average time it took to infer the next action/magnet setting throughout
+        the study.
+        """
+        first_inferences = [
+            episode.step_start_times[0] - episode.t_start for episode in self.episodes
+        ]
+        other_inferences = [
+            t2 - t1
+            for episode in self.episodes
+            for t1, t2 in zip(episode.step_end_times[:-1], episode.step_start_times[1:])
+        ]
+        return np.mean(first_inferences + other_inferences)
+
 
 def number_of_better_final_beams(
     study_1: Study,

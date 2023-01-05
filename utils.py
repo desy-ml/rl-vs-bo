@@ -10,7 +10,6 @@ from typing import Union
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
-import pydoocs
 import wandb
 import yaml
 from gym import spaces
@@ -629,12 +628,16 @@ class RecordEpisode(gym.Wrapper):
         self.t_start = datetime.now()
         self.t_end = None
         self.steps_taken = 0
+        self.step_start_times = []
+        self.step_end_times = []
 
         self.has_previously_run = True
 
         return observation
 
     def step(self, action):
+        self.step_start_times.append(datetime.now())
+
         observation, reward, done, info = self.env.step(action)
 
         self.observations.append(observation)
@@ -642,6 +645,7 @@ class RecordEpisode(gym.Wrapper):
         self.infos.append(info)
         self.actions.append(action)
         self.steps_taken += 1
+        self.step_end_times.append(datetime.now())
 
         return observation, reward, done, info
 
@@ -666,6 +670,8 @@ class RecordEpisode(gym.Wrapper):
             "t_start": self.t_start,
             "t_end": self.t_end,
             "steps_taken": self.steps_taken,
+            "step_start_times": self.step_start_times,
+            "step_end_times": self.step_end_times,
         }
 
         with open(path, "wb") as f:
@@ -735,7 +741,9 @@ class TQDMWrapper(gym.Wrapper):
 class SetUpstreamSteererAtStep(gym.Wrapper):
     """Before the `n`-th step change the value of an upstream `steerer`."""
 
-    def __init__(self, env: gym.Env, steps_to_trigger: int, steerer: str, mrad: float) -> None:
+    def __init__(
+        self, env: gym.Env, steps_to_trigger: int, steerer: str, mrad: float
+    ) -> None:
         super().__init__(env)
 
         assert steerer in [
@@ -758,9 +766,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         # pydoocs.write(
         #     f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", 0.8196
         # )
-        pydoocs.write(
-            f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", -0.1468
-        )
+        pydoocs.write(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", -0.1468)
 
         # Wait until magnets have reached their setpoints
 
@@ -769,9 +775,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         is_busy = True
         is_ps_on = True
         while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")[
-                "data"
-            ]
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")["data"]
             is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
                 "data"
             ]
@@ -787,9 +791,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         return super().step(action)
 
     def set_steerer(self) -> None:
-        pydoocs.write(
-            f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", self.mrad
-        )
+        pydoocs.write(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", self.mrad)
 
         # Wait until magnets have reached their setpoints
 
@@ -798,9 +800,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         is_busy = True
         is_ps_on = True
         while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")[
-                "data"
-            ]
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")["data"]
             is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
                 "data"
             ]

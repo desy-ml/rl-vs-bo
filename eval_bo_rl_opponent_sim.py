@@ -15,7 +15,7 @@ from eval_bo_sim import (
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
 
-def try_problem(problem_index: dict, problem: int) -> None:
+def try_problem(problem_index: int, problem: dict) -> None:
     model_name = "polished-donkey-996"
 
     # Load the model
@@ -28,6 +28,8 @@ def try_problem(problem_index: dict, problem: int) -> None:
         incoming_values=convert_incoming_from_problem(problem),
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
+        max_quad_delta=30 * 0.1,
+        max_steerer_delta=6e-3 * 0.1,
         misalignment_mode="constant",
         misalignment_values=convert_misalignments_from_problem(problem),
         reward_mode="differential",
@@ -41,7 +43,8 @@ def try_problem(problem_index: dict, problem: int) -> None:
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
-        env, save_dir=f"bo_rl_opponent_evaluation/problem_{problem_index:03d}"
+        env,
+        save_dir=f"data/bo_vs_rl/simulation/rl_runtime_measurement/problem_{problem_index:03d}",
     )
     env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)

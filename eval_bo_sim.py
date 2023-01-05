@@ -6,7 +6,7 @@ import torch
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
-from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
+from bayesopt import get_new_bound, get_next_samples, scale_action
 from ea_train import ARESEACheetah
 from utils import FilterAction, RecordEpisode
 
@@ -81,6 +81,7 @@ def try_problem(problem_index: int, problem: dict):
         "init_x": None,
         "init_samples": 5,
         "stepsize": 0.1,
+        "mean_module": None,
     }
 
     # Create the environment
@@ -113,7 +114,10 @@ def try_problem(problem_index: int, problem: dict):
         w_time=config["w_time"],
     )
     env = TimeLimit(env, config["max_steps"])
-    env = RecordEpisode(env, save_dir=f"bo_evaluation/problem_{problem_index:03d}")
+    env = RecordEpisode(
+        env,
+        save_dir=f"data/bo_vs_rl/simulation/bo_runtime_measurement/problem_{problem_index:03d}",
+    )
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
     if config["filter_action"] is not None:
@@ -152,8 +156,7 @@ def try_problem(problem_index: int, problem: dict):
     Y = torch.empty((X.shape[0], 1))
     for i, action in enumerate(X):
         action = action.detach().numpy()
-        observation, reward, done, info = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function)
+        _, objective, done, _ = env.step(action)
         Y[i] = torch.tensor(objective)
 
     # Actual BO Loop
@@ -161,16 +164,16 @@ def try_problem(problem_index: int, problem: dict):
         current_action = X[-1].detach().numpy()
         bounds = get_new_bound(env, current_action, stepsize)
         action_t = get_next_samples(
-            X,
-            Y,
+            X.double(),
+            Y.double(),
             Y.max(),
-            torch.tensor(bounds, dtype=torch.float32),
+            torch.tensor(bounds, dtype=torch.double),
             n_points=1,
             acquisition=acquisition,
+            mean_module=config["mean_module"],
         )
         action = action_t.detach().numpy().flatten()
-        observation, reward, done, info = env.step(action)
-        objective = calculate_objective(env, observation, reward, obj=obj_function)
+        _, objective, done, _ = env.step(action)
 
         # append data
         X = torch.cat([X, action_t])
@@ -180,7 +183,7 @@ def try_problem(problem_index: int, problem: dict):
     set_to_best = True
     if set_to_best:
         action = X[Y.argmax()].detach().numpy()
-        observation, reward, done, info = env.step(action)
+        env.step(action)
 
     env.close()
 
