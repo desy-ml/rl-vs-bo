@@ -134,6 +134,43 @@ class Episode:
         plt.axhline(maes[first], c="green")
         plt.show()
 
+    def plot_beam_parameters(
+        self,
+        show_target: bool = True,
+        title: Optional[str] = None,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot beam parameters over the episode and optionally add the target beam
+        parameters if `show_target` is `True`.
+        """
+        beams = [obs["beam"] for obs in self.observations]
+        targets = [obs["target"] for obs in self.observations]
+
+        plt.figure(figsize=(6, 3))
+
+        plt.plot(np.array(beams)[:, 0] * 1e3, label="mu_x", c="tab:blue")
+        plt.plot(np.array(beams)[:, 1] * 1e3, label="sigma_x", c="tab:orange")
+        plt.plot(np.array(beams)[:, 2] * 1e3, label="mu_y", c="tab:green")
+        plt.plot(np.array(beams)[:, 3] * 1e3, label="sigma_y", c="tab:red")
+
+        if show_target:
+            plt.plot(np.array(targets)[:, 0] * 1e3, c="tab:blue", ls="--")
+            plt.plot(np.array(targets)[:, 1] * 1e3, c="tab:orange", ls="--")
+            plt.plot(np.array(targets)[:, 2] * 1e3, c="tab:green", ls="--")
+            plt.plot(np.array(targets)[:, 3] * 1e3, c="tab:red", ls="--")
+
+        plt.title(title)
+        plt.xlabel("Step")
+        plt.ylabel("Beam Parameter (mm)")
+        plt.grid()
+        plt.legend()
+
+        if save_path is not None:
+            plt.savefig(save_path)
+
+        plt.show()
+
 
 class Study:
     """
