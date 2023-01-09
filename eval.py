@@ -48,6 +48,7 @@ class Episode:
         cls,
         path: Union[Path, str],
         use_problem_index: bool = False,
+        drop_screen_images: bool = False,
     ) -> Episode:
         """Load the data from one episode recording .pkl file."""
         if isinstance(path, str):
@@ -57,7 +58,12 @@ class Episode:
             data = pickle.load(f)
         problem_index = parse_problem_index(path) if use_problem_index else None
 
-        return cls(**data, problem_index=problem_index)
+        loaded = cls(**data, problem_index=problem_index)
+
+        if drop_screen_images:
+            loaded.drop_screen_images()
+
+        return loaded
 
     def __len__(self) -> int:
         return len(
@@ -197,6 +203,16 @@ class Episode:
 
         plt.show()
 
+    def drop_screen_images(self):
+        """
+        Drop all screen images from this loaded copy of the episode. This can help to
+        save RAM while working with the data, when the images are not needed.
+        """
+        for info in self.infos:
+            info.pop("beam_image", None)
+            info.pop("screen_before_reset", None)
+            info.pop("screen_after_reset", None)
+
 
 class Study:
     """
@@ -215,6 +231,7 @@ class Study:
         data_dir: Union[Path, str],
         runs: Union[str, list[str]] = "*problem_*",
         name: Optional[str] = None,
+        drop_screen_images: bool = False,
     ) -> Study:
         """
         Loads all episode pickle files from an evaluation firectory. Expects
@@ -229,7 +246,12 @@ class Study:
             else [data_dir / run for run in runs]
         )
         paths = [p / "recorded_episode_1.pkl" for p in sorted(run_paths)]
-        episodes = [Episode.load(p, use_problem_index=True) for p in paths]
+        episodes = [
+            Episode.load(
+                p, use_problem_index=True, drop_screen_images=drop_screen_images
+            )
+            for p in paths
+        ]
 
         return Study(episodes, name=name)
 
