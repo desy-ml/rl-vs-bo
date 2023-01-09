@@ -333,9 +333,9 @@ class Study:
         self, print_results: bool = True, save_path: Optional[str] = None
     ) -> None:
         """
-        Plot a boxplot showing how far the MAE in the final return step differed from the
-        MAE seen the first time the optimal magnets were set. This should show effects of
-        hysteresis (and simular effects).
+        Plot a boxplot showing how far the MAE in the final return step differed from
+        the MAE seen the first time the optimal magnets were set. This should show
+        effects of hysteresis (and simular effects).
         """
         maes = [episode.maes() for episode in self.episodes]
         best = [min(episode) for episode in maes]
@@ -347,7 +347,7 @@ class Study:
             print(f"Max deviation = {np.max(deviations)}")
 
         plt.figure(figsize=(5, 2))
-        plt.title(f"Deviation when returning to best")
+        plt.title("Deviation when returning to best")
         sns.boxplot(x=deviations, y=["Deviation"] * len(deviations))
         plt.grid(ls="--")
         plt.gca().set_axisbelow(True)
@@ -477,7 +477,10 @@ def plot_best_mae_diff_over_problem(
     study_2: Study,
     save_path: Optional[str] = None,
 ) -> None:
-    """Plot the differences of the best MAE achieved for each problem to see if certain problems stand out."""
+    """
+    Plot the differences of the best MAE achieved for each problem to see if certain
+    problems stand out.
+    """
     assert study_1.are_problems_unique(), "The problems in study 1 are note unique."
     assert study_2.are_problems_unique(), "The problems in study 2 are note unique."
 

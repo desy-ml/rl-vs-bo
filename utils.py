@@ -695,7 +695,7 @@ class SLURMRescheduleCallback(BaseCallback):
                 f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh"
             )
             if self.verbose > 1:
-                print(f"Scheduling new batch job to continue training")
+                print("Scheduling new batch job to continue training")
             return False
         else:
             if self.verbose > 1:
@@ -766,7 +766,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         # pydoocs.write(
         #     f"SINBAD.MAGNETS/MAGNET.ML/{self.steerer}/KICK_MRAD.SP", 0.8196
         # )
-        pydoocs.write(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", -0.1468)
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", -0.1468)
 
         # Wait until magnets have reached their setpoints
 
@@ -775,8 +775,8 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         is_busy = True
         is_ps_on = True
         while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")["data"]
-            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
+            is_busy = pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")["data"]
+            is_ps_on = pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
                 "data"
             ]
 
@@ -791,7 +791,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         return super().step(action)
 
     def set_steerer(self) -> None:
-        pydoocs.write(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", self.mrad)
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.SP", self.mrad)
 
         # Wait until magnets have reached their setpoints
 
@@ -800,7 +800,7 @@ class SetUpstreamSteererAtStep(gym.Wrapper):
         is_busy = True
         is_ps_on = True
         while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")["data"]
-            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
+            is_busy = pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/BUSY")["data"]
+            is_ps_on = pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/PS_ON")[
                 "data"
             ]

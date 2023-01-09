@@ -214,7 +214,9 @@ def bo_optimize(
 
 # Use a NN as GP prior for BO
 class SimpleBeamPredictNN(nn.Module):
-    """A simple FCNN to predict the output beam parameters assuming centered incoming beam"""
+    """
+    A simple FCNN to predict the output beam parameters assuming centered incoming beam.
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -282,7 +284,7 @@ class BeamNNPrior(Mean):
     ):
         super().__init__()
         self.mlp = SimpleBeamPredictNNV3()
-        self.mlp.load_state_dict(torch.load(f"nn_for_bo/v3_model_weights.pth"))
+        self.mlp.load_state_dict(torch.load("nn_for_bo/v3_model_weights.pth"))
         self.mlp.eval()
         self.mlp.double()  # for double input from GPyTorch
         self.target = target
@@ -308,7 +310,7 @@ class BeamNNPrior(Mean):
             torch.abs(out_beam[..., 0]) < self.half_x_size,
             torch.abs(out_beam[..., 2]) < self.half_y_size,
         )  # check if both x and y position are inside the screen
-        is_beam_on_screen = torch.where(is_beam_on_screen == True, 1, -1)
+        is_beam_on_screen = torch.where(is_beam_on_screen, 1, -1)
 
         on_screen_reward = self.w_on_screen_reward * is_beam_on_screen
         pred_reward = logmae + on_screen_reward

@@ -111,7 +111,11 @@ def optimize_donkey_bo_combo(
         observation, reward, done, info = env.step(action)
         i += 1
 
-    if bo_takeover is not None and unwrap_wrapper(env, RecordEpisode).infos[-1]["l1_distance"] > bo_takeover * 4:
+    if (
+        bo_takeover is not None
+        and unwrap_wrapper(env, RecordEpisode).infos[-1]["l1_distance"]
+        > bo_takeover * 4
+    ):
         print("BO is taking over")
         # Prepare env for BO
         env = unwrap_wrapper(env, FlattenObservation)
@@ -157,14 +161,18 @@ def optimize_donkey_bo_combo(
             action = X[Y.argmax()].detach().numpy()
             env.step(action)
 
-        elog_wrapper.model_name += f" taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
+        elog_wrapper.model_name += (
+            f" taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
+        )
     else:
         print("RL is continuing")
         while not done:
             action, _ = model.predict(observation, deterministic=True)
             observation, reward, done, info = env.step(action)
 
-        elog_wrapper.model_name += f" not taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
+        elog_wrapper.model_name += (
+            f" not taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
+        )
 
     f"{model_name} followed taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
     env.close()

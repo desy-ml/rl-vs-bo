@@ -186,7 +186,9 @@ def optimize_donkey(
     env = RescaleAction(env, -1, 1)
 
     # TODO temporary for experiment 20 December 2022
-    env = SetUpstreamSteererAtStep(env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=-0.1518)
+    env = SetUpstreamSteererAtStep(
+        env, steps_to_trigger=40, steerer="ARLIMCHM1", mrad=-0.1518
+    )
 
     callback.env = env
 
@@ -429,8 +431,8 @@ class ARESEADOOCS(ARESEA):
 
     def capture_clean_beam_image(self, average=5):
         """
-        Capture a clean image of the beam from the screen using `average` images with beam on and
-        `average` images of the background and then removing the background.
+        Capture a clean image of the beam from the screen using `average` images with
+        beam on and `average` images of the background and then removing the background.
 
         Saves the image to a property of the object.
         """
@@ -462,7 +464,9 @@ class ARESEADOOCS(ARESEA):
         return pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"]
 
     def set_cathode_laser(self, setto):
-        """Sets the bool switch of the cathode laser event to `setto` and waits a second."""
+        """
+        Sets the bool switch of the cathode laser event to `setto` and waits a second.
+        """
         address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
         bits = pydoocs.read(address)["data"]
         bits[0] = 1 if setto else 0
@@ -499,7 +503,9 @@ class ARESEADOOCS(ARESEA):
             info[steerer] = response["data"] / 1000
 
         # Gun solenoid
-        info["gun_solenoid"] = pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV")["data"]
+        info["gun_solenoid"] = pydoocs.read(
+            "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV"
+        )["data"]
 
         return info
 
@@ -599,7 +605,7 @@ class TestCallback(BaseCallback):
         return False
 
     def environment_close(self):
-        print(f"""environment_close""")
+        print("""environment_close""")
 
 
 class OptimizeFunctionCallback(gym.Wrapper):

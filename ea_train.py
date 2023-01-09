@@ -5,6 +5,7 @@ import cheetah
 import cv2
 import gym
 import numpy as np
+import wandb
 from gym import spaces
 from gym.wrappers import (
     FilterObservation,
@@ -14,14 +15,12 @@ from gym.wrappers import (
     RescaleAction,
     TimeLimit,
 )
-from sb3_contrib import TRPO
-from stable_baselines3 import PPO, SAC, TD3
+from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
 
-import wandb
 from ARESlatticeStage3v1_9 import cell as ares_lattice
 from utils import FilterAction, save_config
 
@@ -404,8 +403,6 @@ class ARESEA(gym.Env):
 
         # For readibility in computations below
         cb = current_beam
-        ib = self.initial_screen_beam
-        pb = self.previous_beam
         tb = self.target_beam
 
         # Compute if done (beam within threshold for a certain time)
@@ -417,7 +414,7 @@ class ARESEA(gym.Env):
                 self.target_sigma_y_threshold,
             ]
         )
-        threshold[threshold == None] = 0.0
+        threshold[threshold is None] = 0.0
         is_in_threshold = np.abs(cb - tb) < threshold
         self.is_in_threshold_history.append(is_in_threshold)
         is_stable_in_threshold = bool(
@@ -616,10 +613,12 @@ class ARESEA(gym.Env):
         )
 
         # TODO I'm not sure if the order with log is okay this way
-        
+
         if self.log_beam_distance:
             compute_raw_beam_distance = compute_beam_distance
-            compute_beam_distance = lambda beam: np.log(compute_raw_beam_distance(beam))
+            compute_beam_distance = lambda beam: np.log(  # noqa: E731
+                compute_raw_beam_distance(beam)
+            )
 
         if self.reward_mode == "feedback":
             current_distance = compute_beam_distance(current_beam)
