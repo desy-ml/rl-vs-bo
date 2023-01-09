@@ -178,6 +178,8 @@ class Study:
     """
 
     def __init__(self, episodes: list[Episode], name: Optional[str] = None) -> None:
+        assert len(episodes) > 0, "No episodes passed to study at initialisation."
+
         self.episodes = episodes
         self.name = name
 
