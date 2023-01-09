@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pickle
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
@@ -14,15 +15,40 @@ import seaborn as sns
 class Episode:
     """An episode of an ARES EA optimisation."""
 
-    def __init__(self, data: dict, problem_index: Optional[int] = None):
-        self.data = data
+    def __init__(
+        self,
+        observations: list[Union[dict, np.ndarray]],
+        rewards: list[float],
+        infos: list[dict],
+        actions: list[np.ndarray],
+        t_start: datetime,
+        t_end: datetime,
+        steps_taken: int,
+        step_start_times: Optional[
+            list[datetime]
+        ] = None,  # Optional because not all recordings have them
+        step_end_times: Optional[
+            list[datetime]
+        ] = None,  # Optional because not all recordings have them
+        problem_index: Optional[int] = None,
+    ):
+        self.observations = observations
+        self.rewards = rewards
+        self.infos = infos
+        self.actions = actions
+        self.t_start = t_start
+        self.t_end = t_end
+        self.steps_taken = steps_taken
+        self.step_start_times = step_start_times
+        self.step_end_times = step_end_times
         self.problem_index = problem_index
 
-        for key, value in data.items():
-            setattr(self, key, value)
-
     @classmethod
-    def load(cls, path: Union[Path, str], use_problem_index: bool = False) -> Episode:
+    def load(
+        cls,
+        path: Union[Path, str],
+        use_problem_index: bool = False,
+    ) -> Episode:
         """Load the data from one episode recording .pkl file."""
         if isinstance(path, str):
             path = Path(path)
@@ -31,7 +57,7 @@ class Episode:
             data = pickle.load(f)
         problem_index = parse_problem_index(path) if use_problem_index else None
 
-        return cls(data, problem_index=problem_index)
+        return cls(**data, problem_index=problem_index)
 
     def __len__(self) -> int:
         return len(
