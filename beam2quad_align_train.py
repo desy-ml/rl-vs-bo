@@ -4,7 +4,6 @@ import cheetah
 import gym
 import numpy as np
 import wandb
-import yaml
 from gym import spaces
 from gym.wrappers import (
     FilterObservation,
