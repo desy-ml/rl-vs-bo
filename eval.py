@@ -203,6 +203,28 @@ class Episode:
 
         plt.show()
 
+    def plot_magnets(self) -> None:
+        """Plot magnet values over episdoe."""
+        magnets = np.array([obs["magnets"] for obs in self.observations])
+
+        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(6, 6))
+        ax0.set_title("Magnet Settings")
+        ax0.plot(magnets[:, 0], label="Q1")
+        ax0.plot(magnets[:, 1], label="Q2")
+        ax0.plot(magnets[:, 3], label="Q3")
+        ax0.set_ylabel("Quadrupole Strength (m^(-2))")
+        ax0.grid()
+        ax0.legend()
+
+        ax1.plot(magnets[:, 2], label="CV")
+        ax1.plot(magnets[:, 4], label="CH")
+        ax1.set_ylabel("Steering Angle (rad)")
+        ax1.grid()
+        ax1.legend()
+        ax1.sharex(ax0)
+
+        plt.show()
+
     def drop_screen_images(self):
         """
         Drop all screen images from this loaded copy of the episode. This can help to
