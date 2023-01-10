@@ -64,18 +64,6 @@ config = {
 }
 
 
-def calculate_objective(env, observation, reward, obj="reward", w_on_screen=10):
-    """Obsolete
-    A wrapper for getting objective not (yet) defined in the class
-
-    Could be interesting objectives:
-        worstlogl1: take the log of the worst L1 value of the beam parameters
-        logmae: as used before log(MAE(current_beam - target_beam))
-    """
-    print("Obsolete now, use directly the reward in environment!")
-    return reward
-
-
 def scale_action(env, observation, filter_action=None):
     """Scale the observed magnet settings to proper action values"""
     unflattened = (
