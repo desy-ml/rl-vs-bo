@@ -3,7 +3,6 @@ from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
-from stable_baselines3 import TD3
 from tqdm.notebook import tqdm
 
 from ea_train import ARESEACheetah
@@ -16,11 +15,6 @@ from utils import RecordEpisode
 
 
 def try_problem(problem_index: dict, problem: int) -> None:
-    model_name = "polished-donkey-996"
-
-    # Load the model
-    model = TD3.load(f"models/{model_name}/model")
-
     # Create the environment
     env = ARESEACheetah(
         action_mode="direct",

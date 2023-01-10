@@ -1,6 +1,6 @@
 """Evaluate BO with a NN prior"""
 import json
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from itertools import repeat
 
 import numpy as np

@@ -133,7 +133,6 @@ def try_problem(problem_index: int, problem: dict):
         )
 
     stepsize = config["stepsize"]
-    obj_function = config["obj_function"]
     acquisition = config["acquisition"]
     init_x = config["init_x"]
     init_samples = config["init_samples"]
@@ -197,9 +196,7 @@ def main():
         problems = json.load(f)
 
     with ProcessPoolExecutor() as executor:
-        futures = tqdm(
-            executor.map(try_problem, range(len(problems)), problems), total=300
-        )
+        _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
 
 
 if __name__ == "__main__":

@@ -176,8 +176,11 @@ def send_to_elog(author, title, severity, text, elog, image=None):
             elogXMLStringList.append("<image>")
             elogXMLStringList.append(encodedImage.decode())
             elogXMLStringList.append("</image>")
-        except:  # make elog entry anyway, but return error (succeded = False)
+        except (
+            Exception
+        ) as e:  # make elog entry anyway, but return error (succeded = False)
             succeded = False
+            print(f"When appending image, encounterd exception {e}")
     # list end
     elogXMLStringList.append("</entry>")
     # join list to the final string
@@ -192,7 +195,7 @@ def send_to_elog(author, title, severity, text, elog, image=None):
         # send printer job
         lpr.communicate(elogXMLString.encode("utf-8"))
     except Exception as e:
-        print(e)
+        print(f"When sending log entry to printer process, encounterd exception {e}")
         succeded = False
     return succeded
 
@@ -475,8 +478,8 @@ class FilterAction(gym.ActionWrapper):
 
 class NotVecNormalize(gym.Wrapper):
     """
-    Normal Gym wrapper that replicates the functionality of Stable Baselines3's VecNormalize wrapper
-    for non VecEnvs (i.e. `gym.Env`) in production.
+    Normal Gym wrapper that replicates the functionality of Stable Baselines3's
+    VecNormalize wrapper for non VecEnvs (i.e. `gym.Env`) in production.
     """
 
     def __init__(self, env, path):
@@ -594,7 +597,9 @@ class RecordEpisode(gym.Wrapper):
             self.save_dir = os.path.abspath(save_dir)
             if os.path.isdir(self.save_dir):
                 print(
-                    f"Overwriting existing data recordings at {self.save_dir} folder. Specify a different `save_dir` for the `RecordEpisode` wrapper if this is not desired."
+                    f"Overwriting existing data recordings at {self.save_dir} folder."
+                    " Specify a different `save_dir` for the `RecordEpisode` wrapper"
+                    " if this is not desired."
                 )
             os.makedirs(self.save_dir, exist_ok=True)
 
@@ -692,7 +697,8 @@ class SLURMRescheduleCallback(BaseCallback):
         self.t_last = t_now
         if passed_time + dt > self.allowed_time:
             os.system(
-                f"sbatch --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh"
+                "sbatch"
+                f" --export=ALL,WANDB_RESUME=allow,WANDB_RUN_ID={wandb.run.id} td3.sh"
             )
             if self.verbose > 1:
                 print("Scheduling new batch job to continue training")
@@ -700,7 +706,8 @@ class SLURMRescheduleCallback(BaseCallback):
         else:
             if self.verbose > 1:
                 print(
-                    f"Continue running with this SLURM job (passed={passed_time} / allowed={self.allowed_time} / dt={dt})"
+                    f"Continue running with this SLURM job (passed={passed_time} /"
+                    f" allowed={self.allowed_time} / dt={dt})"
                 )
             return True
 
