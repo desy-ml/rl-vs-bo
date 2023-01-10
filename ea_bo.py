@@ -37,7 +37,7 @@ config = {
     "n_envs": 40,
     "normalize_observation": True,
     "normalize_reward": True,
-    "rescale_action": (-1, 1),
+    "rescale_action": (-3, 3),  # TODO this was -1, 1 in most real-world experiments
     "reward_mode": "feedback",
     "sb3_device": "auto",
     "target_beam_mode": "constant",
