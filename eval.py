@@ -219,9 +219,26 @@ class Episode:
         ax1.plot(magnets[:, 2], label="CV")
         ax1.plot(magnets[:, 4], label="CH")
         ax1.set_ylabel("Steering Angle (rad)")
+        ax1.set_xlabel("Step")
         ax1.grid()
         ax1.legend()
         ax1.sharex(ax0)
+
+        plt.show()
+
+    def plot_maes(self, show_best_mae: bool = True):
+        """
+        Plot MAE over time. If `show_best_mae` is `True`, add best MAE seen up to a
+        certain point to the plot.
+        """
+        plt.figure(figsize=(6, 3))
+        plt.plot(self.maes(), label="MAE")
+        if show_best_mae:
+            plt.plot(self.min_maes(), label="Best MAE")
+            plt.legend()
+        plt.grid()
+        plt.ylabel("MAE (m)")
+        plt.xlabel("Step")
 
         plt.show()
 
