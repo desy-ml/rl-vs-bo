@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import numpy as np
-import torch
 from gym.wrappers import (
     FilterObservation,
     FlattenObservation,
@@ -11,7 +10,7 @@ from gym.wrappers import (
     TimeLimit,
 )
 
-from bayesopt import get_new_bound, get_next_samples, scale_action
+from bayesopt import BayesianOptimizationAgent
 from ea_optimize import (
     ARESEADOOCS,
     ARESEAeLog,
@@ -144,58 +143,29 @@ def optimize(
             env, config["rescale_action"][0], config["rescale_action"][1]
         )
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
-    # env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
+
+    model = BayesianOptimizationAgent(
+        env=env,
+        filter_action=filter_action,
+        stepsize=stepsize,
+        init_samples=init_samples,
+        acquisition=acquisition,
+        mean_module=mean_module,
+    )
 
     callback.env = env
 
     # Actual optimisation
     observation = env.reset()
+    reward = None
     done = False
-
-    # Initialization
-    x_dim = env.action_space.shape[0]
-    # bounds = torch.tensor(
-    #     np.array([env.action_space.low, env.action_space.high]), dtype=torch.float32
-    # )
-    if init_x is not None:  # From fix starting points
-        X = torch.tensor(init_x.reshape(-1, x_dim), dtype=torch.float32)
-    else:  # Random Initialization-5.7934
-        action_i = scale_action(env, observation, filter_action)
-        X = torch.tensor([action_i], dtype=torch.float32)
-        bounds = get_new_bound(env, action_i, stepsize)
-        for i in range(init_samples - 1):
-            new_action = np.random.uniform(low=bounds[0], high=bounds[1]).reshape(1, -1)
-            X = torch.cat([X, torch.tensor(new_action)])
-    # Sample initial Ys to build GP
-    Y = torch.empty((X.shape[0], 1))
-    for i, action in enumerate(X):
-        action = action.detach().numpy()
-        _, objective, done, _ = env.step(action)
-        Y[i] = torch.tensor(objective)
-
-    # Actual BO Loop
     while not done:
-        current_action = X[-1].detach().numpy()
-        bounds = get_new_bound(env, current_action, stepsize)
-        action_t = get_next_samples(
-            X.double(),
-            Y.double(),
-            Y.max(),
-            torch.tensor(bounds, dtype=torch.double),
-            n_points=1,
-            acquisition=acquisition,
-            mean_module=mean_module,
-        )
-        action = action_t.detach().numpy().flatten()
-        _, objective, done, _ = env.step(action)
+        action = model.predict(observation, reward)
+        observation, reward, done, info = env.step(action)
 
-        # append data
-        X = torch.cat([X, action_t])
-        Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
-
-    # Set back to
+    # Set back to best
     if set_to_best:
-        action = X[Y.argmax()].detach().numpy()
+        action = model.X[model.Y.argmax()].detach().numpy()
         env.step(action)
 
     env.close()
