@@ -325,4 +325,97 @@ def denormalize_output(y_nn: torch.Tensor) -> torch.Tensor:
     return y_nn
 
 
+class BayesianOptimizationAgent:
+    """
+    Provide an interface to Bayesian Optimisation similar to Stable Baselines3 RL
+    agents.
+    """
+
+    def __init__(
+        self,
+        env: gym.Env,
+        filter_action=None,
+        stepsize=0.1,
+        init_samples=5,
+        acquisition="EI",
+        mean_module=None,
+    ) -> None:
+        self.env = env
+        self.filter_action = filter_action
+        self.stepsize = stepsize
+        self.init_samples = init_samples
+        self.acquisition = acquisition
+        self.mean_module = mean_module
+
+    def predict(self, observation, reward=None):
+        self.validate_x_and_y_state()
+
+        # If a reward was passed, create Y or append to Y depending on if Y exists
+        if reward is not None:
+            print(f"RECEIVED REWARD {reward= }")
+            reward_tensor = torch.tensor([[reward]], dtype=torch.float32)
+            self.Y = (
+                torch.cat([self.Y, reward_tensor])
+                if hasattr(self, "Y")
+                else reward_tensor
+            )
+            print(f"{self.Y = }")
+
+        # First sample
+        if not hasattr(self, "X"):
+            print("FIRST SAMPLE")
+            print(f"{observation = }")
+            print(f"{self.filter_action = }")
+            initial_action = scale_action(self.env, observation, self.filter_action)
+            print(f"{initial_action = }")
+            self.X = torch.tensor([initial_action], dtype=torch.float32)
+            print(f"{self.X = }")
+            return initial_action
+
+        # Initial random samples after initial sample
+        if len(self.X) < self.init_samples:
+            print(f"INITIAL SAMPLE {len(self.X) = }")
+            last_action = self.X[0].detach().numpy()
+            print(f"{last_action = }")
+            bounds = get_new_bound(self.env, last_action, self.stepsize)
+            print(f"{bounds = }")
+            new_action = np.random.uniform(low=bounds[0], high=bounds[1])
+            new_action_tensor = torch.tensor(new_action, dtype=torch.float32).reshape(
+                1, -1
+            )
+            self.X = torch.cat([self.X, new_action_tensor])
+            return new_action
+
+        # All "normal" samples after the initial samples
+        last_action = self.X[-1].detach().numpy()
+        bounds = get_new_bound(self.env, last_action, self.stepsize)
+        action_tensor = get_next_samples(
+            self.X.double(),
+            self.Y.double(),
+            self.Y.max(),
+            torch.tensor(bounds, dtype=torch.double),
+            n_points=1,
+            acquisition=self.acquisition,
+            mean_module=self.mean_module,
+        )
+        self.X = torch.cat([self.X, action_tensor])
+
+        return self.X[-1].detach().numpy()
+
+    def validate_x_and_y_state(self) -> None:
+        """
+        Raise `AssertionError` when `self.X` and `self.Y` are in an invalid state in
+        terms of their existance and shapes.
+        """
+        no_x_and_y = not hasattr(self, "X") and not hasattr(self, "Y")
+        only_x = hasattr(self, "X") and len(self.X) == 1 and not hasattr(self, "Y")
+        both_x_and_y = (
+            hasattr(self, "X") and hasattr(self, "Y") and len(self.X) - len(self.Y) == 1
+        )
+        assert no_x_and_y or only_x or both_x_and_y, (
+            f"BO optimisation has reach invalid state {no_x_and_y = }, {only_x = },"
+            f" {both_x_and_y = }"
+        )
+
+
 # TODO: Just for testing, we can also add proximal biasing?
