@@ -412,9 +412,10 @@ class ARESEA(gym.Env):
                 self.target_sigma_x_threshold,
                 self.target_mu_y_threshold,
                 self.target_sigma_y_threshold,
-            ]
+            ],
+            dtype=np.double,
         )
-        threshold[threshold == None] = 0.0
+        threshold = np.nan_to_num(threshold)
         is_in_threshold = np.abs(cb - tb) < threshold
         self.is_in_threshold_history.append(is_in_threshold)
         is_stable_in_threshold = bool(
