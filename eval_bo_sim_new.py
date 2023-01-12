@@ -55,7 +55,7 @@ def try_problem(problem_index: int, problem: dict):
         "max_steps": 150,
         "misalignment_mode": "constant",
         "misalignment_values": convert_misalignments_from_problem(problem),
-        "rescale_action": (-3, 3),
+        "rescale_action": (-1, 1),
         "reward_mode": "feedback",
         "target_beam_mode": "constant",
         "target_beam_values": convert_target_from_problem(problem),
@@ -69,7 +69,7 @@ def try_problem(problem_index: int, problem: dict):
         "w_mu_x_in_threshold": 0.0,
         "w_mu_y": 1.0,
         "w_mu_y_in_threshold": 0.0,
-        "w_on_screen": 100.0,
+        "w_on_screen": 10.0,
         "w_sigma_x": 1.0,
         "w_sigma_x_in_threshold": 0.0,
         "w_sigma_y": 1.0,
@@ -118,7 +118,7 @@ def try_problem(problem_index: int, problem: dict):
     env = RecordEpisode(
         env,
         save_dir=(
-            f"data/bo_vs_rl/simulation/bo_refactor_test_3/problem_{problem_index:03d}"
+            f"data/bo_vs_rl/simulation/bo_refactor_test_5/problem_{problem_index:03d}"
         ),
     )
     if config["filter_observation"] is not None:
