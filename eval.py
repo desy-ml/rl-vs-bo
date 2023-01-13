@@ -345,20 +345,38 @@ class Study:
         final_maes = [episode[-1] for episode in maes]  # TODO Why was there index -2 ?
         return np.median(final_maes)
 
-    def median_steps_to_convergence(self, threshold: float = 20e-6) -> float:
+    def median_steps_to_convergence(
+        self, threshold: float = 20e-6, max_steps: Optional[int] = None
+    ) -> Optional[float]:
         """
         Median number of steps until best seen MAE no longer improves by more than
-        `threshold`.
+        `threshold`. If `max_steps` is given, only consider episodes that converged in
+        less than `max_steps`. Returns `None` if no runs got there in less than
+        `max_steps`.
         """
         steps = [episode.steps_to_convergence(threshold) for episode in self.episodes]
-        return np.median(steps)
 
-    def median_steps_to_threshold(self, threshold: float = 20e-6) -> float:
+        if max_steps:
+            steps = np.array(steps)
+            steps = steps[steps < max_steps]
+
+        return np.median(steps) if len(steps) > 0 else None
+
+    def median_steps_to_threshold(
+        self, threshold: float = 20e-6, max_steps: Optional[int] = None
+    ) -> Optional[float]:
         """
         Median number of steps until best seen MAE drops below (resolution) `threshold`.
+        If `max_steps` is given, only consider episodes that got below threshold in less
+        than `max_steps`. Returns `None` if no runs got there in less than `max_steps`.
         """
         steps = [episode.steps_to_threshold(threshold) for episode in self.episodes]
-        return np.median(steps)
+
+        if max_steps:
+            steps = np.array(steps)
+            steps = steps[steps < max_steps]
+
+        return np.median(steps) if len(steps) > 0 else None
 
     def problem_indicies(self) -> list[int]:
         """
