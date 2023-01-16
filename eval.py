@@ -181,10 +181,10 @@ class Episode:
 
         plt.figure(figsize=(6, 3))
 
-        plt.plot(np.array(beams)[:, 0] * 1e3, label="mu_x", c="tab:blue")
-        plt.plot(np.array(beams)[:, 1] * 1e3, label="sigma_x", c="tab:orange")
-        plt.plot(np.array(beams)[:, 2] * 1e3, label="mu_y", c="tab:green")
-        plt.plot(np.array(beams)[:, 3] * 1e3, label="sigma_y", c="tab:red")
+        plt.plot(np.array(beams)[:, 0] * 1e3, label=r"$\mu_x$", c="tab:blue")
+        plt.plot(np.array(beams)[:, 1] * 1e3, label=r"$\sigma_x$", c="tab:orange")
+        plt.plot(np.array(beams)[:, 2] * 1e3, label=r"$\mu_y$", c="tab:green")
+        plt.plot(np.array(beams)[:, 3] * 1e3, label=r"$\sigma_y$", c="tab:red")
 
         if show_target:
             plt.plot(np.array(targets)[:, 0] * 1e3, c="tab:blue", ls="--")
