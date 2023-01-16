@@ -622,13 +622,15 @@ def plot_best_mae_diff_over_problem(
 def plot_best_mae_over_time(
     studies: list[Study],
     threshold: Optional[float] = None,
+    logarithmic: bool = False,
     title: Optional[str] = "Mean Best MAE Over Time",
     study_name_str: str = "Study",
     save_path: Optional[str] = None,
 ) -> None:
     """
     Plot mean best seen MAE over all episdoes over time. Optionally display a
-    `threshold` line to mark measurement limit.
+    `threshold` line to mark measurement limit. Set `logarithmic` to `True` to log scale
+    the y-axis.
     """
     dfs = []
     for study in studies:
@@ -656,7 +658,10 @@ def plot_best_mae_over_time(
     sns.lineplot(x="Step", y="MAE (mm)", hue=study_name_str, data=combined_df)
     plt.title(title)
     plt.xlim(0, None)
-    plt.ylim(0, None)
+    if logarithmic:
+        plt.yscale("log")
+    else:
+        plt.ylim(0, None)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
@@ -700,13 +705,14 @@ def plot_final_mae_box(studies: list[Study], save_path: Optional[str] = None) ->
 def plot_mae_over_time(
     studies: list[Study],
     threshold: Optional[float] = None,
+    logarithmic: bool = False,
     title: Optional[str] = "Mean MAE Over Time",
     study_name_str: str = "Study",
     save_path: Optional[str] = None,
 ) -> None:
     """
     Plot mean MAE of over episodes over time. Optionally display a `threshold` line to
-    mark measurement limit.
+    mark measurement limit. Set `logarithmic` to `True` to log scale the y-axis.
     """
     dfs = []
     for study in studies:
@@ -734,7 +740,10 @@ def plot_mae_over_time(
     sns.lineplot(x="Step", y="MAE (mm)", hue=study_name_str, data=combined_df)
     plt.title(title)
     plt.xlim(0, None)
-    plt.ylim(0, None)
+    if logarithmic:
+        plt.yscale("log")
+    else:
+        plt.ylim(0, None)
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
