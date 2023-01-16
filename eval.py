@@ -197,6 +197,7 @@ class Episode:
         plt.ylabel("Beam Parameter (mm)")
         plt.grid()
         plt.legend()
+        plt.tight_layout()
 
         if save_path is not None:
             plt.savefig(save_path)
