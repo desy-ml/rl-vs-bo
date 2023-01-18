@@ -672,7 +672,11 @@ def plot_best_mae_over_time(
     plt.show()
 
 
-def plot_final_mae_box(studies: list[Study], save_path: Optional[str] = None) -> None:
+def plot_final_mae_box(
+    studies: list[Study],
+    title: Optional[str] = "Final MAEs",
+    save_path: Optional[str] = None,
+) -> None:
     """
     Box plot of the final MAE that the algorithm stopped at (without returning to best
     seen).
@@ -688,10 +692,13 @@ def plot_final_mae_box(studies: list[Study], save_path: Optional[str] = None) ->
         combined_final_maes += final_maes
         combined_names += names
 
+    combined_final_maes = np.array(combined_final_maes) * 1e6  # Convert to micro meters
+
     plt.figure(figsize=(5, 0.6 * len(studies)))
-    plt.title("Final MAEs")
+    plt.title(title)
     sns.boxplot(x=combined_final_maes, y=combined_names)
     plt.xscale("log")
+    plt.xlabel("MAE (μm)")
     plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
