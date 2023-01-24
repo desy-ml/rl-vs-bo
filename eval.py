@@ -169,32 +169,43 @@ class Episode:
     def plot_beam_parameters(
         self,
         show_target: bool = True,
+        vertical_marker: Union[float, tuple[float, str]] = None,
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
         """
         Plot beam parameters over the episode and optionally add the target beam
-        parameters if `show_target` is `True`.
+        parameters if `show_target` is `True`. A vertical line to mark a point in time
+        may be added via `vertical_marker` either by just its position as a float or by
+        a tuple of its position and the string label that should be shown in the legend.
         """
         beams = [obs["beam"] for obs in self.observations]
         targets = [obs["target"] for obs in self.observations]
 
         plt.figure(figsize=(6, 3))
 
-        plt.plot(np.array(beams)[:, 0] * 1e3, label=r"$\mu_x$", c="tab:blue")
-        plt.plot(np.array(beams)[:, 1] * 1e3, label=r"$\sigma_x$", c="tab:orange")
-        plt.plot(np.array(beams)[:, 2] * 1e3, label=r"$\mu_y$", c="tab:green")
-        plt.plot(np.array(beams)[:, 3] * 1e3, label=r"$\sigma_y$", c="tab:red")
+        if isinstance(vertical_marker, (int, float)):
+            plt.axvline(vertical_marker, ls="--", color="tab:purple")
+        elif isinstance(vertical_marker, tuple):
+            marker_position, marker_label = vertical_marker
+            plt.axvline(
+                marker_position, label=marker_label, ls="--", color="tab:purple"
+            )
+
+        plt.plot(np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c="tab:blue")
+        plt.plot(np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c="tab:orange")
+        plt.plot(np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c="tab:green")
+        plt.plot(np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c="tab:red")
 
         if show_target:
-            plt.plot(np.array(targets)[:, 0] * 1e3, c="tab:blue", ls="--")
-            plt.plot(np.array(targets)[:, 1] * 1e3, c="tab:orange", ls="--")
-            plt.plot(np.array(targets)[:, 2] * 1e3, c="tab:green", ls="--")
-            plt.plot(np.array(targets)[:, 3] * 1e3, c="tab:red", ls="--")
+            plt.plot(np.array(targets)[:, 0] * 1e6, c="tab:blue", ls="--")
+            plt.plot(np.array(targets)[:, 1] * 1e6, c="tab:orange", ls="--")
+            plt.plot(np.array(targets)[:, 2] * 1e6, c="tab:green", ls="--")
+            plt.plot(np.array(targets)[:, 3] * 1e6, c="tab:red", ls="--")
 
         plt.title(title)
         plt.xlabel("Step")
-        plt.ylabel("Beam Parameter (mm)")
+        plt.ylabel("Beam Parameter (μm)")
         plt.grid()
         plt.legend()
         plt.tight_layout()
