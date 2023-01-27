@@ -307,6 +307,7 @@ class Study:
         return Study(episodes, name=name)
 
     def __len__(self) -> int:
+        """A study's length is the number of episodes in it."""
         return len(self.episodes)
 
     def head(self, n: int, keep_last: bool = False) -> Study:
