@@ -1,14 +1,7 @@
 from datetime import datetime
 
 import numpy as np
-from gym.wrappers import (
-    FilterObservation,
-    FlattenObservation,
-    FrameStack,
-    RecordVideo,
-    RescaleAction,
-    TimeLimit,
-)
+from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLimit
 
 from bayesopt import BayesianOptimizationAgent
 from ea_optimize import (
@@ -20,50 +13,6 @@ from ea_optimize import (
     setup_callback,
 )
 from utils import FilterAction, RecordEpisode
-
-config = {
-    "action_mode": "direct_unidirectional_quads",
-    "gamma": 0.99,
-    # "filter_action": [0, 1, 3],
-    "filter_action": None,
-    "filter_observation": None,
-    "frame_stack": None,
-    "incoming_mode": "random",
-    "incoming_values": None,
-    "magnet_init_mode": "constant",
-    # "magnet_init_values": np.array([10, -10, 0, 10, 0]),
-    "misalignment_mode": "constant",
-    "misalignment_values": np.zeros(8),
-    "n_envs": 40,
-    "normalize_observation": True,
-    "normalize_reward": True,
-    "rescale_action": (-3, 3),  # TODO this was -1, 1 in most real-world experiments
-    "reward_mode": "feedback",
-    "sb3_device": "auto",
-    "target_beam_mode": "constant",
-    "target_beam_values": np.zeros(4),
-    "target_mu_x_threshold": 1e-5,
-    "target_mu_y_threshold": 1e-5,
-    "target_sigma_x_threshold": 1e-5,
-    "target_sigma_y_threshold": 1e-5,
-    "threshold_hold": 5,
-    "time_limit": 50000,
-    "vec_env": "subproc",
-    "w_done": 0.0,
-    "w_mu_x": 1.0,
-    "w_mu_x_in_threshold": 0.0,
-    "w_mu_y": 1.0,
-    "w_mu_y_in_threshold": 0.0,
-    "w_on_screen": 10.0,
-    "w_sigma_x": 1.0,
-    "w_sigma_x_in_threshold": 0.0,
-    "w_sigma_y": 1.0,
-    "w_sigma_y_in_threshold": 0.0,
-    "w_time": 0.0,
-}
-
-
-# define a similar optimize function as in ea_optimize.py
 
 
 def optimize(
@@ -86,6 +35,7 @@ def optimize(
     init_x=None,
     init_samples=5,
     filter_action=None,
+    rescale_action=(-3, 3),  # TODO this was -1, 1 in most real-world experiments
     magnet_init_values=np.array([10, -10, 0, 10, 0]),
     set_to_best=True,  # set back to best found setting after opt.
     mean_module=None,
@@ -94,11 +44,11 @@ def optimize(
 
     # Create the environment
     env = ARESEADOOCS(
-        action_mode=config["action_mode"],
-        magnet_init_mode=config["magnet_init_mode"],
+        action_mode="direct_unidirectional_quads",
+        magnet_init_mode="constant",
         magnet_init_values=magnet_init_values,
-        reward_mode=config["reward_mode"],
-        target_beam_mode=config["target_beam_mode"],
+        reward_mode="feedback",
+        target_beam_mode="constant",
         target_beam_values=np.array(
             [target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]
         ),
@@ -107,17 +57,17 @@ def optimize(
         target_sigma_x_threshold=target_sigma_x_threshold,
         target_sigma_y_threshold=target_sigma_y_threshold,
         threshold_hold=1,
-        w_done=config["w_done"],
-        w_mu_x=config["w_mu_x"],
-        w_mu_x_in_threshold=config["w_mu_x_in_threshold"],
-        w_mu_y=config["w_mu_y"],
-        w_mu_y_in_threshold=config["w_mu_y_in_threshold"],
-        w_on_screen=config["w_on_screen"],
-        w_sigma_x=config["w_sigma_x"],
-        w_sigma_x_in_threshold=config["w_sigma_x_in_threshold"],
-        w_sigma_y=config["w_sigma_y"],
-        w_sigma_y_in_threshold=config["w_sigma_y_in_threshold"],
-        w_time=config["w_time"],
+        w_done=0.0,
+        w_mu_x=1.0,
+        w_mu_x_in_threshold=0.0,
+        w_mu_y=1.0,
+        w_mu_y_in_threshold=0.0,
+        w_on_screen=10.0,
+        w_sigma_x=1.0,
+        w_sigma_x_in_threshold=0.0,
+        w_sigma_y=1.0,
+        w_sigma_y_in_threshold=0.0,
+        w_time=0.0,
         log_beam_distance=True,
         normalize_beam_distance=False,
     )
@@ -131,17 +81,11 @@ def optimize(
         env = RecordEpisode(env, save_dir=data_log_dir)
     if logbook:
         env = ARESEAeLog(env, model_name=model_name)
-    if config["filter_observation"] is not None:
-        env = FilterObservation(env, config["filter_observation"])
-    if config["filter_action"] is not None:
-        env = FilterAction(env, config["filter_action"], replace=0)
+    if filter_action is not None:
+        env = FilterAction(env, filter_action, replace=0)
     env = FlattenObservation(env)
-    if config["frame_stack"] is not None:
-        env = FrameStack(env, config["frame_stack"])
-    if config["rescale_action"] is not None:
-        env = RescaleAction(
-            env, config["rescale_action"][0], config["rescale_action"][1]
-        )
+    if rescale_action is not None:
+        env = RescaleAction(env, rescale_action[0], rescale_action[1])
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")
 
     model = BayesianOptimizationAgent(
