@@ -74,7 +74,7 @@ class ARESEAOcelot(ARESEA):
         w_sigma_y_in_threshold: float = 1.0,
         w_time: float = 1.0,
         # ocelot-only parameteres
-        include_sc: bool = True,
+        include_space_charge: bool = True,
         charge: float = 1e-12,  # in C
         nparticles: int = 1e5,
         unit_step: float = 0.01,  # tracking step in [m]
@@ -116,7 +116,7 @@ class ARESEAOcelot(ARESEA):
             w_sigma_y_in_threshold=w_sigma_y_in_threshold,
             w_time=w_time,
         )
-        self.include_sc = include_sc
+        self.include_space_charge = include_space_charge
         self.nparticles = int(nparticles)
         self.charge = charge
 
@@ -223,7 +223,7 @@ class ARESEAOcelot(ARESEA):
     def update_accelerator(self) -> None:
         self.outbeam = deepcopy(self.incoming)
         navi = Navigator(self.lattice)
-        if self.include_sc:
+        if self.include_space_charge:
             navi.unit_step = self.unit_step
             navi.add_physics_proc(
                 self.sc, self.lattice.sequence[0], self.lattice.sequence[-1]
