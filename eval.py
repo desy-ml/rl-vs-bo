@@ -111,6 +111,16 @@ class Episode:
         min_maes = [min(maes[: i + 1]) for i in range(len(maes))]
         return min_maes
 
+    def rmse(self) -> float:
+        """
+        RMSE over all samples in episode and over all beam parameters as used in
+        https://www.nature.com/articles/s41586-021-04301-9.
+        """
+        beams = np.stack([obs["beam"] for obs in self.observations])
+        targets = np.stack([obs["target"] for obs in self.observations])
+        rmse = np.sqrt(np.mean(np.square(targets - beams)))
+        return rmse
+
     def abs_delta_beam_parameters(self) -> np.ndarray:
         """Get the sequence of mu_x over the episdoe."""
         beams = [obs["beam"] for obs in self.observations]
