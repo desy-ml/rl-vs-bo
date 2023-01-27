@@ -111,6 +111,14 @@ class Episode:
         min_maes = [min(maes[: i + 1]) for i in range(len(maes))]
         return min_maes
 
+    def final_mae(self) -> float:
+        """MAE at the end of the episode."""
+        return self.maes()[-1]
+
+    def best_mae(self) -> float:
+        """Best MAE observed over the entire duration of the episode."""
+        return min(self.maes())
+
     def rmse(self) -> float:
         """
         RMSE over all samples in episode and over all beam parameters as used in
@@ -355,18 +363,14 @@ class Study:
 
     def median_best_mae(self) -> float:
         """Compute median of best MAEs seen until the very end of the episodes."""
-        maes = [episode.maes() for episode in self.episodes]
-        best_maes = [min(episode) for episode in maes]
-        return np.median(best_maes)
+        return np.median([episode.best_mae() for episode in self.episodes])
 
     def median_final_mae(self) -> float:
         """
         Median of the final MAE that the algorithm stopped at (without returning to best
         seen).
         """
-        maes = [episode.maes() for episode in self.episodes]
-        final_maes = [episode[-1] for episode in maes]  # TODO Why was there index -2 ?
-        return np.median(final_maes)
+        return np.median([episode.best_mae() for episode in self.episodes])
 
     def median_steps_to_convergence(
         self, threshold: float = 20e-6, max_steps: Optional[int] = None
@@ -437,10 +441,10 @@ class Study:
         sorted_episodes = [
             self.get_episodes_by_problem(problem)[0] for problem in sorted_problems
         ]
-        final_min_maes = [episode.min_maes()[-1] for episode in sorted_episodes]
+        best_maes = [episode.best_mae() for episode in sorted_episodes]
 
         plt.figure(figsize=(5, 3))
-        plt.bar(sorted_problems, final_min_maes, label=self.name)
+        plt.bar(sorted_problems, best_maes, label=self.name)
         plt.legend()
         plt.xlabel("Problem Index")
         plt.ylabel("Best MAE")
@@ -449,7 +453,7 @@ class Study:
     def plot_target_beam_size_mae_correlation(self) -> None:
         """Plot best MAEs over mean target beam size to see possible correlation."""
 
-        best_mae = [min(episode.maes()) for episode in self.episodes]
+        best_mae = [episode.best_mae() for episode in self.episodes]
         target_sizes = [episode.target_size() for episode in self.episodes]
 
         plt.figure(figsize=(5, 3))
@@ -467,9 +471,8 @@ class Study:
         the MAE seen the first time the optimal magnets were set. This should show
         effects of hysteresis (and simular effects).
         """
-        maes = [episode.maes() for episode in self.episodes]
-        best = [min(episode) for episode in maes]
-        final = [episode[-1] for episode in maes]
+        best = [episode.best_mae() for episode in self.episodes]
+        final = [episode.final_mae() for episode in self.episodes]
         deviations = np.abs(np.array(best) - np.array(final))
 
         if print_results:
@@ -522,10 +525,10 @@ def number_of_better_final_beams(
 
     problem_idxs = study_1_idxs
     best_maes_1 = [
-        min(study_1.get_episodes_by_problem(i)[0].maes()) for i in problem_idxs
+        study_1.get_episodes_by_problem(i)[0].best_mae() for i in problem_idxs
     ]
     best_maes_2 = [
-        min(study_2.get_episodes_by_problem(i)[0].maes()) for i in problem_idxs
+        study_2.get_episodes_by_problem(i)[0].best_mae() for i in problem_idxs
     ]
 
     diff = np.array(best_maes_1) - np.array(best_maes_2)
@@ -580,8 +583,7 @@ def plot_best_mae_box(studies: list[Study], save_path: Optional[str] = None) -> 
     combined_best_maes = []
     combined_names = []
     for study in studies:
-        maes = [episode.maes() for episode in study.episodes]
-        best_maes = [min(episode) for episode in maes]
+        best_maes = [episode.best_mae() for episode in study.episodes]
 
         names = [study.name] * len(best_maes)
 
@@ -620,10 +622,10 @@ def plot_best_mae_diff_over_problem(
 
     problem_idxs = study_1_idxs
     best_maes_1 = [
-        min(study_1.get_episodes_by_problem(i)[0].maes()) for i in problem_idxs
+        study_1.get_episodes_by_problem(i)[0].best_mae() for i in problem_idxs
     ]
     best_maes_2 = [
-        min(study_2.get_episodes_by_problem(i)[0].maes()) for i in problem_idxs
+        study_2.get_episodes_by_problem(i)[0].best_mae() for i in problem_idxs
     ]
 
     diff = np.array(best_maes_1) - np.array(best_maes_2)
@@ -706,8 +708,7 @@ def plot_final_mae_box(
     combined_final_maes = []
     combined_names = []
     for study in studies:
-        maes = [episode.maes() for episode in study.episodes]
-        final_maes = [episode[-1] for episode in maes]  # TODO Used to be index -2 ?
+        final_maes = [episode.final_mae() for episode in study.episodes]
 
         names = [study.name] * len(final_maes)
 
