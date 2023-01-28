@@ -32,7 +32,6 @@ def optimize(
     callback=BaseCallback(),
     stepsize=0.1,  # comparable to RL env
     acquisition="EI",
-    init_x=None,
     init_samples=5,
     filter_action=None,
     rescale_action=(-3, 3),  # TODO this was -1, 1 in most real-world experiments
