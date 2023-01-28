@@ -296,46 +296,55 @@ class ARESEAeLog(gym.Wrapper):
         steps_taken = len(self.observations) - 1
         success = np.abs(beam_after - target_beam) < target_threshold
 
-        return f"""{'Bayesian Optimisation' if self.model_name == 'Bayesian Optimisation' else 'Reinforcement Learning agent'} optimised beam on AREABSCR1
+        algorithm = (
+            "Bayesian Optimisation"
+            if self.model_name == "Bayesian Optimisation"
+            else "Reinforcement Learning agent"
+        )
 
-Agent: {self.model_name}
-Start time: {self.t_start}
-Time taken: {self.t_end - self.t_start}
-No. of steps: {steps_taken}
-
-Beam before:
-    mu_x    = {beam_before[0] * 1e3: 5.4f} mm
-    sigma_x = {beam_before[1] * 1e3: 5.4f} mm
-    mu_y    = {beam_before[2] * 1e3: 5.4f} mm
-    sigma_y = {beam_before[3] * 1e3: 5.4f} mm
-
-Beam after:
-    mu_x    = {beam_after[0] * 1e3: 5.4f} mm
-    sigma_x = {beam_after[1] * 1e3: 5.4f} mm
-    mu_y    = {beam_after[2] * 1e3: 5.4f} mm
-    sigma_y = {beam_after[3] * 1e3: 5.4f} mm
-
-Target beam:
-    mu_x    = {target_beam[0] * 1e3: 5.4f} mm    (e = {target_threshold[0] * 1e3:5.4f} mm) {';)' if success[0] else ':/'}
-    sigma_x = {target_beam[1] * 1e3: 5.4f} mm    (e = {target_threshold[1] * 1e3:5.4f} mm) {';)' if success[1] else ':/'}
-    mu_y    = {target_beam[2] * 1e3: 5.4f} mm    (e = {target_threshold[2] * 1e3:5.4f} mm) {';)' if success[2] else ':/'}
-    sigma_y = {target_beam[3] * 1e3: 5.4f} mm    (e = {target_threshold[3] * 1e3:5.4f} mm) {';)' if success[3] else ':/'}
-
-Result:
-    |delta_mu_x|    = {abs(final_deltas[0]) * 1e3: 5.4f} mm
-    |delta_sigma_x| = {abs(final_deltas[1]) * 1e3: 5.4f} mm
-    |delta_mu_y|    = {abs(final_deltas[2]) * 1e3: 5.4f} mm
-    |delta_sigma_y| = {abs(final_deltas[3]) * 1e3: 5.4f} mm
-
-    MAE = {final_mae * 1e3: 5.4f} mm
-
-Final magnet settings:
-    AREAMQZM1 strength = {final_magnets[0]: 8.4f} 1/m^2
-    AREAMQZM2 strength = {final_magnets[1]: 8.4f} 1/m^2
-    AREAMCVM1 kick     = {final_magnets[2] * 1e3: 8.4f} mrad
-    AREAMQZM3 strength = {final_magnets[3]: 8.4f} 1/m^2
-    AREAMCHM1 kick     = {final_magnets[4] * 1e3: 8.4f} mrad
-    """
+        return (
+            f"{algorithm} optimised beam on AREABSCR1\n"
+            "\n"
+            f"Agent: {self.model_name}\n"
+            f"Start time: {self.t_start}\n"
+            f"Time taken: {self.t_end - self.t_start}\n"
+            f"No. of steps: {steps_taken}\n"
+            "\n"
+            "Beam before:\n"
+            f"    mu_x    = {beam_before[0] * 1e3: 5.4f} mm\n"
+            f"    sigma_x = {beam_before[1] * 1e3: 5.4f} mm\n"
+            f"    mu_y    = {beam_before[2] * 1e3: 5.4f} mm\n"
+            f"    sigma_y = {beam_before[3] * 1e3: 5.4f} mm\n"
+            "\n"
+            "Beam after:\n"
+            f"    mu_x    = {beam_after[0] * 1e3: 5.4f} mm\n"
+            f"    sigma_x = {beam_after[1] * 1e3: 5.4f} mm\n"
+            f"    mu_y    = {beam_after[2] * 1e3: 5.4f} mm\n"
+            f"    sigma_y = {beam_after[3] * 1e3: 5.4f} mm\n"
+            "\n"
+            "Target beam:\n"
+            f"    mu_x    = {target_beam[0] * 1e3: 5.4f} mm    (e = "
+            f"{target_threshold[0] * 1e3:5.4f} mm) {';)' if success[0] else ':/'}\n"
+            f"    sigma_x = {target_beam[1] * 1e3: 5.4f} mm    (e = "
+            f"{target_threshold[1] * 1e3:5.4f} mm) {';)' if success[1] else ':/'}\n"
+            f"    mu_y    = {target_beam[2] * 1e3: 5.4f} mm    (e = "
+            f"{target_threshold[2] * 1e3:5.4f} mm) {';)' if success[2] else ':/'}\n"
+            f"    sigma_y = {target_beam[3] * 1e3: 5.4f} mm    (e = "
+            f"{target_threshold[3] * 1e3:5.4f} mm) {';)' if success[3] else ':/'}\n"
+            "\n"
+            "Result:\n"
+            f"    |delta_mu_x|    = {abs(final_deltas[0]) * 1e3: 5.4f} mm\n"
+            f"    |delta_sigma_x| = {abs(final_deltas[1]) * 1e3: 5.4f} mm\n"
+            f"    |delta_mu_y|    = {abs(final_deltas[2]) * 1e3: 5.4f} mm\n"
+            f"    |delta_sigma_y| = {abs(final_deltas[3]) * 1e3: 5.4f} mm\n"
+            "\n"
+            f"    MAE = {final_mae * 1e3: 5.4f} mm\n\nFinal magnet settings:\n"
+            f"    AREAMQZM1 strength = {final_magnets[0]: 8.4f} 1/m^2\n"
+            f"    AREAMQZM2 strength = {final_magnets[1]: 8.4f} 1/m^2\n"
+            f"    AREAMCVM1 kick     = {final_magnets[2] * 1e3: 8.4f} mrad\n"
+            f"    AREAMQZM3 strength = {final_magnets[3]: 8.4f} 1/m^2\n"
+            f"    AREAMCHM1 kick     = {final_magnets[4] * 1e3: 8.4f} mrad"
+        )
 
     def create_plot_jpg(self):
         """Create plot overview of the optimisation and return it as jpg bytes."""
