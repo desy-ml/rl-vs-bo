@@ -91,12 +91,12 @@ def try_problem(trial_index: int, trial: Trial) -> None:
 
         # Retreive past examples and them feed to BO
         record_episode = unwrap_wrapper(env, RecordEpisode)
-        # rl_magents = [obs["magnets"] for obs in record_episode.observations]
-        rl_magents = [
+        # rl_magnets = [obs["magnets"] for obs in record_episode.observations]
+        rl_magnets = [
             observation_to_scaled_action(env, obs)
             for obs in record_episode.observations
         ][1:]
-        X = torch.tensor(rl_magents)
+        X = torch.tensor(rl_magnets)
         rl_objectives = record_episode.rewards
         Y = torch.tensor(rl_objectives).reshape(-1, 1)
 
