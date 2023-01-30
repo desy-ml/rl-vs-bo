@@ -296,33 +296,23 @@ class BayesianOptimizationAgent:
 
         # If a reward was passed, create Y or append to Y depending on if Y exists
         if reward is not None:
-            print(f"RECEIVED REWARD {reward= }")
             reward_tensor = torch.tensor([[reward]], dtype=torch.float32)
             self.Y = (
                 torch.cat([self.Y, reward_tensor])
                 if hasattr(self, "Y")
                 else reward_tensor
             )
-            print(f"{self.Y = }")
 
         # First sample
         if not hasattr(self, "X"):
-            print("FIRST SAMPLE")
-            print(f"{observation = }")
-            print(f"{self.filter_action = }")
             initial_action = scale_action(self.env, observation, self.filter_action)
-            print(f"{initial_action = }")
             self.X = torch.tensor([initial_action], dtype=torch.float32)
-            print(f"{self.X = }")
             return initial_action
 
         # Initial random samples after initial sample
         if len(self.X) < self.init_samples:
-            print(f"INITIAL SAMPLE {len(self.X) = }")
             last_action = self.X[0].detach().numpy()
-            print(f"{last_action = }")
             bounds = get_new_bound(self.env, last_action, self.stepsize)
-            print(f"{bounds = }")
             new_action = np.random.uniform(low=bounds[0], high=bounds[1])
             new_action_tensor = torch.tensor(new_action, dtype=torch.float32).reshape(
                 1, -1
