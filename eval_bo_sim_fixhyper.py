@@ -1,6 +1,6 @@
-import json
 from concurrent.futures import ProcessPoolExecutor
 from itertools import repeat
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -8,45 +8,13 @@ from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, T
 
 from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
 from ea_train import ARESEACheetah
+from trial import Trial, load_trials
 from utils import FilterAction, RecordEpisode
 
 
-def convert_incoming_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["incoming"]["energy"],
-            problem["incoming"]["mu_x"],
-            problem["incoming"]["mu_xp"],
-            problem["incoming"]["mu_y"],
-            problem["incoming"]["mu_yp"],
-            problem["incoming"]["sigma_x"],
-            problem["incoming"]["sigma_xp"],
-            problem["incoming"]["sigma_y"],
-            problem["incoming"]["sigma_yp"],
-            problem["incoming"]["sigma_s"],
-            problem["incoming"]["sigma_p"],
-        ]
-    )
-
-
-def convert_misalignments_from_problem(problem: dict) -> np.ndarray:
-    return np.array(problem["misalignments"])
-
-
-def convert_target_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["desired"][0],
-            problem["desired"][2],
-            problem["desired"][1],
-            problem["desired"][3],
-        ]
-    )
-
-
 def try_problem(
-    problem_index: int,
-    problem: dict,
+    trial_index: int,
+    trial: Trial,
     fixparam: dict = None,
     save_dir: str = "bo_simevaluation",
 ):
@@ -55,16 +23,16 @@ def try_problem(
         "filter_action": None,
         "filter_observation": None,  # ["beam", "magnets", "target"],
         "incoming_mode": "constant",
-        "incoming_values": convert_incoming_from_problem(problem),
+        "incoming_values": trial.incoming_beam,
         "magnet_init_mode": "constant",
         "magnet_init_values": np.array([10, -10, 0, 10, 0]),
         "max_steps": 150,
         "misalignment_mode": "constant",
-        "misalignment_values": convert_misalignments_from_problem(problem),
+        "misalignment_values": trial.misalignments,
         "rescale_action": (-3, 3),
         "reward_mode": "feedback",
         "target_beam_mode": "constant",
-        "target_beam_values": convert_target_from_problem(problem),
+        "target_beam_values": trial.target_beam,
         "target_mu_x_threshold": 3.3198e-6,
         "target_mu_y_threshold": 3.3198e-6,
         "target_sigma_x_threshold": 3.3198e-6,
@@ -118,7 +86,7 @@ def try_problem(
         w_time=config["w_time"],
     )
     env = TimeLimit(env, config["max_steps"])
-    env = RecordEpisode(env, save_dir=f"{save_dir}/problem_{problem_index:03d}")
+    env = RecordEpisode(env, save_dir=f"{save_dir}/problem_{trial_index:03d}")
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
     if config["filter_action"] is not None:
@@ -189,23 +157,22 @@ def try_problem(
 
 
 def main():
-    with open("problems.json", "r") as f:
-        problems = json.load(f)
+    trials = load_trials(Path("trials.yaml"))
 
     with ProcessPoolExecutor() as executor:
         # run BO with fixed lengthscale
         executor.map(
             try_problem,
-            range(len(problems)),
-            problems,
+            range(len(trials)),
+            trials,
             repeat({"lengthsccale": [1, 1, 0.33, 1, 0.33]}),
             repeat("bo_evaluation_fixlengthscale"),
         )
         # fix everything
         executor.map(
             try_problem,
-            range(len(problems)),
-            problems,
+            range(len(trials)),
+            trials,
             repeat(
                 {
                     "lengthscale": [1, 1, 0.33, 1, 0.33],

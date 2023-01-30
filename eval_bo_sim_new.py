@@ -1,5 +1,5 @@
-import json
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 
 import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
@@ -7,58 +7,26 @@ from tqdm.notebook import tqdm
 
 from bayesopt import BayesianOptimizationAgent
 from ea_train import ARESEACheetah
+from trial import Trial, load_trials
 from utils import FilterAction, RecordEpisode
 
 
-def convert_incoming_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["incoming"]["energy"],
-            problem["incoming"]["mu_x"],
-            problem["incoming"]["mu_xp"],
-            problem["incoming"]["mu_y"],
-            problem["incoming"]["mu_yp"],
-            problem["incoming"]["sigma_x"],
-            problem["incoming"]["sigma_xp"],
-            problem["incoming"]["sigma_y"],
-            problem["incoming"]["sigma_yp"],
-            problem["incoming"]["sigma_s"],
-            problem["incoming"]["sigma_p"],
-        ]
-    )
-
-
-def convert_misalignments_from_problem(problem: dict) -> np.ndarray:
-    return np.array(problem["misalignments"])
-
-
-def convert_target_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["desired"][0],
-            problem["desired"][2],
-            problem["desired"][1],
-            problem["desired"][3],
-        ]
-    )
-
-
-def try_problem(problem_index: int, problem: dict):
+def try_problem(trial_index: int, trial: Trial):
     config = {
         "action_mode": "direct_unidirectional_quads",
         "filter_action": None,
         "filter_observation": None,  # ["beam", "magnets", "target"],
         "incoming_mode": "constant",
-        "incoming_values": convert_incoming_from_problem(problem),
+        "incoming_values": trial.incoming_beam,
         "magnet_init_mode": "constant",
         "magnet_init_values": np.array([10, -10, 0, 10, 0]),
         "max_steps": 150,
         "misalignment_mode": "constant",
-        "misalignment_values": convert_misalignments_from_problem(problem),
+        "misalignment_values": trial.misalignments,
         "rescale_action": (-1, 1),
         "reward_mode": "feedback",
         "target_beam_mode": "constant",
-        "target_beam_values": convert_target_from_problem(problem),
+        "target_beam_values": trial.target_beam,
         "target_mu_x_threshold": None,
         "target_mu_y_threshold": None,
         "target_sigma_x_threshold": None,
@@ -118,7 +86,7 @@ def try_problem(problem_index: int, problem: dict):
     env = RecordEpisode(
         env,
         save_dir=(
-            f"data/bo_vs_rl/simulation/bo_refactor_test_5/problem_{problem_index:03d}"
+            f"data/bo_vs_rl/simulation/bo_refactor_test_5/problem_{trial_index:03d}"
         ),
     )
     if config["filter_observation"] is not None:
@@ -156,11 +124,10 @@ def try_problem(problem_index: int, problem: dict):
 
 
 def main():
-    with open("problems.json", "r") as f:
-        problems = json.load(f)
+    trials = load_trials(Path("trials.yaml"))
 
     with ProcessPoolExecutor() as executor:
-        _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
+        _ = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)
 
 
 if __name__ == "__main__":

@@ -1,32 +1,28 @@
-import json
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 
 import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
 from ea_train import ARESEACheetah
-from eval_bo_sim import (
-    convert_incoming_from_problem,
-    convert_misalignments_from_problem,
-    convert_target_from_problem,
-)
+from trial import Trial, load_trials
 from utils import RecordEpisode
 
 
-def try_problem(problem_index: dict, problem: int) -> None:
+def try_problem(trial_index: int, trial: Trial) -> None:
     # Create the environment
     env = ARESEACheetah(
         action_mode="direct",
         incoming_mode="constant",
-        incoming_values=convert_incoming_from_problem(problem),
+        incoming_values=trial.incoming_beam,
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
         misalignment_mode="constant",
-        misalignment_values=convert_misalignments_from_problem(problem),
+        misalignment_values=trial.misalignments,
         reward_mode="differential",
         target_beam_mode="constant",
-        target_beam_values=convert_target_from_problem(problem),
+        target_beam_values=trial.target_beam,
         target_mu_x_threshold=None,
         target_mu_y_threshold=None,
         target_sigma_x_threshold=None,
@@ -35,7 +31,7 @@ def try_problem(problem_index: dict, problem: int) -> None:
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
-        env, save_dir=f"data/bo_vs_rl/simulation/random/problem_{problem_index:03d}"
+        env, save_dir=f"data/bo_vs_rl/simulation/random/problem_{trial_index:03d}"
     )
     env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)
@@ -51,11 +47,10 @@ def try_problem(problem_index: dict, problem: int) -> None:
 
 
 def main():
-    with open("problems.json", "r") as f:
-        problems = json.load(f)
+    trials = load_trials(Path("trials.yaml"))
 
     with ProcessPoolExecutor() as executor:
-        _ = tqdm(executor.map(try_problem, range(len(problems)), problems), total=300)
+        _ = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)
 
 
 if __name__ == "__main__":
