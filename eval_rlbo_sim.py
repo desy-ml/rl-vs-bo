@@ -9,7 +9,7 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 from tqdm.notebook import tqdm
 
-from bayesopt import get_new_bound, get_next_samples, scale_action
+from bayesopt import get_new_bound, get_next_samples, observation_to_scaled_action
 from ea_train import ARESEACheetah
 from trial import Trial, load_trials
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
@@ -92,7 +92,10 @@ def try_problem(trial_index: int, trial: Trial) -> None:
         # Retreive past examples and them feed to BO
         record_episode = unwrap_wrapper(env, RecordEpisode)
         # rl_magents = [obs["magnets"] for obs in record_episode.observations]
-        rl_magents = [scale_action(env, obs) for obs in record_episode.observations][1:]
+        rl_magents = [
+            observation_to_scaled_action(env, obs)
+            for obs in record_episode.observations
+        ][1:]
         X = torch.tensor(rl_magents)
         rl_objectives = record_episode.rewards
         Y = torch.tensor(rl_objectives).reshape(-1, 1)

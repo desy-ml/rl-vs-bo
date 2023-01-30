@@ -6,7 +6,12 @@ import numpy as np
 import torch
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 
-from bayesopt import calculate_objective, get_new_bound, get_next_samples, scale_action
+from bayesopt import (
+    calculate_objective,
+    get_new_bound,
+    get_next_samples,
+    observation_to_scaled_action,
+)
 from ea_train import ARESEACheetah
 from trial import Trial, load_trials
 from utils import FilterAction, RecordEpisode
@@ -113,7 +118,9 @@ def try_problem(
     if init_x is not None:  # From fix starting points
         X = torch.tensor(init_x.reshape(-1, x_dim), dtype=torch.float32)
     else:  # Random Initialization-5.7934
-        action_i = scale_action(env, observation, config["filter_action"])
+        action_i = observation_to_scaled_action(
+            env, observation, config["filter_action"]
+        )
         X = torch.tensor([action_i], dtype=torch.float32)
         bounds = get_new_bound(env, action_i, stepsize)
         for i in range(init_samples - 1):

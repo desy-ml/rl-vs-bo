@@ -17,33 +17,28 @@ from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.optim import optimize_acqf
 from gpytorch.means.mean import Mean
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from gym.spaces.utils import unflatten
 
 # TODO Just for testing, we can also add proximal biasing?
 
 
-def scale_action(env, observation, filter_action=None):
-    """Scale the observed magnet settings to proper action values"""
-    unflattened = (
-        unflatten(env.unwrapped.observation_space, observation)
-        if not isinstance(observation, dict)
-        else observation
-    )
-    magnet_values = unflattened["magnets"]
-    action_values = []
-    if filter_action is None:
-        filter_action = [0, 1, 2, 3, 4]
+def observation_to_scaled_action(env, observation, filter_action=[0, 1, 2, 3, 4]):
+    """
+    Extract from the unscaled observation the magnet settings and scale them as a
+    correct input to the `RescaleAction` wrapper.
+    """
+    magnets = observation["magnets"]
+    filtered_magnets = magnets[filter_action].squeeze()
 
-    for i, act in enumerate(filter_action):
-        scaled_low = env.action_space.low[i]
-        scaled_high = env.action_space.high[i]
-        low = env.unwrapped.action_space.low[act]
-        high = env.unwrapped.action_space.high[act]
-        action = scaled_low + (scaled_high - scaled_low) * (
-            (magnet_values[act] - low) / (high - low)
-        )
-        action_values.append(action)
-    return action_values
+    min_action = env.action_space.low
+    max_action = env.action_space.high
+    low = env.unwrapped.action_space.low
+    high = env.unwrapped.action_space.high
+
+    action = min_action + (max_action - min_action) * (filtered_magnets - low) / (
+        high - low
+    )
+
+    return action
 
 
 def get_new_bound(env, current_action, stepsize):
@@ -132,7 +127,7 @@ def bo_optimize(
     if init_x is not None:  # From fix starting points
         X = torch.tensor(init_x.reshape(-1, x_dim), dtype=torch.float32)
     else:  # Random Initialization
-        action_i = scale_action(env, observation, filter_action)
+        action_i = observation_to_scaled_action(env, observation, filter_action)
         X = torch.tensor([action_i], dtype=torch.float32)
         for i in range(init_samples - 1):
             X = torch.cat([X, torch.tensor([env.action_space.sample()])])
@@ -307,8 +302,10 @@ class BayesianOptimizationAgent:
 
         # First sample
         if not hasattr(self, "X"):
-            initial_action = scale_action(self.env, observation, self.filter_action)
-            self.X = torch.tensor([initial_action], dtype=torch.float32)
+            initial_action = observation_to_scaled_action(
+                self.env, observation, self.filter_action
+            )
+            self.X = torch.tensor(initial_action, dtype=torch.float32).reshape(1, -1)
             return initial_action
 
         # Initial random samples after initial sample

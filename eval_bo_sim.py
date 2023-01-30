@@ -85,13 +85,10 @@ def try_problem(trial_index: int, trial: Trial):
     env = TimeLimit(env, config["max_steps"])
     env = RecordEpisode(
         env,
-        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_test_6_final/problem_{trial_index:03d}",
+        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_test_7_scale/problem_{trial_index:03d}",
     )
-    if config["filter_observation"] is not None:
-        env = FilterObservation(env, config["filter_observation"])
     if config["filter_action"] is not None:
         env = FilterAction(env, config["filter_action"], replace=0)
-    env = FlattenObservation(env)
     if config["rescale_action"] is not None:
         env = RescaleAction(
             env, config["rescale_action"][0], config["rescale_action"][1]
