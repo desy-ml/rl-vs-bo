@@ -2,11 +2,10 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
-import torch
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
-from bayesopt import get_new_bound, get_next_samples, scale_action
+from bayesopt import BayesianOptimizationAgent
 from ea_train import ARESEACheetah
 from trial import Trial, load_trials
 from utils import FilterAction, RecordEpisode
@@ -38,7 +37,7 @@ def try_problem(trial_index: int, trial: Trial):
         "w_mu_x_in_threshold": 0.0,
         "w_mu_y": 1.0,
         "w_mu_y_in_threshold": 0.0,
-        "w_on_screen": 100.0,
+        "w_on_screen": 10.0,
         "w_sigma_x": 1.0,
         "w_sigma_x_in_threshold": 0.0,
         "w_sigma_y": 1.0,
@@ -86,9 +85,7 @@ def try_problem(trial_index: int, trial: Trial):
     env = TimeLimit(env, config["max_steps"])
     env = RecordEpisode(
         env,
-        save_dir=(
-            f"data/bo_vs_rl/simulation/bo_before_refactor_1/problem_{trial_index:03d}"
-        ),
+        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_test_6_final/problem_{trial_index:03d}",
     )
     if config["filter_observation"] is not None:
         env = FilterObservation(env, config["filter_observation"])
@@ -100,61 +97,26 @@ def try_problem(trial_index: int, trial: Trial):
             env, config["rescale_action"][0], config["rescale_action"][1]
         )
 
-    stepsize = config["stepsize"]
-    acquisition = config["acquisition"]
-    init_x = config["init_x"]
-    init_samples = config["init_samples"]
+    model = BayesianOptimizationAgent(
+        env=env,
+        filter_action=config["filter_action"],
+        stepsize=config["stepsize"],
+        init_samples=config["init_samples"],
+        acquisition=config["acquisition"],
+        mean_module=config["mean_module"],
+    )
 
     # Actual optimisation
     observation = env.reset()
+    reward = None
     done = False
-
-    # Initialization
-    x_dim = env.action_space.shape[0]
-    # bounds = torch.tensor(
-    #     np.array([env.action_space.low, env.action_space.high]), dtype=torch.float32
-    # )
-    if init_x is not None:  # From fix starting points
-        X = torch.tensor(init_x.reshape(-1, x_dim), dtype=torch.float32)
-    else:  # Random Initialization-5.7934
-        action_i = scale_action(env, observation, config["filter_action"])
-        X = torch.tensor([action_i], dtype=torch.float32)
-        bounds = get_new_bound(env, action_i, stepsize)
-        for i in range(init_samples - 1):
-            new_action = np.random.uniform(low=bounds[0], high=bounds[1]).reshape(1, -1)
-            X = torch.cat([X, torch.tensor(new_action)])
-    # Sample initial Ys to build GP
-    Y = torch.empty((X.shape[0], 1))
-    for i, action in enumerate(X):
-        action = action.detach().numpy()
-        _, objective, done, _ = env.step(action)
-        Y[i] = torch.tensor(objective)
-
-    # Actual BO Loop
     while not done:
-        current_action = X[-1].detach().numpy()
-        bounds = get_new_bound(env, current_action, stepsize)
-        action_t = get_next_samples(
-            X.double(),
-            Y.double(),
-            Y.max(),
-            torch.tensor(bounds, dtype=torch.double),
-            n_points=1,
-            acquisition=acquisition,
-            mean_module=config["mean_module"],
-        )
-        action = action_t.detach().numpy().flatten()
-        _, objective, done, _ = env.step(action)
+        action = model.predict(observation, reward)
+        observation, reward, done, info = env.step(action)
 
-        # append data
-        X = torch.cat([X, action_t])
-        Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
-
-    # Set back to
-    set_to_best = True
-    if set_to_best:
-        action = X[Y.argmax()].detach().numpy()
-        env.step(action)
+    # Set back to best
+    action = model.X[model.Y.argmax()].detach().numpy()
+    env.step(action)
 
     env.close()
 
