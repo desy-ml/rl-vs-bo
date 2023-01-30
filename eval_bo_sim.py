@@ -29,26 +29,19 @@ def try_problem(trial_index: int, trial: Trial):
         target_sigma_x_threshold=None,
         target_sigma_y_threshold=None,
         threshold_hold=5,
-        w_done=0.0,
+        w_beam=1.0,
         w_mu_x=1.0,
-        w_mu_x_in_threshold=0.0,
         w_mu_y=1.0,
-        w_mu_y_in_threshold=0.0,
         w_on_screen=10.0,
         w_sigma_x=1.0,
-        w_sigma_x_in_threshold=0.0,
         w_sigma_y=1.0,
-        w_sigma_y_in_threshold=0.0,
-        w_time=0.0,
         log_beam_distance=True,
         normalize_beam_distance=False,
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=(
-            f"data/bo_vs_rl/simulation/bo_refactor_test_8/problem_{trial_index:03d}"
-        ),
+        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_test_8_explicit/problem_{trial_index:03d}",
     )
     env = RescaleAction(env, -3, 3)
 
