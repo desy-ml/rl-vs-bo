@@ -76,7 +76,7 @@ def misalignments_from_dictionary(raw: dict) -> np.ndarray:
     """
     Read a dictionary describing misalignments to a correctly arranged `np.ndarray`.
     """
-    return np.ndarray(
+    return np.array(
         [
             raw["q1_x"],
             raw["q1_y"],
