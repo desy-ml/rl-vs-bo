@@ -72,6 +72,14 @@ def optimize_donkey_bo_combo(
         target_mu_y_threshold=target_mu_y_threshold,
         target_sigma_x_threshold=target_sigma_x_threshold,
         target_sigma_y_threshold=target_sigma_y_threshold,
+        w_beam=1.0,
+        w_mu_x=1.0,
+        w_mu_y=1.0,
+        w_on_screen=10.0,
+        w_sigma_x=1.0,
+        w_sigma_y=1.0,
+        log_beam_distance=True,
+        normalize_beam_distance=False,
     )
     if max_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_steps)
@@ -118,14 +126,14 @@ def optimize_donkey_bo_combo(
     ):
         print("BO is taking over")
         # Prepare env for BO
-        env = unwrap_wrapper(env, FlattenObservation)
+        env = unwrap_wrapper(env, RecordVideo)
         env.unwrapped.action_mode = "direct"  # TODO direct vs direct_unidirectional?
         env.unwrapped.action_space = spaces.Box(
             low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
             high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
         )
         env.unwrapped.threshold_hold = 1
-        env = RescaleAction(env, -1, 1)
+        env = RescaleAction(env, -6, 6)  # Twice the size because bidirectional
 
         # Retreive past examples and them feed to BO
         record_episode = unwrap_wrapper(env, RecordEpisode)

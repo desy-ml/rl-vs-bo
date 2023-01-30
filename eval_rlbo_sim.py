@@ -38,7 +38,7 @@ def try_problem(trial_index: int, trial: Trial) -> None:
         max_steerer_delta=6e-3 * 0.1,
         misalignment_mode="constant",
         misalignment_values=trial.misalignments,
-        reward_mode="differential",
+        reward_mode="feedback",
         target_beam_mode="constant",
         target_beam_values=trial.target_beam,
         target_mu_x_threshold=None,
@@ -46,6 +46,14 @@ def try_problem(trial_index: int, trial: Trial) -> None:
         target_sigma_x_threshold=None,
         target_sigma_y_threshold=None,
         threshold_hold=5,
+        w_beam=1.0,
+        w_mu_x=1.0,
+        w_mu_y=1.0,
+        w_on_screen=10.0,
+        w_sigma_x=1.0,
+        w_sigma_y=1.0,
+        log_beam_distance=True,
+        normalize_beam_distance=False,
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
@@ -57,11 +65,6 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     env = PolishedDonkeyCompatibility(env)
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
     env = RescaleAction(env, -1, 1)
-
-    # Env needs to be setup slightly differently, so we can retreive samples for BO
-    env.unwrapped.reward_mode = "feedback"
-    env.unwrapped.log_beam_distance = True
-    env.unwrapped.normalize_beam_distance = False
 
     observation = env.reset()
     done = False
@@ -80,14 +83,14 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     ):
         print("BO is taking over")
         # Prepare env for BO
-        env = unwrap_wrapper(env, FlattenObservation)
+        env = unwrap_wrapper(env, RecordEpisode)
         env.unwrapped.action_mode = "direct"  # TODO direct vs direct_unidirectional?
         env.unwrapped.action_space = spaces.Box(
             low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
             high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
         )
         env.unwrapped.threshold_hold = 1
-        env = RescaleAction(env, -1, 1)
+        env = RescaleAction(env, -6, 6)  # Twice the size because bidirectional
 
         # Retreive past examples and them feed to BO
         record_episode = unwrap_wrapper(env, RecordEpisode)
