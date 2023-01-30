@@ -19,50 +19,6 @@ from gpytorch.means.mean import Mean
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gym.spaces.utils import unflatten
 
-config = {
-    "action_mode": "direct",
-    "gamma": 0.99,
-    # "filter_action": [0, 1, 3],
-    "filter_action": None,
-    "filter_observation": None,
-    "frame_stack": None,
-    "incoming_mode": "random",
-    "incoming_values": np.array(
-        [1.18e08, 1e-4, 0, 1e-4, 0, 5e-05, 6e-06, 4e-04, 3e-05, 9e-06, 7e-04],
-        dtype="float32",
-    ),
-    "magnet_init_mode": "constant",
-    "magnet_init_values": np.array([10, -10, 0, 10, 0]),
-    "misalignment_mode": "constant",
-    "misalignment_values": np.zeros(8),
-    "n_envs": 40,
-    "normalize_observation": True,
-    "normalize_reward": True,
-    "rescale_action": (-3, 3),
-    "reward_mode": "logl1",
-    "sb3_device": "auto",
-    "target_beam_mode": "constant",
-    "target_beam_values": np.zeros(4),
-    "target_mu_x_threshold": 1e-5,
-    "target_mu_y_threshold": 1e-5,
-    "target_sigma_x_threshold": 1e-5,
-    "target_sigma_y_threshold": 1e-5,
-    "threshold_hold": 5,
-    "time_limit": 50000,
-    "vec_env": "subproc",
-    "w_done": 0.0,
-    "w_mu_x": 1.0,
-    "w_mu_x_in_threshold": 0.0,
-    "w_mu_y": 1.0,
-    "w_mu_y_in_threshold": 0.0,
-    "w_on_screen": 0.0,
-    "w_sigma_x": 1.0,
-    "w_sigma_x_in_threshold": 0.0,
-    "w_sigma_y": 1.0,
-    "w_sigma_y_in_threshold": 0.0,
-    "w_time": 0.0,
-}
-
 
 def scale_action(env, observation, filter_action=None):
     """Scale the observed magnet settings to proper action values"""
