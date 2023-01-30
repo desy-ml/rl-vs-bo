@@ -185,5 +185,4 @@ def optimize_donkey_bo_combo(
             f" not taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
         )
 
-    f"{model_name} followed taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
     env.close()
