@@ -19,6 +19,8 @@ from gpytorch.means.mean import Mean
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gym.spaces.utils import unflatten
 
+# TODO Just for testing, we can also add proximal biasing?
+
 
 def scale_action(env, observation, filter_action=None):
     """Scale the observed magnet settings to proper action values"""
@@ -350,6 +352,3 @@ class BayesianOptimizationAgent:
             f"BO optimisation has reach invalid state {no_x_and_y = }, {only_x = },"
             f" {both_x_and_y = }"
         )
-
-
-# TODO: Just for testing, we can also add proximal biasing?
