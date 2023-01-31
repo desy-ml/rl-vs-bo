@@ -1,14 +1,34 @@
 import time
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Optional
 
 import cheetah
 import dummypydoocs as pydoocs
 import numpy as np
+import ocelot as oc
 from gym import spaces
+from ocelot.cpbd.beam import generate_parray
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
+from ARESlatticeStage3v1_9 import (
+    areabscr1,
+    areamchm1,
+    areamcvm1,
+    areamqzm1,
+    areamqzm2,
+    areamqzm3,
+    areasola1,
+)
 from ARESlatticeStage3v1_9 import cell as ares_lattice
+from ARESlatticeStage3v1_9 import (
+    drift_areamchm1,
+    drift_areamcvm1,
+    drift_areamqzm1,
+    drift_areamqzm2,
+    drift_areamqzm3,
+    drift_areasola1,
+)
 
 
 class BaseBackend(ABC):
@@ -336,6 +356,144 @@ class CheetahBackend(BaseBackend):
             "incoming_beam": self.get_incoming_parameters(),
             "misalignments": self.get_misalignments(),
         }
+
+
+class OcelotBackend(BaseBackend):
+    """Backend simulating the ARES EA in Ocelot."""
+
+    def __init__(
+        self,
+        include_space_charge: bool = True,
+        charge: float = 1e-12,  # in C
+        nparticles: int = 1e5,
+        unit_step: float = 0.01,  # tracking step in [m]
+    ) -> None:
+        self.include_space_charge = include_space_charge
+        self.charge = charge
+        self.nparticles = nparticles
+        self.unit_step = unit_step
+
+        # Initialize Tracking method
+        self.method = oc.MethodTM()
+        self.method.global_method = oc.SecondTM
+        self.unit_step = unit_step
+
+        self.sc = oc.SpaceCharge()
+        self.sc.nmesh_xyz = [32, 32, 32]
+        self.sc.step = 1
+
+        # Build lattice
+        self.cell = (
+            areasola1,
+            drift_areasola1,
+            areamqzm1,
+            drift_areamqzm1,
+            areamqzm2,
+            drift_areamqzm2,
+            areamcvm1,
+            drift_areamcvm1,
+            areamqzm3,
+            drift_areamqzm3,
+            areamchm1,
+            drift_areamchm1,
+            areabscr1,
+        )
+
+        self.lattice = oc.MagneticLattice(
+            self.cell, start=areasola1, stop=areabscr1, method=self.method
+        )
+
+    def is_beam_on_screen(self) -> bool:
+        beam_position = self.get_beam_parameters()[[0, 2]]
+        limits = np.array(self.screen_resolution) / 2 * np.array(self.screen_pixel_size)
+        return np.all(np.abs(beam_position) < limits)
+
+    def get_magnets(self) -> np.ndarray:
+        return np.array(
+            [
+                self.lattice[areamqzm1].k1,
+                self.lattice[areamqzm2].k1,
+                self.lattice[areamcvm1].angle,
+                self.lattice[areamqzm3].k1,
+                self.lattice[areamchm1].angle,
+            ]
+        )
+
+    def set_magnets(self, magnets: np.ndarray) -> None:
+        self.lattice[areamqzm1].k1 = magnets[0]
+        self.lattice[areamqzm2].k1 = magnets[1]
+        self.lattice[areamcvm1].angle = magnets[2]
+        self.lattice[areamqzm3].k1 = magnets[3]
+        self.lattice[areamqzm1].angle = magnets[4]
+        self.lattcie = self.lattice.update_transfer_maps()
+
+    def reset(self) -> None:
+        # New domain randomisation
+        if self.incoming_mode == "constant":
+            incoming_parameters = self.incoming_values
+        elif self.incoming_mode == "random":
+            incoming_parameters = self.incoming_beam_space.sample()
+        else:
+            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
+        self.incoming = generate_parray(
+            sigma_x=incoming_parameters[5],
+            sigma_px=incoming_parameters[6],
+            sigma_y=incoming_parameters[7],
+            sigma_py=incoming_parameters[8],
+            sigma_tau=incoming_parameters[9],
+            sigma_p=incoming_parameters[10],
+            energy=incoming_parameters[0] / 1e9,
+            nparticles=self.nparticles,
+            charge=self.charge,
+        )
+        # Set mu_x, mu_xp, mu_y, mu_yp
+        self.incoming.rparticles[0] += self.incoming_parameters[1]  # mu_x
+        self.incoming.rparticles[1] += self.incoming_parameters[2]  # mu_xp
+        self.incoming.rparticles[2] += self.incoming_parameters[3]  # mu_y
+        self.incoming.rparticles[3] += self.incoming_parameters[4]  # # mu_yp
+
+        if self.misalignment_mode == "constant":
+            self.misalignments = self.misalignment_values
+        elif self.misalignment_mode == "random":
+            self.misalignments = self.observation_space["misalignments"].sample()
+        else:
+            raise ValueError(
+                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
+            )
+        self.lattice[areamqzm1].dx = self.misalignments[0]
+        self.lattice[areamqzm1].dy = self.misalignments[1]
+        self.lattice[areamqzm2].dx = self.misalignments[2]
+        self.lattice[areamqzm2].dy = self.misalignments[3]
+        self.lattice[areamqzm3].dx = self.misalignments[4]
+        self.lattice[areamqzm3].dy = self.misalignments[5]
+        self.screen_misalignment = self.misalignments[6:8]
+
+    def update(self) -> None:
+        self.outbeam = deepcopy(self.incoming)
+        navi = oc.Navigator(self.lattice)
+        if self.include_space_charge:
+            navi.unit_step = self.unit_step
+            navi.add_physics_proc(
+                self.sc, self.lattice.sequence[0], self.lattice.sequence[-1]
+            )
+        _, self.outbeam = oc.track(
+            self.lattice, self.outbeam, navi, print_progress=False
+        )
+
+    def get_beam_parameters(self) -> np.ndarray:
+        beam_parameters = np.mean(self.outbeam.rparticles, axis=1)[0:4]
+        # Apply screen misalignment
+        beam_parameters[0] -= self.screen_misalignment[0]
+        beam_parameters[2] -= self.screen_misalignment[1]
+        return beam_parameters
+
+    def get_incoming_parameters(self) -> np.ndarray:
+        # Parameters of incoming are typed out to guarantee their order, as the
+        # order would not be guaranteed creating np.array from dict.
+        return np.array(self.incoming_parameters)
+
+    def get_misalignments(self) -> np.ndarray:
+        return np.array(self.misalignments)
 
 
 class DOOCSBackend(BaseBackend):
