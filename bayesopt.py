@@ -280,6 +280,7 @@ class BayesianOptimizationAgent:
         init_samples=5,
         acquisition="EI",
         mean_module=None,
+        beta=0.2,
     ) -> None:
         self.env = env
         self.filter_action = filter_action
@@ -287,6 +288,7 @@ class BayesianOptimizationAgent:
         self.init_samples = init_samples
         self.acquisition = acquisition
         self.mean_module = mean_module
+        self.beta = beta
 
     def predict(self, observation, reward=None):
         self.validate_x_and_y_state()
@@ -330,6 +332,7 @@ class BayesianOptimizationAgent:
             n_points=1,
             acquisition=self.acquisition,
             mean_module=self.mean_module,
+            beta=self.beta,
         )
         self.X = torch.cat([self.X, action_tensor])
 
