@@ -9,7 +9,7 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 from tqdm.notebook import tqdm
 
-from bayesopt import get_new_bound, get_next_samples, observation_to_scaled_action
+from bayesopt import BayesianOptimizationAgent, observation_to_scaled_action
 from ea_train import ARESEACheetah
 from trial import Trial, load_trials
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
@@ -19,13 +19,6 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     model_name = "polished-donkey-996"
     rl_steps = 10
     bo_takeover = 0.00015
-    stepsize = 0.05
-    beta = 0.01
-    acquisition = "UCB"
-    mean_module = None
-
-    # Load the model
-    model = TD3.load(f"models/{model_name}/model")
 
     # Create the environment
     env = ARESEACheetah(
@@ -66,13 +59,24 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
     env = RescaleAction(env, -1, 1)
 
+    # Load models
+    rl_model = TD3.load(f"models/{model_name}/model")
+    bo_model = BayesianOptimizationAgent(
+        env=env,
+        stepsize=0.05,
+        init_samples=rl_steps,
+        acquisition="UCB",
+        mean_module=None,
+        beta=0.01,
+    )
+
     observation = env.reset()
     done = False
 
     # RL agent's turn
     i = 0
     while i < rl_steps and not done:
-        action, _ = model.predict(observation, deterministic=True)
+        action, _ = rl_model.predict(observation, deterministic=True)
         observation, reward, done, info = env.step(action)
         i += 1
 
@@ -94,45 +98,35 @@ def try_problem(trial_index: int, trial: Trial) -> None:
 
         # Retreive past examples and them feed to BO
         record_episode = unwrap_wrapper(env, RecordEpisode)
-        # rl_magnets = [obs["magnets"] for obs in record_episode.observations]
+
+        rl_magnet_history = [
+            observation_to_scaled_action(env, obs)
+            for obs in record_episode.observations[1:]
+        ]
+        next_rl_proposal, _ = rl_model.predict(observation, deterministic=True)
+        bo_model.X = torch.tensor(np.stack(rl_magnet_history + [next_rl_proposal]))
+
         rl_magnets = [
             observation_to_scaled_action(env, obs)
-            for obs in record_episode.observations
-        ][1:]
-        X = torch.tensor(rl_magnets)
+            for obs in record_episode.observations[1:]
+        ]
+        bo_model.X = torch.tensor(np.stack(rl_magnets))
+
         rl_objectives = record_episode.rewards
-        Y = torch.tensor(rl_objectives).reshape(-1, 1)
+        bo_model.Y = torch.tensor(rl_objectives[:-1]).reshape(-1, 1)
+        reward = rl_objectives[-1]
 
         # BO's turn
         while not done:
-            current_action = X[-1].detach().numpy()
-            bounds = get_new_bound(env, current_action, stepsize)
-            action_t = get_next_samples(
-                X.double(),
-                Y.double(),
-                Y.max(),
-                torch.tensor(bounds, dtype=torch.double),
-                n_points=1,
-                acquisition=acquisition,
-                mean_module=mean_module,
-                beta=beta,
-            )
-            action = action_t.detach().numpy().flatten()
-            _, objective, done, _ = env.step(action)
-
-            # append data
-            X = torch.cat([X, action_t])
-            Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
+            action = bo_model.predict(observation, reward)
+            observation, reward, done, info = env.step(action)
 
         # Set back to
-        set_to_best = True
-        if set_to_best:
-            action = X[Y.argmax()].detach().numpy()
-            env.step(action)
+        action = bo_model.X[bo_model.Y.argmax()].detach().numpy()
+        env.step(action)
     else:
-        print("RL is continuing")
         while not done:
-            action, _ = model.predict(observation, deterministic=True)
+            action, _ = rl_model.predict(observation, deterministic=True)
             observation, reward, done, info = env.step(action)
 
     env.close()

@@ -7,7 +7,7 @@ from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLim
 from stable_baselines3 import TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 
-from bayesopt import get_new_bound, get_next_samples, observation_to_scaled_action
+from bayesopt import BayesianOptimizationAgent, observation_to_scaled_action
 from ea_optimize import ARESEADOOCS, OptimizeFunctionCallback, setup_callback
 from utils import (
     ARESEAeLog,
@@ -51,9 +51,6 @@ def optimize_donkey_bo_combo(
         model_name == "polished-donkey-996"
     ), "Current version only works for polished-donkey-996."
 
-    # Load the model
-    model = TD3.load(f"models/{model_name}/model")
-
     callback = setup_callback(callback)
 
     # Create the environment
@@ -63,7 +60,7 @@ def optimize_donkey_bo_combo(
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
         max_quad_delta=30 * 0.1,
         max_steerer_delta=6e-3 * 0.1,
-        reward_mode="differential",
+        reward_mode="feedback",
         target_beam_mode="constant",
         target_beam_values=np.array(
             [target_mu_x, target_sigma_x, target_mu_y, target_sigma_y]
@@ -100,10 +97,16 @@ def optimize_donkey_bo_combo(
     env = NotVecNormalize(env, f"models/{model_name}/vec_normalize.pkl")
     env = RescaleAction(env, -1, 1)
 
-    # Env needs to be setup slightly differently, so we can retreive samples for BO
-    env.unwrapped.reward_mode = "feedback"
-    env.unwrapped.log_beam_distance = True
-    env.unwrapped.normalize_beam_distance = False
+    # Load models
+    rl_model = TD3.load(f"models/{model_name}/model")
+    bo_model = BayesianOptimizationAgent(
+        env=env,
+        stepsize=0.05,
+        init_samples=rl_steps,
+        acquisition="UCB",
+        mean_module=None,
+        beta=0.01,
+    )
 
     elog_wrapper = unwrap_wrapper(env, ARESEAeLog)
 
@@ -115,7 +118,7 @@ def optimize_donkey_bo_combo(
     # RL agent's turn
     i = 0
     while i < rl_steps and not done:
-        action, _ = model.predict(observation, deterministic=True)
+        action, _ = rl_model.predict(observation, deterministic=True)
         observation, reward, done, info = env.step(action)
         i += 1
 
@@ -137,48 +140,35 @@ def optimize_donkey_bo_combo(
 
         # Retreive past examples and them feed to BO
         record_episode = unwrap_wrapper(env, RecordEpisode)
-        # rl_magents = [obs["magnets"] for obs in record_episode.observations]
-        rl_magents = [
+
+        rl_magnet_history = [
             observation_to_scaled_action(env, obs)
-            for obs in record_episode.observations
-        ][1:]
-        X = torch.tensor(rl_magents)
+            for obs in record_episode.observations[1:]
+        ]
+        next_rl_proposal, _ = rl_model.predict(observation, deterministic=True)
+        bo_model.X = torch.tensor(np.stack(rl_magnet_history + [next_rl_proposal]))
+
+        rl_magnets = [
+            observation_to_scaled_action(env, obs)
+            for obs in record_episode.observations[1:]
+        ]
+        bo_model.X = torch.tensor(np.stack(rl_magnets))
+
         rl_objectives = record_episode.rewards
-        Y = torch.tensor(rl_objectives).reshape(-1, 1)
+        bo_model.Y = torch.tensor(rl_objectives[:-1]).reshape(-1, 1)
+        reward = rl_objectives[-1]
 
         # BO's turn
         while not done:
-            current_action = X[-1].detach().numpy()
-            bounds = get_new_bound(env, current_action, stepsize)
-            action_t = get_next_samples(
-                X.double(),
-                Y.double(),
-                Y.max(),
-                torch.tensor(bounds, dtype=torch.double),
-                n_points=1,
-                acquisition=acquisition,
-                mean_module=mean_module,
-                beta=beta,
-            )
-            action = action_t.detach().numpy().flatten()
-            _, objective, done, _ = env.step(action)
-
-            # append data
-            X = torch.cat([X, action_t])
-            Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
+            action = bo_model.predict(observation, reward)
+            observation, reward, done, info = env.step(action)
 
         # Set back to
-        if set_to_best:
-            action = X[Y.argmax()].detach().numpy()
-            env.step(action)
-
-        elog_wrapper.model_name += (
-            f" taken over by BO after {rl_steps} steps if MAE > {bo_takeover}"
-        )
+        action = bo_model.X[bo_model.Y.argmax()].detach().numpy()
+        env.step(action)
     else:
-        print("RL is continuing")
         while not done:
-            action, _ = model.predict(observation, deterministic=True)
+            action, _ = rl_model.predict(observation, deterministic=True)
             observation, reward, done, info = env.step(action)
 
         elog_wrapper.model_name += (
