@@ -107,52 +107,6 @@ def get_next_samples(
     return candidates
 
 
-def bo_optimize(
-    env: gym.Env,
-    budget=100,
-    init_x=None,
-    init_samples=5,
-    acq="EI",
-    obj="reward",
-    filter_action=None,
-    w_on_screen=10,
-):
-    """Complete BO loop, not quite fit into the ea_optimize logic yet"""
-    observation = env.reset()
-    x_dim = env.action_space.shape[0]
-    bounds = torch.tensor(
-        np.array([env.action_space.low, env.action_space.high]), dtype=torch.float32
-    )
-    # Initialization
-    if init_x is not None:  # From fix starting points
-        X = torch.tensor(init_x.reshape(-1, x_dim), dtype=torch.float32)
-    else:  # Random Initialization
-        action_i = observation_to_scaled_action(env, observation, filter_action)
-        X = torch.tensor([action_i], dtype=torch.float32)
-        for i in range(init_samples - 1):
-            X = torch.cat([X, torch.tensor([env.action_space.sample()])])
-    # Sample initial Y
-    Y = torch.empty((X.shape[0], 1))
-    for i, action in enumerate(X):
-        action = action.detach().numpy()
-        _, objective, done, _ = env.step(action)
-        Y[i] = torch.tensor(objective)
-
-    # In the loop
-    for i in range(budget):
-        action = get_next_samples(X, Y, Y.max(), bounds, n_points=1, acquisition=acq)
-        _, objective, done, _ = env.step(action.detach().numpy().flatten())
-        # append data
-        X = torch.cat([X, action])
-        Y = torch.cat([Y, torch.tensor([[objective]], dtype=torch.float32)])
-
-        if done:
-            print(f"Optimization succeeds in {i} steps")
-            break
-
-    return X.detach().numpy(), Y.detach().numpy()
-
-
 # Use a NN as GP prior for BO
 class SimpleBeamPredictNN(nn.Module):
     """
