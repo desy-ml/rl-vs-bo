@@ -38,8 +38,7 @@ class EATransverseTuning(gym.Env):
         backend: BaseBackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
-        include_beam_image_in_info: bool = True,
-        log_beam_distance: bool = False,
+        log_beam_distance: bool = False,  # TODO Rename
         magnet_init_mode: Optional[str] = None,
         magnet_init_values: Optional[np.ndarray] = None,
         max_quad_delta: Optional[float] = None,
@@ -70,7 +69,6 @@ class EATransverseTuning(gym.Env):
 
         self.action_mode = action_mode
         self.beam_distance_ord = beam_distance_ord
-        self.include_beam_image_in_info = include_beam_image_in_info
         self.log_beam_distance = log_beam_distance
         self.magnet_init_mode = magnet_init_mode
         self.magnet_init_values = magnet_init_values
@@ -136,30 +134,32 @@ class EATransverseTuning(gym.Env):
             raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
         # Create observation space
-        obs_space_dict = {
-            "beam": spaces.Box(
-                low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
-                high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
-            ),
-            "magnets": self.action_space
-            if self.action_mode.startswith("direct")
-            else spaces.Box(
-                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
-                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
-            ),
-            "target": spaces.Box(
-                low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
-                high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
-            ),
-        }
-        obs_space_dict.update(self.backend.get_accelerator_observation_space())
-        self.observation_space = spaces.Dict(obs_space_dict)
+        self.observation_space = spaces.Dict(
+            {
+                "beam": spaces.Box(
+                    low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
+                    high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
+                ),
+                "magnets": self.action_space
+                if self.action_mode.startswith("direct")
+                else spaces.Box(
+                    low=np.array(
+                        [-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32
+                    ),
+                    high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
+                ),
+                "target": spaces.Box(
+                    low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
+                    high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
+                ),
+            }
+        )
 
         # Setup the accelerator (either simulation or the actual machine)
-        self.backend.setup_accelerator()
+        self.backend.setup()
 
     def reset(self) -> np.ndarray:
-        self.backend.reset_accelerator()
+        self.backend.reset()
 
         if self.magnet_init_mode == "constant":
             self.backend.set_magnets(self.magnet_init_values)
@@ -182,7 +182,7 @@ class EATransverseTuning(gym.Env):
             )
 
         # Update anything in the accelerator (mainly for running simulations)
-        self.backend.update_accelerator()
+        self.backend.update()
 
         self.initial_screen_beam = self.backend.get_beam_parameters()
         self.previous_beam = self.initial_screen_beam
@@ -194,7 +194,6 @@ class EATransverseTuning(gym.Env):
             "magnets": self.backend.get_magnets().astype("float32"),
             "target": self.target_beam.astype("float32"),
         }
-        observation.update(self.backend.get_accelerator_observation())
 
         return observation
 
@@ -202,7 +201,7 @@ class EATransverseTuning(gym.Env):
         self.take_action(action)
 
         # Run the simulation
-        self.backend.update_accelerator()
+        self.backend.update()
 
         current_beam = self.backend.get_beam_parameters()
         self.steps_taken += 1
@@ -213,7 +212,6 @@ class EATransverseTuning(gym.Env):
             "magnets": self.backend.get_magnets().astype("float32"),
             "target": self.target_beam.astype("float32"),
         }
-        observation.update(self.backend.get_accelerator_observation())
 
         # For readibility in computations below
         cb = current_beam
@@ -263,9 +261,7 @@ class EATransverseTuning(gym.Env):
             "screen_resolution": self.backend.get_screen_resolution(),
             "time_reward": time_reward,
         }
-        if self.include_beam_image_in_info:
-            info["beam_image"] = self.backend.get_beam_image()
-        info.update(self.backend.get_accelerator_info())
+        info.update(self.backend.get_info())
 
         self.previous_beam = current_beam
 

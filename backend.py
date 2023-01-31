@@ -181,6 +181,7 @@ class CheetahBackend(BaseBackend):
         ).subcell("AREASOLA1", "AREABSCR1")
         self.segment.AREABSCR1.resolution = (2448, 2040)
         self.segment.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
+        self.segment.AREABSCR1.binning = 4
         self.segment.AREABSCR1.is_active = True
 
         # Set up domain randomisation spaces
@@ -548,6 +549,9 @@ class DOOCSBackend(BaseBackend):
         # If magnets or the beam were recorded before reset, add them info on the first
         # step, so a generalised data recording wrapper captures them.
         info = {}
+        
+        # Screen image
+        info["screen_image"] = self.get_beam_image()
 
         if hasattr(self, "magnets_before_reset"):
             info["magnets_before_reset"] = self.magnets_before_reset

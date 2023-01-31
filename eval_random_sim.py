@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 from backend import CheetahBackend
 from environment import EATransverseTuning
@@ -22,12 +22,8 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     env = EATransverseTuning(
         backend=cheetah_backend,
         action_mode="direct",
-        incoming_mode="constant",
-        incoming_values=trial.incoming_beam,
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
-        misalignment_mode="constant",
-        misalignment_values=trial.misalignments,
         reward_mode="differential",
         target_beam_mode="constant",
         target_beam_values=trial.target_beam,
@@ -45,7 +41,7 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
-        env, save_dir=f"data/bo_vs_rl/simulation/random/problem_{trial_index:03d}"
+        env, save_dir=f"data/bo_vs_rl/simulation/random_test/problem_{trial_index:03d}"
     )
     env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)
@@ -64,7 +60,9 @@ def main():
     trials = load_trials(Path("trials.yaml"))
 
     with ProcessPoolExecutor() as executor:
-        _ = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)
+        futures = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)
+        for future in futures:
+            pass
 
 
 if __name__ == "__main__":
