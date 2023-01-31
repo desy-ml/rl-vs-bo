@@ -15,7 +15,7 @@ from gym.wrappers import (
 from stable_baselines3 import PPO, TD3
 
 from backend import DOOCSBackend
-from ea_train import EATransverseTuning
+from environment import EATransverseTuning
 from utils import (
     ARESEAeLog,
     FilterAction,

@@ -12,7 +12,7 @@ from ea_optimize import (
     TQDMWrapper,
     setup_callback,
 )
-from ea_train import EATransverseTuning
+from environment import EATransverseTuning
 from utils import RecordEpisode
 
 

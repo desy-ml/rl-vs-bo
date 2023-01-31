@@ -7,7 +7,7 @@ from stable_baselines3 import TD3
 from tqdm import tqdm
 
 from backend import CheetahBackend
-from ea_train import EATransverseTuning
+from environment import EATransverseTuning
 from trial import Trial, load_trials
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
