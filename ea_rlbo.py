@@ -34,12 +34,7 @@ def optimize_donkey_bo_combo(
     progress_bar=False,
     callback=None,
     rl_steps=10,
-    bo_takeover=None,  # Set to MAE obove which BO takes over or to None for no takeover (e.g. 0.00015˚)
-    stepsize=0.1,  # comparable to RL env
-    acquisition="EI",
-    beta=0.2,
-    set_to_best=True,  # set back to best found setting after opt.
-    mean_module=None,
+    bo_takeover=None,  # Set to MAE obove which BO takes over or to None for no takeover (e.g. 0.00015)
 ):
     """
     Function used for optimisation during operation.
