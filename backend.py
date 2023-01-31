@@ -109,7 +109,7 @@ class BaseBackend(ABC):
         """
         raise NotImplementedError
 
-    def get_beam_image(self) -> np.ndarray:
+    def get_screen_image(self) -> np.ndarray:
         """
         Retreive the beam image as a 2-dimensional NumPy array.
 
@@ -317,8 +317,8 @@ class CheetahBackend(BaseBackend):
             dtype=np.float32,
         )
 
-    def get_beam_image(self) -> np.ndarray:
-        # Beam image to look like real image by dividing by goodlooking number and
+    def get_screen_image(self) -> np.ndarray:
+        # Screen image to look like real image by dividing by goodlooking number and
         # scaling to 12 bits)
         return self.segment.AREABSCR1.reading / 1e9 * 2**12
 
@@ -397,7 +397,7 @@ class DOOCSBackend(BaseBackend):
         self.update()
 
         self.magnets_before_reset = self.get_magnets()
-        self.screen_before_reset = self.get_beam_image()
+        self.screen_before_reset = self.get_screen_image()
         self.beam_before_reset = self.get_beam_parameters()
 
         # In order to record a screen image right after the accelerator was reset, this
@@ -406,16 +406,16 @@ class DOOCSBackend(BaseBackend):
         self.reset_accelerator_was_just_called = True
 
     def update(self):
-        self.beam_image = self.capture_clean_beam_image()
+        self.screen_image = self.capture_clean_screen_image()
 
         # Record the beam image just after reset (because there is no info on reset).
         # It will be included in `info` of the next step.
         if self.reset_accelerator_was_just_called:
-            self.screen_after_reset = self.beam_image
+            self.screen_after_reset = self.screen_image
             self.reset_accelerator_was_just_called = False
 
     def get_beam_parameters(self):
-        img = self.get_beam_image()
+        img = self.get_screen_image()
         pixel_size = self.get_pixel_size()
         resolution = self.get_screen_resolution()
 
@@ -457,8 +457,8 @@ class DOOCSBackend(BaseBackend):
             ]
         )
 
-    def get_beam_image(self):
-        return self.beam_image
+    def get_screen_image(self):
+        return self.screen_image
 
     def get_binning(self):
         return np.array(
@@ -501,7 +501,7 @@ class DOOCSBackend(BaseBackend):
             * self.get_binning()
         )
 
-    def capture_clean_beam_image(self, average=5):
+    def capture_clean_screen_image(self, average=5):
         """
         Capture a clean image of the beam from the screen using `average` images with
         beam on and `average` images of the background and then removing the background.
@@ -515,8 +515,8 @@ class DOOCSBackend(BaseBackend):
 
         # Laser on
         self.set_cathode_laser(True)
-        beam_images = self.capture_interval(n=average, dt=0.1)
-        median_beam = np.median(beam_images.astype("float64"), axis=0)
+        screen_images = self.capture_interval(n=average, dt=0.1)
+        median_beam = np.median(screen_images.astype("float64"), axis=0)
 
         removed = (median_beam - median_background).clip(0, 2**16 - 1)
         flipped = np.flipud(removed)
@@ -549,9 +549,9 @@ class DOOCSBackend(BaseBackend):
         # If magnets or the beam were recorded before reset, add them info on the first
         # step, so a generalised data recording wrapper captures them.
         info = {}
-        
+
         # Screen image
-        info["screen_image"] = self.get_beam_image()
+        info["screen_image"] = self.get_screen_image()
 
         if hasattr(self, "magnets_before_reset"):
             info["magnets_before_reset"] = self.magnets_before_reset

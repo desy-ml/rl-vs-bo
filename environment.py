@@ -275,7 +275,7 @@ class EATransverseTuning(gym.Env):
         resolution = self.backend.get_screen_resolution()
 
         # Read screen image and make 8-bit RGB
-        img = self.backend.get_beam_image()
+        img = self.backend.get_screen_image()
         img = img / 2**12 * 255
         img = img.clip(0, 255).astype(np.uint8)
         img = np.repeat(img[:, :, np.newaxis], 3, axis=-1)
