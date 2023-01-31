@@ -39,7 +39,7 @@ def try_problem(trial_index: int, trial: Trial):
         w_on_screen=10.0,
         w_sigma_x=1.0,
         w_sigma_y=1.0,
-        log_beam_distance=True,
+        logarithmic_beam_distance=True,
         normalize_beam_distance=False,
     )
     env = TimeLimit(env, 150)

@@ -38,7 +38,7 @@ class EATransverseTuning(gym.Env):
         backend: BaseBackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
-        log_beam_distance: bool = False,  # TODO Rename
+        logarithmic_beam_distance: bool = False,
         magnet_init_mode: Optional[str] = None,
         magnet_init_values: Optional[np.ndarray] = None,
         max_quad_delta: Optional[float] = None,
@@ -69,7 +69,7 @@ class EATransverseTuning(gym.Env):
 
         self.action_mode = action_mode
         self.beam_distance_ord = beam_distance_ord
-        self.log_beam_distance = log_beam_distance
+        self.logarithmic_beam_distance = logarithmic_beam_distance
         self.magnet_init_mode = magnet_init_mode
         self.magnet_init_values = magnet_init_values
         self.max_quad_delta = max_quad_delta
@@ -425,7 +425,7 @@ class EATransverseTuning(gym.Env):
 
         # TODO I'm not sure if the order with log is okay this way
 
-        if self.log_beam_distance:
+        if self.logarithmic_beam_distance:
             compute_raw_beam_distance = compute_beam_distance
             compute_beam_distance = lambda beam: np.log(  # noqa: E731
                 compute_raw_beam_distance(beam)
