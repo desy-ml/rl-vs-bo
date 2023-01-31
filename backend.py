@@ -176,12 +176,12 @@ class CheetahBackend(BaseBackend):
         self.misalignment_values = misalignment_values
 
         # Create particle simulation
-        self.simulation = cheetah.Segment.from_ocelot(
+        self.segment = cheetah.Segment.from_ocelot(
             ares_lattice, warnings=False, device="cpu"
         ).subcell("AREASOLA1", "AREABSCR1")
-        self.simulation.AREABSCR1.resolution = (2448, 2040)
-        self.simulation.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
-        self.simulation.AREABSCR1.is_active = True
+        self.segment.AREABSCR1.resolution = (2448, 2040)
+        self.segment.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
+        self.segment.AREABSCR1.is_active = True
 
         # Set up domain randomisation spaces
         self.incoming_beam_space = spaces.Box(
@@ -211,7 +211,7 @@ class CheetahBackend(BaseBackend):
         )
 
     def is_beam_on_screen(self) -> bool:
-        screen = self.simulation.AREABSCR1
+        screen = self.segment.AREABSCR1
         beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
         limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
         return np.all(np.abs(beam_position) < limits)
@@ -219,20 +219,20 @@ class CheetahBackend(BaseBackend):
     def get_magnets(self) -> np.ndarray:
         return np.array(
             [
-                self.simulation.AREAMQZM1.k1,
-                self.simulation.AREAMQZM2.k1,
-                self.simulation.AREAMCVM1.angle,
-                self.simulation.AREAMQZM3.k1,
-                self.simulation.AREAMCHM1.angle,
+                self.segment.AREAMQZM1.k1,
+                self.segment.AREAMQZM2.k1,
+                self.segment.AREAMCVM1.angle,
+                self.segment.AREAMQZM3.k1,
+                self.segment.AREAMCHM1.angle,
             ]
         )
 
     def set_magnets(self, magnets: np.ndarray) -> None:
-        self.simulation.AREAMQZM1.k1 = magnets[0]
-        self.simulation.AREAMQZM2.k1 = magnets[1]
-        self.simulation.AREAMCVM1.angle = magnets[2]
-        self.simulation.AREAMQZM3.k1 = magnets[3]
-        self.simulation.AREAMCHM1.angle = magnets[4]
+        self.segment.AREAMQZM1.k1 = magnets[0]
+        self.segment.AREAMQZM2.k1 = magnets[1]
+        self.segment.AREAMCVM1.angle = magnets[2]
+        self.segment.AREAMQZM3.k1 = magnets[3]
+        self.segment.AREAMCHM1.angle = magnets[4]
 
     def reset(self) -> None:
         # New domain randomisation
@@ -264,21 +264,21 @@ class CheetahBackend(BaseBackend):
             raise ValueError(
                 f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
             )
-        self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
-        self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
-        self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
-        self.simulation.AREABSCR1.misalignment = misalignments[6:8]
+        self.segment.AREAMQZM1.misalignment = misalignments[0:2]
+        self.segment.AREAMQZM2.misalignment = misalignments[2:4]
+        self.segment.AREAMQZM3.misalignment = misalignments[4:6]
+        self.segment.AREABSCR1.misalignment = misalignments[6:8]
 
     def update(self) -> None:
-        self.simulation(self.incoming)
+        self.segment(self.incoming)
 
     def get_beam_parameters(self) -> np.ndarray:
         return np.array(
             [
-                self.simulation.AREABSCR1.read_beam.mu_x,
-                self.simulation.AREABSCR1.read_beam.sigma_x,
-                self.simulation.AREABSCR1.read_beam.mu_y,
-                self.simulation.AREABSCR1.read_beam.sigma_y,
+                self.segment.AREABSCR1.read_beam.mu_x,
+                self.segment.AREABSCR1.read_beam.sigma_x,
+                self.segment.AREABSCR1.read_beam.mu_y,
+                self.segment.AREABSCR1.read_beam.sigma_y,
             ]
         )
 
@@ -304,14 +304,14 @@ class CheetahBackend(BaseBackend):
     def get_misalignments(self) -> np.ndarray:
         return np.array(
             [
-                self.simulation.AREAMQZM1.misalignment[0],
-                self.simulation.AREAMQZM1.misalignment[1],
-                self.simulation.AREAMQZM2.misalignment[0],
-                self.simulation.AREAMQZM2.misalignment[1],
-                self.simulation.AREAMQZM3.misalignment[0],
-                self.simulation.AREAMQZM3.misalignment[1],
-                self.simulation.AREABSCR1.misalignment[0],
-                self.simulation.AREABSCR1.misalignment[1],
+                self.segment.AREAMQZM1.misalignment[0],
+                self.segment.AREAMQZM1.misalignment[1],
+                self.segment.AREAMQZM2.misalignment[0],
+                self.segment.AREAMQZM2.misalignment[1],
+                self.segment.AREAMQZM3.misalignment[0],
+                self.segment.AREAMQZM3.misalignment[1],
+                self.segment.AREABSCR1.misalignment[0],
+                self.segment.AREABSCR1.misalignment[1],
             ],
             dtype=np.float32,
         )
@@ -319,16 +319,16 @@ class CheetahBackend(BaseBackend):
     def get_beam_image(self) -> np.ndarray:
         # Beam image to look like real image by dividing by goodlooking number and
         # scaling to 12 bits)
-        return self.simulation.AREABSCR1.reading / 1e9 * 2**12
+        return self.segment.AREABSCR1.reading / 1e9 * 2**12
 
     def get_binning(self) -> np.ndarray:
-        return np.array(self.simulation.AREABSCR1.binning)
+        return np.array(self.segment.AREABSCR1.binning)
 
     def get_screen_resolution(self) -> np.ndarray:
-        return np.array(self.simulation.AREABSCR1.resolution) / self.get_binning()
+        return np.array(self.segment.AREABSCR1.resolution) / self.get_binning()
 
     def get_pixel_size(self) -> np.ndarray:
-        return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
+        return np.array(self.segment.AREABSCR1.pixel_size) * self.get_binning()
 
     def get_info(self) -> dict:
         return {
