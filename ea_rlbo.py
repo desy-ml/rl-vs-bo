@@ -34,7 +34,7 @@ def optimize_donkey_bo_combo(
     progress_bar=False,
     callback=None,
     rl_steps=10,
-    bo_takeover=None,  # Set to MAE obove which BO takes over or to None for no takeover (e.g. 0.00015)
+    bo_takeover=None,  # MAE obove which BO takes over or to None for (e.g. 0.00015)
 ):
     """
     Function used for optimisation during operation.

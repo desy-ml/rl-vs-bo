@@ -1,18 +1,19 @@
 from datetime import datetime
 
 import numpy as np
-from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLimit
+from gym.wrappers import RecordVideo, RescaleAction, TimeLimit
 
+from backend import ARESEADOOCS
 from bayesopt import BayesianOptimizationAgent
 from ea_optimize import (
-    ARESEADOOCS,
+    ARESEA,
     ARESEAeLog,
     BaseCallback,
     OptimizeFunctionCallback,
     TQDMWrapper,
     setup_callback,
 )
-from utils import FilterAction, RecordEpisode
+from utils import RecordEpisode
 
 
 def optimize(
@@ -34,7 +35,7 @@ def optimize(
     acquisition="EI",
     init_samples=5,
     filter_action=None,
-    rescale_action=(-3, 3),  # TODO this was -1, 1 in most real-world experiments
+    rescale_action=(-3, 3),  # Yes 3 is the value we chose
     magnet_init_values=np.array([10, -10, 0, 10, 0]),
     set_to_best=True,  # set back to best found setting after opt.
     mean_module=None,
@@ -42,7 +43,8 @@ def optimize(
     callback = setup_callback(callback)
 
     # Create the environment
-    env = ARESEADOOCS(
+    env = ARESEA(
+        backend=ARESEADOOCS(),
         action_mode="direct_unidirectional_quads",
         magnet_init_mode="constant",
         magnet_init_values=magnet_init_values,
@@ -75,9 +77,6 @@ def optimize(
         env = RecordEpisode(env, save_dir=data_log_dir)
     if logbook:
         env = ARESEAeLog(env, model_name=model_name)
-    if filter_action is not None:
-        env = FilterAction(env, filter_action, replace=0)
-    env = FlattenObservation(env)
     if rescale_action is not None:
         env = RescaleAction(env, rescale_action[0], rescale_action[1])
     env = RecordVideo(env, video_folder=f"recordings_real/{datetime.now():%Y%m%d%H%M}")

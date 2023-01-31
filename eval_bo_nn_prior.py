@@ -8,8 +8,9 @@ import torch
 from gym.wrappers import RescaleAction, TimeLimit
 from tqdm import tqdm
 
+from backend import ARESEACheetah
 from bayesopt import BayesianOptimizationAgent, BeamNNPrior
-from ea_train import ARESEACheetah
+from ea_train import ARESEA
 from trial import Trial, load_trials
 from utils import RecordEpisode
 
@@ -23,14 +24,17 @@ def try_problem(
     acquisition: str = "EI",
 ):
     # Create the environment
-    env = ARESEACheetah(
-        action_mode="direct_unidirectional_quads",
+    cheetah_backend = ARESEACheetah(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
-        magnet_init_mode="constant",
-        magnet_init_values=np.array([10, -10, 0, 10, 0]),
         misalignment_mode="constant",
         misalignment_values=trial.misalignments,
+    )
+    env = ARESEA(
+        backend=cheetah_backend,
+        action_mode="direct_unidirectional_quads",
+        magnet_init_mode="constant",
+        magnet_init_values=np.array([10, -10, 0, 10, 0]),
         reward_mode="feedback",
         target_beam_mode="constant",
         target_beam_values=trial.target_beam,

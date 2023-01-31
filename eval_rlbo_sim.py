@@ -21,16 +21,19 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     bo_takeover = 0.00015
 
     # Create the environment
-    env = ARESEACheetah(
-        action_mode="delta",
+    cheetah_backend = ARESEACheetah(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
+        misalignment_mode="constant",
+        misalignment_values=trial.misalignments,
+    )
+    env = ARESEACheetah(
+        backend=cheetah_backend,
+        action_mode="delta",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
         max_quad_delta=30 * 0.1,
         max_steerer_delta=6e-3 * 0.1,
-        misalignment_mode="constant",
-        misalignment_values=trial.misalignments,
         reward_mode="feedback",
         target_beam_mode="constant",
         target_beam_values=trial.target_beam,
@@ -51,7 +54,9 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=f"data/bo_vs_rl/simulation/rl_bo_takeover_{bo_takeover}/problem_{trial_index:03d}",
+        save_dir=(
+            f"data/bo_vs_rl/simulation/hybrid_{bo_takeover}/problem_{trial_index:03d}"
+        ),
     )
     env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)

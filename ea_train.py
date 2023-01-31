@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Optional
 
-import cheetah
 import cv2
 import gym
 import numpy as np
@@ -21,7 +20,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
 
-from ARESlatticeStage3v1_9 import cell as ares_lattice
+from backend import ARESEABackend, ARESEACheetah
 from utils import FilterAction, save_config
 
 
@@ -145,12 +144,16 @@ def train(config: dict) -> None:
 
 
 def make_env(config: dict, record_video: bool = False) -> gym.Env:
-    env = ARESEACheetah(
+    cheetah_backend = ARESEACheetah(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
         max_misalignment=config["max_misalignment"],
         misalignment_mode=config["misalignment_mode"],
         misalignment_values=config["misalignment_values"],
+    )
+
+    env = ARESEA(
+        backend=cheetah_backend,
         action_mode=config["action_mode"],
         beam_distance_ord=config["beam_distance_ord"],
         log_beam_distance=config["log_beam_distance"],
@@ -224,6 +227,7 @@ class ARESEA(gym.Env):
 
     def __init__(
         self,
+        backend: ARESEABackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
         include_beam_image_in_info: bool = True,
@@ -254,6 +258,8 @@ class ARESEA(gym.Env):
         w_sigma_y_in_threshold: float = 0.0,
         w_time: float = 0.0,
     ) -> None:
+        self.backend = backend
+
         self.action_mode = action_mode
         self.beam_distance_ord = beam_distance_ord
         self.include_beam_image_in_info = include_beam_image_in_info
@@ -338,19 +344,19 @@ class ARESEA(gym.Env):
                 high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
             ),
         }
-        obs_space_dict.update(self.get_accelerator_observation_space())
+        obs_space_dict.update(self.backend.get_accelerator_observation_space())
         self.observation_space = spaces.Dict(obs_space_dict)
 
         # Setup the accelerator (either simulation or the actual machine)
-        self.setup_accelerator()
+        self.backend.setup_accelerator()
 
     def reset(self) -> np.ndarray:
-        self.reset_accelerator()
+        self.backend.reset_accelerator()
 
         if self.magnet_init_mode == "constant":
-            self.set_magnets(self.magnet_init_values)
+            self.backend.set_magnets(self.magnet_init_values)
         elif self.magnet_init_mode == "random":
-            self.set_magnets(self.observation_space["magnets"].sample())
+            self.backend.set_magnets(self.observation_space["magnets"].sample())
         elif self.magnet_init_mode is None:
             pass  # This really is intended to do nothing
         else:
@@ -368,19 +374,19 @@ class ARESEA(gym.Env):
             )
 
         # Update anything in the accelerator (mainly for running simulations)
-        self.update_accelerator()
+        self.backend.update_accelerator()
 
-        self.initial_screen_beam = self.get_beam_parameters()
+        self.initial_screen_beam = self.backend.get_beam_parameters()
         self.previous_beam = self.initial_screen_beam
         self.is_in_threshold_history = []
         self.steps_taken = 0
 
         observation = {
             "beam": self.initial_screen_beam.astype("float32"),
-            "magnets": self.get_magnets().astype("float32"),
+            "magnets": self.backend.get_magnets().astype("float32"),
             "target": self.target_beam.astype("float32"),
         }
-        observation.update(self.get_accelerator_observation())
+        observation.update(self.backend.get_accelerator_observation())
 
         return observation
 
@@ -388,18 +394,18 @@ class ARESEA(gym.Env):
         self.take_action(action)
 
         # Run the simulation
-        self.update_accelerator()
+        self.backend.update_accelerator()
 
-        current_beam = self.get_beam_parameters()
+        current_beam = self.backend.get_beam_parameters()
         self.steps_taken += 1
 
         # Build observation
         observation = {
             "beam": current_beam.astype("float32"),
-            "magnets": self.get_magnets().astype("float32"),
+            "magnets": self.backend.get_magnets().astype("float32"),
             "target": self.target_beam.astype("float32"),
         }
-        observation.update(self.get_accelerator_observation())
+        observation.update(self.backend.get_accelerator_observation())
 
         # For readibility in computations below
         cb = current_beam
@@ -424,7 +430,7 @@ class ARESEA(gym.Env):
         done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
 
         # Compute reward
-        on_screen_reward = 1 if self.is_beam_on_screen() else -1
+        on_screen_reward = 1 if self.backend.is_beam_on_screen() else -1
         time_reward = -1
         done_reward = int(done)
         beam_reward = self.compute_beam_reward(current_beam)
@@ -442,16 +448,16 @@ class ARESEA(gym.Env):
 
         # Put together info
         info = {
-            "binning": self.get_binning(),
+            "binning": self.backend.get_binning(),
             "l1_distance": self.compute_beam_distance(current_beam, ord=1),
             "on_screen_reward": on_screen_reward,
-            "pixel_size": self.get_pixel_size(),
-            "screen_resolution": self.get_screen_resolution(),
+            "pixel_size": self.backend.get_pixel_size(),
+            "screen_resolution": self.backend.get_screen_resolution(),
             "time_reward": time_reward,
         }
         if self.include_beam_image_in_info:
-            info["beam_image"] = self.get_beam_image()
-        info.update(self.get_accelerator_info())
+            info["beam_image"] = self.backend.get_beam_image()
+        info.update(self.backend.get_accelerator_info())
 
         self.previous_beam = current_beam
 
@@ -460,12 +466,12 @@ class ARESEA(gym.Env):
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         assert mode == "rgb_array" or mode == "human"
 
-        binning = self.get_binning()
-        pixel_size = self.get_pixel_size()
-        resolution = self.get_screen_resolution()
+        binning = self.backend.get_binning()
+        pixel_size = self.backend.get_pixel_size()
+        resolution = self.backend.get_screen_resolution()
 
         # Read screen image and make 8-bit RGB
-        img = self.get_beam_image()
+        img = self.backend.get_beam_image()
         img = img / 2**12 * 255
         img = img.clip(0, 255).astype(np.uint8)
         img = np.repeat(img[:, :, np.newaxis], 3, axis=-1)
@@ -487,7 +493,7 @@ class ARESEA(gym.Env):
         )
 
         # Draw beam ellipse
-        cb = self.get_beam_parameters()
+        cb = self.backend.get_beam_parameters()
         pixel_size_b4 = pixel_size / binning * 4
         e_pos_x = int(cb[0] / pixel_size_b4[0] + render_resolution[0] / 2)
         e_width_x = int(cb[1] / pixel_size_b4[0])
@@ -503,7 +509,7 @@ class ARESEA(gym.Env):
         img = cv2.resize(img, (new_width, img.shape[0]))
 
         # Add magnet values and beam parameters
-        magnets = self.get_magnets()
+        magnets = self.backend.get_magnets()
         padding = np.full(
             (int(img.shape[0] * 0.27), img.shape[1], 3), fill_value=255, dtype=np.uint8
         )
@@ -598,12 +604,12 @@ class ARESEA(gym.Env):
     def take_action(self, action: np.ndarray) -> None:
         """Take `action` according to the environment's configuration."""
         if self.action_mode == "direct":
-            self.set_magnets(action)
+            self.backend.set_magnets(action)
         elif self.action_mode == "direct_unidirectional_quads":
-            self.set_magnets(action)
+            self.backend.set_magnets(action)
         elif self.action_mode == "delta":
-            magnet_values = self.get_magnets()
-            self.set_magnets(magnet_values + action)
+            magnet_values = self.backend.get_magnets()
+            self.backend.set_magnets(magnet_values + action)
         else:
             raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
@@ -637,73 +643,6 @@ class ARESEA(gym.Env):
 
         return beam_reward
 
-    def is_beam_on_screen(self) -> bool:
-        """
-        Return `True` when the beam is on the screen and `False` when it isn't.
-
-        Override with backend-specific imlementation. Must be implemented!
-        """
-        raise NotImplementedError
-
-    def setup_accelerator(self) -> None:
-        """
-        Prepare the accelerator for use with the environment. Should mostly be used for
-        setting up simulations.
-
-        Override with backend-specific imlementation. Optional.
-        """
-
-    def get_magnets(self) -> np.ndarray:
-        """
-        Return the magnet values as a NumPy array in order as the magnets appear in the
-        accelerator.
-
-        Override with backend-specific imlementation. Must be implemented!
-        """
-        raise NotImplementedError
-
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        """
-        Set the magnets to the given values.
-
-        The argument `magnets` will be passed as a NumPy array in the order the magnets
-        appear in the accelerator.
-
-        When applicable, this method should block until the magnet values are acutally
-        set!
-
-        Override with backend-specific imlementation. Must be implemented!
-        """
-        raise NotImplementedError
-
-    def reset_accelerator(self) -> None:
-        """
-        Code that should set the accelerator up for a new episode. Run when the `reset`
-        is called.
-
-        Mostly meant for simulations to switch to a new incoming beam / misalignments or
-        simular things.
-
-        Override with backend-specific imlementation. Optional.
-        """
-
-    def update_accelerator(self) -> None:
-        """
-        Update accelerator metrics for later use. Use this to run the simulation or
-        cache the beam image.
-
-        Override with backend-specific imlementation. Optional.
-        """
-
-    def get_beam_parameters(self) -> np.ndarray:
-        """
-        Get the beam parameters measured on the diagnostic screen as NumPy array grouped
-        by dimension (e.g. mu_x, sigma_x, mu_y, sigma_y).
-
-        Override with backend-specific imlementation. Must be implemented!
-        """
-        raise NotImplementedError
-
     def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
         """
         Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
@@ -713,335 +652,6 @@ class ARESEA(gym.Env):
         weighted_current = weights * beam
         weighted_target = weights * self.target_beam
         return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
-
-    def get_incoming_parameters(self) -> np.ndarray:
-        """
-        Get all physical beam parameters of the incoming beam as NumPy array in order
-        energy, mu_x, mu_xp, mu_y, mu_yp, sigma_x, sigma_xp, sigma_y, sigma_yp, sigma_s,
-        sigma_p.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        raise NotImplementedError
-
-    def get_misalignments(self) -> np.ndarray:
-        """
-        Get misalignments of the quadrupoles and the diagnostic screen as NumPy array in
-        order AREAMQZM1.misalignment.x, AREAMQZM1.misalignment.y,
-        AREAMQZM2.misalignment.x, AREAMQZM2.misalignment.y, AREAMQZM3.misalignment.x,
-        AREAMQZM3.misalignment.y, AREABSCR1.misalignment.x, AREABSCR1.misalignment.y.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        raise NotImplementedError
-
-    def get_beam_image(self) -> np.ndarray:
-        """
-        Retreive the beam image as a 2-dimensional NumPy array.
-
-        Note that if reading the beam image is expensive, it is best to cache the image
-        in the `update_accelerator` method and the read the cached variable here.
-
-        Ideally, the pixel values should look somewhat similar to the 12-bit values from
-        the real screen camera.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        raise NotImplementedError
-
-    def get_binning(self) -> np.ndarray:
-        """
-        Return binning currently set on the screen camera as NumPy array [x, y].
-
-        Override with backend-specific imlementation. Optional.
-        """
-        raise NotImplementedError
-
-    def get_screen_resolution(self) -> np.ndarray:
-        """
-        Return (binned) resolution of the screen camera as NumPy array [x, y].
-
-        Override with backend-specific imlementation. Optional.
-        """
-        raise NotImplementedError
-
-    def get_pixel_size(self) -> np.ndarray:
-        """
-        Return the (binned) size of the area on the diagnostic screen covered by one
-        pixel as NumPy array [x, y].
-
-        Override with backend-specific imlementation. Optional.
-        """
-        raise NotImplementedError
-
-    def get_accelerator_observation_space(self) -> dict:
-        """
-        Return a dictionary of aditional observation spaces for observations from the
-        accelerator backend, e.g. incoming beam and misalignments in simulation.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        return {}
-
-    def get_accelerator_observation(self) -> dict:
-        """
-        Return a dictionary of aditional observations from the accelerator backend, e.g.
-        incoming beam and misalignments in simulation.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        return {}
-
-    def get_accelerator_info(self) -> dict:
-        """
-        Return a dictionary of aditional info from the accelerator backend, e.g.
-        incoming beam and misalignments in simulation.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        return {}
-
-
-class ARESEACheetah(ARESEA):
-    def __init__(
-        self,
-        incoming_mode: str = "random",
-        incoming_values: Optional[np.ndarray] = None,
-        max_misalignment: float = 5e-4,
-        misalignment_mode: str = "random",
-        misalignment_values: Optional[np.ndarray] = None,
-        action_mode: str = "direct",
-        beam_distance_ord: int = 1,
-        include_beam_image_in_info: bool = False,
-        log_beam_distance: bool = False,
-        magnet_init_mode: Optional[str] = None,
-        magnet_init_values: Optional[np.ndarray] = None,
-        max_quad_delta: Optional[float] = None,
-        max_steerer_delta: Optional[float] = None,
-        normalize_beam_distance: bool = True,
-        reward_mode: str = "differential",
-        target_beam_mode: str = "random",
-        target_beam_values: Optional[np.ndarray] = None,
-        target_mu_x_threshold: float = 3.3198e-6,
-        target_mu_y_threshold: float = 2.4469e-6,
-        target_sigma_x_threshold: float = 3.3198e-6,
-        target_sigma_y_threshold: float = 2.4469e-6,
-        threshold_hold: int = 1,
-        w_beam: float = 0.0,
-        w_done: float = 0.0,
-        w_mu_x: float = 0.0,
-        w_mu_x_in_threshold: float = 0.0,
-        w_mu_y: float = 0.0,
-        w_mu_y_in_threshold: float = 0.0,
-        w_on_screen: float = 0.0,
-        w_sigma_x: float = 0.0,
-        w_sigma_x_in_threshold: float = 0.0,
-        w_sigma_y: float = 0.0,
-        w_sigma_y_in_threshold: float = 0.0,
-        w_time: float = 0.0,
-    ) -> None:
-        self.incoming_mode = incoming_mode
-        self.incoming_values = incoming_values
-        self.max_misalignment = max_misalignment
-        self.misalignment_mode = misalignment_mode
-        self.misalignment_values = misalignment_values
-
-        super().__init__(
-            action_mode=action_mode,
-            beam_distance_ord=beam_distance_ord,
-            include_beam_image_in_info=include_beam_image_in_info,
-            log_beam_distance=log_beam_distance,
-            magnet_init_mode=magnet_init_mode,
-            magnet_init_values=magnet_init_values,
-            max_quad_delta=max_quad_delta,
-            max_steerer_delta=max_steerer_delta,
-            normalize_beam_distance=normalize_beam_distance,
-            reward_mode=reward_mode,
-            target_beam_mode=target_beam_mode,
-            target_beam_values=target_beam_values,
-            target_mu_x_threshold=target_mu_x_threshold,
-            target_mu_y_threshold=target_mu_y_threshold,
-            target_sigma_x_threshold=target_sigma_x_threshold,
-            target_sigma_y_threshold=target_sigma_y_threshold,
-            threshold_hold=threshold_hold,
-            w_beam=w_beam,
-            w_done=w_done,
-            w_mu_x=w_mu_x,
-            w_mu_x_in_threshold=w_mu_x_in_threshold,
-            w_mu_y=w_mu_y,
-            w_mu_y_in_threshold=w_mu_y_in_threshold,
-            w_on_screen=w_on_screen,
-            w_sigma_x=w_sigma_x,
-            w_sigma_x_in_threshold=w_sigma_x_in_threshold,
-            w_sigma_y=w_sigma_y,
-            w_sigma_y_in_threshold=w_sigma_y_in_threshold,
-            w_time=w_time,
-        )
-
-        # Create particle simulation
-        self.simulation = cheetah.Segment.from_ocelot(
-            ares_lattice, warnings=False, device="cpu"
-        ).subcell("AREASOLA1", "AREABSCR1")
-        self.simulation.AREABSCR1.resolution = (2448, 2040)
-        self.simulation.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
-        self.simulation.AREABSCR1.is_active = True
-        self.simulation.AREABSCR1.binning = 4
-        self.simulation.AREABSCR1.is_active = True
-
-    def is_beam_on_screen(self) -> bool:
-        screen = self.simulation.AREABSCR1
-        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
-        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
-        return np.all(np.abs(beam_position) < limits)
-
-    def get_magnets(self) -> np.ndarray:
-        return np.array(
-            [
-                self.simulation.AREAMQZM1.k1,
-                self.simulation.AREAMQZM2.k1,
-                self.simulation.AREAMCVM1.angle,
-                self.simulation.AREAMQZM3.k1,
-                self.simulation.AREAMCHM1.angle,
-            ]
-        )
-
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        self.simulation.AREAMQZM1.k1 = magnets[0]
-        self.simulation.AREAMQZM2.k1 = magnets[1]
-        self.simulation.AREAMCVM1.angle = magnets[2]
-        self.simulation.AREAMQZM3.k1 = magnets[3]
-        self.simulation.AREAMCHM1.angle = magnets[4]
-
-    def reset_accelerator(self) -> None:
-        # New domain randomisation
-        if self.incoming_mode == "constant":
-            incoming_parameters = self.incoming_values
-        elif self.incoming_mode == "random":
-            incoming_parameters = self.observation_space["incoming"].sample()
-        else:
-            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
-        self.incoming = cheetah.ParameterBeam.from_parameters(
-            energy=incoming_parameters[0],
-            mu_x=incoming_parameters[1],
-            mu_xp=incoming_parameters[2],
-            mu_y=incoming_parameters[3],
-            mu_yp=incoming_parameters[4],
-            sigma_x=incoming_parameters[5],
-            sigma_xp=incoming_parameters[6],
-            sigma_y=incoming_parameters[7],
-            sigma_yp=incoming_parameters[8],
-            sigma_s=incoming_parameters[9],
-            sigma_p=incoming_parameters[10],
-        )
-
-        if self.misalignment_mode == "constant":
-            misalignments = self.misalignment_values
-        elif self.misalignment_mode == "random":
-            misalignments = self.observation_space["misalignments"].sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
-            )
-        self.simulation.AREAMQZM1.misalignment = misalignments[0:2]
-        self.simulation.AREAMQZM2.misalignment = misalignments[2:4]
-        self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
-        self.simulation.AREABSCR1.misalignment = misalignments[6:8]
-
-    def update_accelerator(self) -> None:
-        self.simulation(self.incoming)
-
-    def get_beam_parameters(self) -> np.ndarray:
-        return np.array(
-            [
-                self.simulation.AREABSCR1.read_beam.mu_x,
-                self.simulation.AREABSCR1.read_beam.sigma_x,
-                self.simulation.AREABSCR1.read_beam.mu_y,
-                self.simulation.AREABSCR1.read_beam.sigma_y,
-            ]
-        )
-
-    def get_incoming_parameters(self) -> np.ndarray:
-        # Parameters of incoming are typed out to guarantee their order, as the
-        # order would not be guaranteed creating np.array from dict.
-        return np.array(
-            [
-                self.incoming.energy,
-                self.incoming.mu_x,
-                self.incoming.mu_xp,
-                self.incoming.mu_y,
-                self.incoming.mu_yp,
-                self.incoming.sigma_x,
-                self.incoming.sigma_xp,
-                self.incoming.sigma_y,
-                self.incoming.sigma_yp,
-                self.incoming.sigma_s,
-                self.incoming.sigma_p,
-            ]
-        )
-
-    def get_misalignments(self) -> np.ndarray:
-        return np.array(
-            [
-                self.simulation.AREAMQZM1.misalignment[0],
-                self.simulation.AREAMQZM1.misalignment[1],
-                self.simulation.AREAMQZM2.misalignment[0],
-                self.simulation.AREAMQZM2.misalignment[1],
-                self.simulation.AREAMQZM3.misalignment[0],
-                self.simulation.AREAMQZM3.misalignment[1],
-                self.simulation.AREABSCR1.misalignment[0],
-                self.simulation.AREABSCR1.misalignment[1],
-            ],
-            dtype=np.float32,
-        )
-
-    def get_beam_image(self) -> np.ndarray:
-        # Beam image to look like real image by dividing by goodlooking number and
-        # scaling to 12 bits)
-        return self.simulation.AREABSCR1.reading / 1e9 * 2**12
-
-    def get_binning(self) -> np.ndarray:
-        return np.array(self.simulation.AREABSCR1.binning)
-
-    def get_screen_resolution(self) -> np.ndarray:
-        return np.array(self.simulation.AREABSCR1.resolution) / self.get_binning()
-
-    def get_pixel_size(self) -> np.ndarray:
-        return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
-
-    def get_accelerator_observation_space(self) -> dict:
-        return {
-            "incoming": spaces.Box(
-                low=np.array(
-                    [
-                        80e6,
-                        -1e-3,
-                        -1e-4,
-                        -1e-3,
-                        -1e-4,
-                        1e-5,
-                        1e-6,
-                        1e-5,
-                        1e-6,
-                        1e-6,
-                        1e-4,
-                    ],
-                    dtype=np.float32,
-                ),
-                high=np.array(
-                    [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
-                    dtype=np.float32,
-                ),
-            ),
-            "misalignments": spaces.Box(
-                low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
-            ),
-        }
-
-    def get_accelerator_observation(self) -> dict:
-        return {
-            "incoming": self.get_incoming_parameters(),
-            "misalignments": self.get_misalignments(),
-        }
 
 
 if __name__ == "__main__":

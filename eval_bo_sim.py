@@ -3,24 +3,28 @@ from pathlib import Path
 
 import numpy as np
 from gym.wrappers import RescaleAction, TimeLimit
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
+from backend import ARESEACheetah
 from bayesopt import BayesianOptimizationAgent
-from ea_train import ARESEACheetah
+from ea_train import ARESEA
 from trial import Trial, load_trials
 from utils import RecordEpisode
 
 
 def try_problem(trial_index: int, trial: Trial):
     # Create the environment
-    env = ARESEACheetah(
-        action_mode="direct_unidirectional_quads",
+    cheetah_backend = ARESEACheetah(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
-        magnet_init_mode="constant",
-        magnet_init_values=np.array([10, -10, 0, 10, 0]),
         misalignment_mode="constant",
         misalignment_values=trial.misalignments,
+    )
+    env = ARESEA(
+        backend=cheetah_backend,
+        action_mode="direct_unidirectional_quads",
+        magnet_init_mode="constant",
+        magnet_init_values=np.array([10, -10, 0, 10, 0]),
         reward_mode="feedback",
         target_beam_mode="constant",
         target_beam_values=trial.target_beam,
@@ -41,7 +45,7 @@ def try_problem(trial_index: int, trial: Trial):
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_test_8_explicit/problem_{trial_index:03d}",
+        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_9/problem_{trial_index:03d}",
     )
     env = RescaleAction(env, -3, 3)
 
@@ -69,7 +73,7 @@ def try_problem(trial_index: int, trial: Trial):
 
 
 def main():
-    trials = load_trials(Path("trials.yaml"))
+    trials = load_trials(Path("trials.yaml"))[:1]
 
     with ProcessPoolExecutor() as executor:
         _ = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)

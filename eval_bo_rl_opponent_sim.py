@@ -4,9 +4,10 @@ from pathlib import Path
 import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from stable_baselines3 import TD3
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
-from ea_train import ARESEACheetah
+from backend import ARESEACheetah
+from ea_train import ARESEA
 from trial import Trial, load_trials
 from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
@@ -18,16 +19,19 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     model = TD3.load(f"models/{model_name}/model")
 
     # Create the environment
-    env = ARESEACheetah(
-        action_mode="delta",
+    cheetah_backend = ARESEACheetah(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
+        misalignment_mode="constant",
+        misalignment_values=trial.misalignments,
+    )
+    env = ARESEA(
+        backend=cheetah_backend,
+        action_mode="delta",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
         max_quad_delta=30 * 0.1,
         max_steerer_delta=6e-3 * 0.1,
-        misalignment_mode="constant",
-        misalignment_values=trial.misalignments,
         reward_mode="differential",
         target_beam_mode="constant",
         target_beam_values=trial.target_beam,
@@ -36,13 +40,17 @@ def try_problem(trial_index: int, trial: Trial) -> None:
         target_sigma_x_threshold=None,
         target_sigma_y_threshold=None,
         threshold_hold=5,
+        w_beam=1.0,
+        w_mu_x=1.0,
+        w_mu_y=1.0,
+        w_on_screen=10.0,
+        w_sigma_x=1.0,
+        w_sigma_y=1.0,
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=(
-            f"data/bo_vs_rl/simulation/rl_runtime_measurement/problem_{trial_index:03d}"
-        ),
+        save_dir=f"data/bo_vs_rl/simulation/rl_test/problem_{trial_index:03d}",
     )
     env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)

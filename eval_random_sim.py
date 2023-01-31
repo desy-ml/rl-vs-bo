@@ -5,14 +5,22 @@ import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
-from ea_train import ARESEACheetah
+from backend import ARESEACheetah
+from ea_train import ARESEA
 from trial import Trial, load_trials
 from utils import RecordEpisode
 
 
 def try_problem(trial_index: int, trial: Trial) -> None:
     # Create the environment
-    env = ARESEACheetah(
+    cheetah_backend = ARESEACheetah(
+        incoming_mode="constant",
+        incoming_values=trial.incoming_beam,
+        misalignment_mode="constant",
+        misalignment_values=trial.misalignments,
+    )
+    env = ARESEA(
+        backend=cheetah_backend,
         action_mode="direct",
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
@@ -28,6 +36,12 @@ def try_problem(trial_index: int, trial: Trial) -> None:
         target_sigma_x_threshold=None,
         target_sigma_y_threshold=None,
         threshold_hold=5,
+        w_beam=1.0,
+        w_mu_x=1.0,
+        w_mu_y=1.0,
+        w_on_screen=10.0,
+        w_sigma_x=1.0,
+        w_sigma_y=1.0,
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(

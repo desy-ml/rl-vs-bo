@@ -220,7 +220,8 @@ class ARESEAeLog(gym.Wrapper):
             self.has_reset_before = True
 
         observation = self.env.reset()
-        self.beam_image_before = self.env.get_beam_image()
+        # TODO Get the below from info?
+        self.beam_image_before = self.env.backend.get_beam_image()
 
         self.observations = [observation]
         self.rewards = []
