@@ -3,16 +3,16 @@ from datetime import datetime
 import numpy as np
 from gym.wrappers import RecordVideo, RescaleAction, TimeLimit
 
-from backend import ARESEADOOCS
+from backend import DOOCSBackend
 from bayesopt import BayesianOptimizationAgent
 from ea_optimize import (
-    ARESEA,
     ARESEAeLog,
     BaseCallback,
     OptimizeFunctionCallback,
     TQDMWrapper,
     setup_callback,
 )
+from ea_train import EATransverseTuning
 from utils import RecordEpisode
 
 
@@ -43,8 +43,8 @@ def optimize(
     callback = setup_callback(callback)
 
     # Create the environment
-    env = ARESEA(
-        backend=ARESEADOOCS(),
+    env = EATransverseTuning(
+        backend=DOOCSBackend(),
         action_mode="direct_unidirectional_quads",
         magnet_init_mode="constant",
         magnet_init_values=magnet_init_values,

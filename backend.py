@@ -11,7 +11,7 @@ from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from ARESlatticeStage3v1_9 import cell as ares_lattice
 
 
-class ARESEABackend(ABC):
+class BaseBackend(ABC):
     """Abstract class for a backend imlementation of the ARES Experimental Area."""
 
     @abstractmethod
@@ -176,7 +176,7 @@ class ARESEABackend(ABC):
         return {}
 
 
-class ARESEACheetah(ARESEABackend):
+class CheetahBackend(BaseBackend):
     """Cheetah simulation backend to the ARES Experimental Area."""
 
     def __init__(
@@ -361,7 +361,7 @@ class ARESEACheetah(ARESEABackend):
         }
 
 
-class ARESEADOOCS(ARESEABackend):
+class DOOCSBackend(BaseBackend):
     """
     Backend for the ARES EA to communicate with the real accelerator through the DOOCS
     control system.

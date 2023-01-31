@@ -20,7 +20,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
 
-from backend import ARESEABackend, ARESEACheetah
+from backend import BaseBackend, CheetahBackend
 from utils import FilterAction, save_config
 
 
@@ -144,7 +144,7 @@ def train(config: dict) -> None:
 
 
 def make_env(config: dict, record_video: bool = False) -> gym.Env:
-    cheetah_backend = ARESEACheetah(
+    cheetah_backend = CheetahBackend(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
         max_misalignment=config["max_misalignment"],
@@ -152,7 +152,7 @@ def make_env(config: dict, record_video: bool = False) -> gym.Env:
         misalignment_values=config["misalignment_values"],
     )
 
-    env = ARESEA(
+    env = EATransverseTuning(
         backend=cheetah_backend,
         action_mode=config["action_mode"],
         beam_distance_ord=config["beam_distance_ord"],
@@ -201,7 +201,7 @@ def make_env(config: dict, record_video: bool = False) -> gym.Env:
     return env
 
 
-class ARESEA(gym.Env):
+class EATransverseTuning(gym.Env):
     """
     Base class for beam positioning and focusing on AREABSCR1 in the ARES EA.
 
@@ -227,7 +227,7 @@ class ARESEA(gym.Env):
 
     def __init__(
         self,
-        backend: ARESEABackend,
+        backend: BaseBackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
         include_beam_image_in_info: bool = True,

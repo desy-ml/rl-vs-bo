@@ -5,21 +5,21 @@ import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm.notebook import tqdm
 
-from backend import ARESEACheetah
-from ea_train import ARESEA
+from backend import CheetahBackend
+from ea_train import EATransverseTuning
 from trial import Trial, load_trials
 from utils import RecordEpisode
 
 
 def try_problem(trial_index: int, trial: Trial) -> None:
     # Create the environment
-    cheetah_backend = ARESEACheetah(
+    cheetah_backend = CheetahBackend(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
         misalignment_mode="constant",
         misalignment_values=trial.misalignments,
     )
-    env = ARESEA(
+    env = EATransverseTuning(
         backend=cheetah_backend,
         action_mode="direct",
         incoming_mode="constant",

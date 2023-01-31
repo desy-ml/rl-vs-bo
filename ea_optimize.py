@@ -14,8 +14,8 @@ from gym.wrappers import (
 )
 from stable_baselines3 import PPO, TD3
 
-from backend import ARESEADOOCS
-from ea_train import ARESEA
+from backend import DOOCSBackend
+from ea_train import EATransverseTuning
 from utils import (
     ARESEAeLog,
     FilterAction,
@@ -54,7 +54,7 @@ def optimize(
     callback = setup_callback(callback)
 
     # Create the environment
-    env = ARESEADOOCS(
+    env = DOOCSBackend(
         action_mode=config["action_mode"],
         magnet_init_mode=config["magnet_init_mode"],
         magnet_init_values=config["magnet_init_values"],
@@ -149,8 +149,8 @@ def optimize_donkey(
     callback = setup_callback(callback)
 
     # Create the environment
-    env = ARESEA(
-        backend=ARESEADOOCS(),
+    env = EATransverseTuning(
+        backend=DOOCSBackend(),
         action_mode="delta",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
