@@ -23,7 +23,7 @@ class BaseBackend(ABC):
         """
         pass
 
-    def setup_accelerator(self) -> None:
+    def setup(self) -> None:
         """
         Prepare the accelerator for use with the environment. Should mostly be used for
         setting up simulations.
@@ -57,7 +57,7 @@ class BaseBackend(ABC):
         """
         raise NotImplementedError
 
-    def reset_accelerator(self) -> None:
+    def reset(self) -> None:
         """
         Code that should set the accelerator up for a new episode. Run when the `reset`
         is called.
@@ -69,7 +69,7 @@ class BaseBackend(ABC):
         """
         pass
 
-    def update_accelerator(self) -> None:
+    def update(self) -> None:
         """
         Update accelerator metrics for later use. Use this to run the simulation or
         cache the beam image.
@@ -148,25 +148,7 @@ class BaseBackend(ABC):
         """
         raise NotImplementedError
 
-    def get_accelerator_observation_space(self) -> dict:
-        """
-        Return a dictionary of aditional observation spaces for observations from the
-        accelerator backend, e.g. incoming beam and misalignments in simulation.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        return {}
-
-    def get_accelerator_observation(self) -> dict:
-        """
-        Return a dictionary of aditional observations from the accelerator backend, e.g.
-        incoming beam and misalignments in simulation.
-
-        Override with backend-specific imlementation. Optional.
-        """
-        return {}
-
-    def get_accelerator_info(self) -> dict:
+    def get_info(self) -> dict:
         """
         Return a dictionary of aditional info from the accelerator backend, e.g.
         incoming beam and misalignments in simulation.
@@ -201,6 +183,33 @@ class CheetahBackend(BaseBackend):
         self.simulation.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
         self.simulation.AREABSCR1.is_active = True
 
+        # Set up domain randomisation spaces
+        self.incoming_beam_space = spaces.Box(
+            low=np.array(
+                [
+                    80e6,
+                    -1e-3,
+                    -1e-4,
+                    -1e-3,
+                    -1e-4,
+                    1e-5,
+                    1e-6,
+                    1e-5,
+                    1e-6,
+                    1e-6,
+                    1e-4,
+                ],
+                dtype=np.float32,
+            ),
+            high=np.array(
+                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
+                dtype=np.float32,
+            ),
+        )
+        self.misalignment_space = spaces.Box(
+            low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
+        )
+
     def is_beam_on_screen(self) -> bool:
         screen = self.simulation.AREABSCR1
         beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
@@ -225,14 +234,12 @@ class CheetahBackend(BaseBackend):
         self.simulation.AREAMQZM3.k1 = magnets[3]
         self.simulation.AREAMCHM1.angle = magnets[4]
 
-    def reset_accelerator(self) -> None:
+    def reset(self) -> None:
         # New domain randomisation
         if self.incoming_mode == "constant":
             incoming_parameters = self.incoming_values
         elif self.incoming_mode == "random":
-            incoming_parameters = self.get_accelerator_observation_space()[
-                "incoming"
-            ].sample()
+            incoming_parameters = self.incoming_beam_space.sample()
         else:
             raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
         self.incoming = cheetah.ParameterBeam.from_parameters(
@@ -252,9 +259,7 @@ class CheetahBackend(BaseBackend):
         if self.misalignment_mode == "constant":
             misalignments = self.misalignment_values
         elif self.misalignment_mode == "random":
-            misalignments = self.get_accelerator_observation_space()[
-                "misalignments"
-            ].sample()
+            misalignments = self.misalignment_space.sample()
         else:
             raise ValueError(
                 f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
@@ -264,7 +269,7 @@ class CheetahBackend(BaseBackend):
         self.simulation.AREAMQZM3.misalignment = misalignments[4:6]
         self.simulation.AREABSCR1.misalignment = misalignments[6:8]
 
-    def update_accelerator(self) -> None:
+    def update(self) -> None:
         self.simulation(self.incoming)
 
     def get_beam_parameters(self) -> np.ndarray:
@@ -325,38 +330,9 @@ class CheetahBackend(BaseBackend):
     def get_pixel_size(self) -> np.ndarray:
         return np.array(self.simulation.AREABSCR1.pixel_size) * self.get_binning()
 
-    def get_accelerator_observation_space(self) -> dict:
+    def get_info(self) -> dict:
         return {
-            "incoming": spaces.Box(
-                low=np.array(
-                    [
-                        80e6,
-                        -1e-3,
-                        -1e-4,
-                        -1e-3,
-                        -1e-4,
-                        1e-5,
-                        1e-6,
-                        1e-5,
-                        1e-6,
-                        1e-6,
-                        1e-4,
-                    ],
-                    dtype=np.float32,
-                ),
-                high=np.array(
-                    [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
-                    dtype=np.float32,
-                ),
-            ),
-            "misalignments": spaces.Box(
-                low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
-            ),
-        }
-
-    def get_accelerator_observation(self) -> dict:
-        return {
-            "incoming": self.get_incoming_parameters(),
+            "incoming_beam": self.get_incoming_parameters(),
             "misalignments": self.get_misalignments(),
         }
 
@@ -416,8 +392,8 @@ class DOOCSBackend(BaseBackend):
                 for magnet in magnets
             ]
 
-    def reset_accelerator(self):
-        self.update_accelerator()
+    def reset(self):
+        self.update()
 
         self.magnets_before_reset = self.get_magnets()
         self.screen_before_reset = self.get_beam_image()
@@ -428,7 +404,7 @@ class DOOCSBackend(BaseBackend):
         # `update_accelerator` is called.
         self.reset_accelerator_was_just_called = True
 
-    def update_accelerator(self):
+    def update(self):
         self.beam_image = self.capture_clean_beam_image()
 
         # Record the beam image just after reset (because there is no info on reset).
@@ -558,7 +534,7 @@ class DOOCSBackend(BaseBackend):
         """Capture and image from the screen."""
         return pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"]
 
-    def set_cathode_laser(self, setto):
+    def set_cathode_laser(self, setto: bool) -> None:
         """
         Sets the bool switch of the cathode laser event to `setto` and waits a second.
         """
@@ -568,7 +544,7 @@ class DOOCSBackend(BaseBackend):
         pydoocs.write(address, bits)
         time.sleep(1)
 
-    def get_accelerator_info(self):
+    def get_info(self) -> dict:
         # If magnets or the beam were recorded before reset, add them info on the first
         # step, so a generalised data recording wrapper captures them.
         info = {}
