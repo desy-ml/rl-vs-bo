@@ -5,7 +5,7 @@ from time import sleep
 import numpy as np
 from gym.wrappers import RescaleAction, TimeLimit
 
-from ea_train import ARESEACheetah
+from ea_train import EATransverseTuning
 from utils import RecordEpisode
 
 
@@ -44,7 +44,7 @@ def convert_target_from_problem(problem: dict) -> np.ndarray:
 
 def try_problem(problem_index: int, problem: dict):
     # Create the environment
-    env = ARESEACheetah(
+    env = CheetahBackend(
         action_mode="direct_unidirectional_quads",
         incoming_mode="constant",
         incoming_values=convert_incoming_from_problem(problem),
