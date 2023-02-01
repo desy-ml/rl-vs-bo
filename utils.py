@@ -63,7 +63,7 @@ def plot_beam_history(ax, observations, before_reset=None):
     ax.grid(True)
 
 
-def plot_beam_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
+def plot_screen_image(ax, img, screen_resolution, pixel_size, title="Beam Image"):
     screen_size = screen_resolution * pixel_size
 
     ax.set_title(title)
@@ -221,7 +221,7 @@ class ARESEAeLog(gym.Wrapper):
 
         observation = self.env.reset()
         # TODO Get the below from info?
-        self.beam_image_before = self.env.backend.get_beam_image()
+        self.screen_image_before = self.env.backend.get_screen_image()
 
         self.observations = [observation]
         self.rewards = []
@@ -363,7 +363,7 @@ class ARESEAeLog(gym.Wrapper):
         plot_beam_history(
             axs[2], self.observations, before_reset=self.infos[0]["beam_before_reset"]
         )
-        plot_beam_image(
+        plot_screen_image(
             axs[3],
             self.infos[0][
                 "screen_before_reset"
@@ -372,9 +372,9 @@ class ARESEAeLog(gym.Wrapper):
             pixel_size=self.infos[0]["pixel_size"],
             title="Beam at Reset (Background Removed)",
         )
-        plot_beam_image(
+        plot_screen_image(
             axs[4],
-            self.infos[-1]["beam_image"],
+            self.infos[-1]["screen_image"],
             screen_resolution=self.infos[-1]["screen_resolution"],
             pixel_size=self.infos[-1]["pixel_size"],
             title="Beam After (Background Removed)",
