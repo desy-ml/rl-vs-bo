@@ -6,7 +6,7 @@ import gym
 import numpy as np
 from gym import spaces
 
-from backend import BCBaseBackend, EABaseBackend
+from backend import TransverseTuningBaseBackend
 
 
 class EATransverseTuning(gym.Env):
@@ -35,7 +35,7 @@ class EATransverseTuning(gym.Env):
 
     def __init__(
         self,
-        backend: EABaseBackend,
+        backend: TransverseTuningBaseBackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
         logarithmic_beam_distance: bool = False,
@@ -484,7 +484,7 @@ class MRTransverseTuning(gym.Env):
 
     def __init__(
         self,
-        backend: BCBaseBackend,
+        backend: TransverseTuningBaseBackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
         logarithmic_beam_distance: bool = False,
