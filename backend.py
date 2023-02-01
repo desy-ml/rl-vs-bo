@@ -143,28 +143,31 @@ class BaseBackend(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def get_binning(self) -> np.ndarray:
         """
         Return binning currently set on the screen camera as NumPy array [x, y].
 
-        Override with backend-specific imlementation. Optional.
+        Override with backend-specific imlementation. Must be implemented!
         """
         raise NotImplementedError
 
+    @abstractmethod
     def get_screen_resolution(self) -> np.ndarray:
         """
         Return (binned) resolution of the screen camera as NumPy array [x, y].
 
-        Override with backend-specific imlementation. Optional.
+        Override with backend-specific imlementation. Must be implemented!
         """
         raise NotImplementedError
 
+    @abstractmethod
     def get_pixel_size(self) -> np.ndarray:
         """
         Return the (binned) size of the area on the diagnostic screen covered by one
         pixel as NumPy array [x, y].
 
-        Override with backend-specific imlementation. Optional.
+        Override with backend-specific imlementation. Must be implemented!
         """
         raise NotImplementedError
 
@@ -195,15 +198,6 @@ class CheetahBackend(BaseBackend):
         self.misalignment_mode = misalignment_mode
         self.misalignment_values = misalignment_values
 
-        # Create particle simulation
-        self.segment = cheetah.Segment.from_ocelot(
-            ares_lattice, warnings=False, device="cpu"
-        ).subcell("AREASOLA1", "AREABSCR1")
-        self.segment.AREABSCR1.resolution = (2448, 2040)
-        self.segment.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
-        self.segment.AREABSCR1.binning = 4
-        self.segment.AREABSCR1.is_active = True
-
         # Set up domain randomisation spaces
         self.incoming_beam_space = spaces.Box(
             low=np.array(
@@ -230,6 +224,15 @@ class CheetahBackend(BaseBackend):
         self.misalignment_space = spaces.Box(
             low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
         )
+
+        # Create particle simulation
+        self.segment = cheetah.Segment.from_ocelot(
+            ares_lattice, warnings=False, device="cpu"
+        ).subcell("AREASOLA1", "AREABSCR1")
+        self.segment.AREABSCR1.resolution = (2448, 2040)
+        self.segment.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
+        self.segment.AREABSCR1.binning = 4
+        self.segment.AREABSCR1.is_active = True
 
     def is_beam_on_screen(self) -> bool:
         screen = self.segment.AREABSCR1
@@ -363,11 +366,53 @@ class OcelotBackend(BaseBackend):
 
     def __init__(
         self,
+        incoming_mode: str = "random",
+        incoming_values: Optional[np.ndarray] = None,
+        max_misalignment: float = 5e-4,
+        misalignment_mode: str = "random",
+        misalignment_values: Optional[np.ndarray] = None,
         include_space_charge: bool = True,
         charge: float = 1e-12,  # in C
-        nparticles: int = 1e5,
+        nparticles: int = int(1e5),
         unit_step: float = 0.01,  # tracking step in [m]
     ) -> None:
+        self.incoming_mode = incoming_mode
+        self.incoming_values = incoming_values
+        self.max_misalignment = max_misalignment
+        self.misalignment_mode = misalignment_mode
+        self.misalignment_values = misalignment_values
+
+        self.screen_resolution = (2448, 2040)
+        self.screen_pixel_size = (3.3198e-6, 2.4469e-6)
+        self.binning = 1
+
+        # Set up domain randomisation spaces
+        self.incoming_beam_space = spaces.Box(
+            low=np.array(
+                [
+                    80e6,
+                    -1e-3,
+                    -1e-4,
+                    -1e-3,
+                    -1e-4,
+                    1e-5,
+                    1e-6,
+                    1e-5,
+                    1e-6,
+                    1e-6,
+                    1e-4,
+                ],
+                dtype=np.float32,
+            ),
+            high=np.array(
+                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
+                dtype=np.float32,
+            ),
+        )
+        self.misalignment_space = spaces.Box(
+            low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
+        )
+
         self.include_space_charge = include_space_charge
         self.charge = charge
         self.nparticles = nparticles
@@ -447,15 +492,15 @@ class OcelotBackend(BaseBackend):
             charge=self.charge,
         )
         # Set mu_x, mu_xp, mu_y, mu_yp
-        self.incoming.rparticles[0] += self.incoming_parameters[1]  # mu_x
-        self.incoming.rparticles[1] += self.incoming_parameters[2]  # mu_xp
-        self.incoming.rparticles[2] += self.incoming_parameters[3]  # mu_y
-        self.incoming.rparticles[3] += self.incoming_parameters[4]  # # mu_yp
+        self.incoming.rparticles[0] += incoming_parameters[1]  # mu_x
+        self.incoming.rparticles[1] += incoming_parameters[2]  # mu_xp
+        self.incoming.rparticles[2] += incoming_parameters[3]  # mu_y
+        self.incoming.rparticles[3] += incoming_parameters[4]  # # mu_yp
 
         if self.misalignment_mode == "constant":
             self.misalignments = self.misalignment_values
         elif self.misalignment_mode == "random":
-            self.misalignments = self.observation_space["misalignments"].sample()
+            self.misalignments = self.misalignment_space.sample()
         else:
             raise ValueError(
                 f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
@@ -481,11 +526,16 @@ class OcelotBackend(BaseBackend):
         )
 
     def get_beam_parameters(self) -> np.ndarray:
-        beam_parameters = np.mean(self.outbeam.rparticles, axis=1)[0:4]
+        mu_x = np.mean(self.outbeam.rparticles[0])
+        sigma_x = np.std(self.outbeam.rparticles[0])
+        mu_y = np.mean(self.outbeam.rparticles[2])
+        sigma_y = np.std(self.outbeam.rparticles[2])
+
         # Apply screen misalignment
-        beam_parameters[0] -= self.screen_misalignment[0]
-        beam_parameters[2] -= self.screen_misalignment[1]
-        return beam_parameters
+        mu_x -= self.screen_misalignment[0]
+        mu_y -= self.screen_misalignment[1]
+
+        return np.array([mu_x, sigma_x, mu_y, sigma_y])
 
     def get_incoming_parameters(self) -> np.ndarray:
         # Parameters of incoming are typed out to guarantee their order, as the
@@ -494,6 +544,15 @@ class OcelotBackend(BaseBackend):
 
     def get_misalignments(self) -> np.ndarray:
         return np.array(self.misalignments)
+
+    def get_binning(self) -> np.ndarray:
+        return self.binning
+
+    def get_screen_resolution(self) -> np.ndarray:
+        return self.screen_resolution
+
+    def get_pixel_size(self) -> np.ndarray:
+        return self.screen_pixel_size
 
 
 class DOOCSBackend(BaseBackend):
