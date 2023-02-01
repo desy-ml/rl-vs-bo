@@ -1,65 +1,36 @@
-import json
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
+from pathlib import Path
 
 import numpy as np
 import wandb
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from scipy.optimize import minimize
 from stable_baselines3.common.env_util import unwrap_wrapper
-from tqdm import tqdm
 
-from ea_train import ARESEACheetah
+from backend import CheetahBackend
+from environment import EATransverseTuning
+from trial import Trial, load_trials
 from utils import FilterAction, RecordEpisode
 
 
-def convert_incoming_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["incoming"]["energy"],
-            problem["incoming"]["mu_x"],
-            problem["incoming"]["mu_xp"],
-            problem["incoming"]["mu_y"],
-            problem["incoming"]["mu_yp"],
-            problem["incoming"]["sigma_x"],
-            problem["incoming"]["sigma_xp"],
-            problem["incoming"]["sigma_y"],
-            problem["incoming"]["sigma_yp"],
-            problem["incoming"]["sigma_s"],
-            problem["incoming"]["sigma_p"],
-        ]
-    )
-
-
-def convert_misalignments_from_problem(problem: dict) -> np.ndarray:
-    return np.array(problem["misalignments"])
-
-
-def convert_target_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["desired"][0],
-            problem["desired"][2],
-            problem["desired"][1],
-            problem["desired"][3],
-        ]
-    )
-
-
-def try_problem(problem_index: int, problem: dict, config: dict) -> float:
-    config["incoming_values"] = convert_incoming_from_problem(problem)
-    config["misalignment_values"] = convert_misalignments_from_problem(problem)
-    config["target_beam_values"] = convert_target_from_problem(problem)
+def try_problem(trial_index: int, trial: Trial, config: dict) -> float:
+    config["incoming_values"] = trial.incoming_beam
+    config["misalignment_values"] = trial.misalignments
+    config["target_beam_values"] = trial.target_beam
 
     # Create the environment
-    env = ARESEACheetah(
-        action_mode=config["action_mode"],
+    cheetah_backend = CheetahBackend(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
-        magnet_init_mode=config["magnet_init_mode"],
-        magnet_init_values=config["magnet_init_values"],
         misalignment_mode=config["misalignment_mode"],
         misalignment_values=config["misalignment_values"],
+    )
+    env = EATransverseTuning(
+        backend=cheetah_backend,
+        action_mode=config["action_mode"],
+        magnet_init_mode=config["magnet_init_mode"],
+        magnet_init_values=config["magnet_init_values"],
         reward_mode=config["reward_mode"],
         target_beam_mode=config["target_beam_mode"],
         target_beam_values=config["target_beam_values"],
@@ -95,7 +66,7 @@ def try_problem(problem_index: int, problem: dict, config: dict) -> float:
             env, config["rescale_action"][0], config["rescale_action"][1]
         )
 
-    observation = env.reset()
+    _ = env.reset()
 
     def objective_fun(magnets: np.ndarray) -> float:
         _, reward, _, _ = env.step(magnets)
@@ -237,17 +208,12 @@ def main():
     )
     config = dict(wandb.config)
 
-    with open("problems.json", "r") as f:
-        problems = json.load(f)
+    trials = load_trials(Path("trials.yaml"))
 
     configed_try_problem = partial(try_problem, config=config)
 
     with ProcessPoolExecutor() as executor:
-        # futures = tqdm(
-        #     executor.map(configed_try_problem, range(len(problems)), problems),
-        #     total=300,
-        # )
-        futures = executor.map(configed_try_problem, range(len(problems)), problems)
+        futures = executor.map(configed_try_problem, range(len(trials)), trials)
         maes = np.array(list(futures))
 
     wandb.log({"mae_mean": maes.mean(), "mae_std": maes.std()})
