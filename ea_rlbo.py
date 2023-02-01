@@ -7,8 +7,10 @@ from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLim
 from stable_baselines3 import TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 
+from backend import DOOCSBackend
 from bayesopt import BayesianOptimizationAgent, observation_to_scaled_action
-from ea_optimize import ARESEADOOCS, OptimizeFunctionCallback, setup_callback
+from ea_optimize import OptimizeFunctionCallback, setup_callback
+from environment import EATransverseTuning
 from utils import (
     ARESEAeLog,
     NotVecNormalize,
@@ -49,7 +51,8 @@ def optimize_donkey_bo_combo(
     callback = setup_callback(callback)
 
     # Create the environment
-    env = ARESEADOOCS(
+    env = EATransverseTuning(
+        backend=DOOCSBackend(),
         action_mode="delta",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
