@@ -574,24 +574,18 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
             [
                 pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.RBV")["data"],
                 pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.RBV")["data"]
-                / 1000,
+                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK.RBV")["data"],
                 pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.RBV")["data"]
-                / 1000,
+                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK.RBV")["data"],
             ]
         )
 
     def set_magnets(self, magnets):
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP", magnets[0])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP", magnets[1])
-        pydoocs.write(
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.SP", magnets[2] * 1000
-        )
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK.SP", magnets[2])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.SP", magnets[3])
-        pydoocs.write(
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.SP", magnets[4] * 1000
-        )
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK.SP", magnets[4])
 
         # Wait until magnets have reached their setpoints
 
@@ -792,8 +786,8 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
 
         # Steerers upstream of Experimental Area
         for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
-            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK_MRAD.RBV")
-            info[steerer] = response["data"] / 1000
+            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK.RBV")
+            info[steerer] = response["data"]
 
         # Gun solenoid
         info["gun_solenoid"] = pydoocs.read(
@@ -1041,10 +1035,8 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
             [
                 pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM4/STRENGTH.RBV")["data"],
                 pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM5/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK_MRAD.RBV")["data"]
-                / 1000,
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK_MRAD.RBV")["data"]
-                / 1000,
+                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK.RBV")["data"],
+                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK.RBV")["data"],
                 pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM6/STRENGTH.RBV")["data"],
             ]
         )
@@ -1052,12 +1044,8 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
     def set_magnets(self, magnets):
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM4/STRENGTH.SP", magnets[0])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM5/STRENGTH.SP", magnets[1])
-        pydoocs.write(
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK_MRAD.SP", magnets[2] * 1000
-        )
-        pydoocs.write(
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK_MRAD.SP", magnets[3] * 1000
-        )
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK.SP", magnets[2])
+        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK.SP", magnets[3])
         pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM6/STRENGTH.SP", magnets[4])
 
         # Wait until magnets have reached their setpoints
@@ -1259,8 +1247,8 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
 
         # Steerers upstream of Experimental Area
         for steerer in ["ARMRMCHM3", "ARMRMCVM3", "ARMRMCVM4", "ARMRMCHM4"]:
-            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK_MRAD.RBV")
-            info[steerer] = response["data"] / 1000
+            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK.RBV")
+            info[steerer] = response["data"]
 
         # Gun solenoid
         info["gun_solenoid"] = pydoocs.read(
