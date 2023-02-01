@@ -5,7 +5,7 @@ import numpy as np
 from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, TimeLimit
 from tqdm import tqdm
 
-from backend import CheetahBackend
+from backend import EACheetahBackend
 from environment import EATransverseTuning
 from trial import Trial, load_trials
 from utils import RecordEpisode
@@ -13,7 +13,7 @@ from utils import RecordEpisode
 
 def try_problem(trial_index: int, trial: Trial) -> None:
     # Create the environment
-    cheetah_backend = CheetahBackend(
+    cheetah_backend = EACheetahBackend(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
         misalignment_mode="constant",

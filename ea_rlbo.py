@@ -7,7 +7,7 @@ from gym.wrappers import FlattenObservation, RecordVideo, RescaleAction, TimeLim
 from stable_baselines3 import TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 
-from backend import DOOCSBackend
+from backend import EADOOCSBackend
 from bayesopt import BayesianOptimizationAgent, observation_to_scaled_action
 from ea_optimize import OptimizeFunctionCallback, setup_callback
 from environment import EATransverseTuning
@@ -52,7 +52,7 @@ def optimize_donkey_bo_combo(
 
     # Create the environment
     env = EATransverseTuning(
-        backend=DOOCSBackend(),
+        backend=EADOOCSBackend(),
         action_mode="delta",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),

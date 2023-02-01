@@ -8,7 +8,7 @@ from gym.wrappers import FilterObservation, FlattenObservation, RescaleAction, T
 from scipy.optimize import minimize
 from stable_baselines3.common.env_util import unwrap_wrapper
 
-from backend import CheetahBackend
+from backend import EACheetahBackend
 from environment import EATransverseTuning
 from trial import Trial, load_trials
 from utils import FilterAction, RecordEpisode
@@ -20,7 +20,7 @@ def try_problem(trial_index: int, trial: Trial, config: dict) -> float:
     config["target_beam_values"] = trial.target_beam
 
     # Create the environment
-    cheetah_backend = CheetahBackend(
+    cheetah_backend = EACheetahBackend(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
         misalignment_mode=config["misalignment_mode"],

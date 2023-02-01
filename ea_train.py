@@ -16,7 +16,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 from wandb.integration.sb3 import WandbCallback
 
-from backend import CheetahBackend
+from backend import EACheetahBackend
 from environment import EATransverseTuning
 from utils import FilterAction, save_config
 
@@ -141,7 +141,7 @@ def train(config: dict) -> None:
 
 
 def make_env(config: dict, record_video: bool = False) -> gym.Env:
-    cheetah_backend = CheetahBackend(
+    cheetah_backend = EACheetahBackend(
         incoming_mode=config["incoming_mode"],
         incoming_values=config["incoming_values"],
         max_misalignment=config["max_misalignment"],

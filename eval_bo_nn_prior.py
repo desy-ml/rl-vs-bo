@@ -8,7 +8,7 @@ import torch
 from gym.wrappers import RescaleAction, TimeLimit
 from tqdm import tqdm
 
-from backend import CheetahBackend
+from backend import EACheetahBackend
 from bayesopt import BayesianOptimizationAgent, BeamNNPrior
 from environment import EATransverseTuning
 from trial import Trial, load_trials
@@ -24,7 +24,7 @@ def try_problem(
     acquisition: str = "EI",
 ):
     # Create the environment
-    cheetah_backend = CheetahBackend(
+    cheetah_backend = EACheetahBackend(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
         misalignment_mode="constant",

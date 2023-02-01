@@ -6,7 +6,7 @@ import gym
 import numpy as np
 from gym import spaces
 
-from backend import BaseBackend
+from backend import EABaseBackend
 
 
 class EATransverseTuning(gym.Env):
@@ -35,7 +35,7 @@ class EATransverseTuning(gym.Env):
 
     def __init__(
         self,
-        backend: BaseBackend,
+        backend: EABaseBackend,
         action_mode: str = "direct",
         beam_distance_ord: int = 1,
         logarithmic_beam_distance: bool = False,

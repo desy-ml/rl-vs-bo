@@ -31,7 +31,7 @@ from ARESlatticeStage3v1_9 import (
 )
 
 
-class BaseBackend(ABC):
+class EABaseBackend(ABC):
     """Abstract class for a backend imlementation of the ARES Experimental Area."""
 
     @abstractmethod
@@ -181,7 +181,7 @@ class BaseBackend(ABC):
         return {}
 
 
-class CheetahBackend(BaseBackend):
+class EACheetahBackend(EABaseBackend):
     """Cheetah simulation backend to the ARES Experimental Area."""
 
     def __init__(
@@ -361,7 +361,7 @@ class CheetahBackend(BaseBackend):
         }
 
 
-class OcelotBackend(BaseBackend):
+class EAOcelotBackend(EABaseBackend):
     """Backend simulating the ARES EA in Ocelot."""
 
     def __init__(
@@ -555,7 +555,7 @@ class OcelotBackend(BaseBackend):
         return self.screen_pixel_size
 
 
-class DOOCSBackend(BaseBackend):
+class EADOOCSBackend(EABaseBackend):
     """
     Backend for the ARES EA to communicate with the real accelerator through the DOOCS
     control system.

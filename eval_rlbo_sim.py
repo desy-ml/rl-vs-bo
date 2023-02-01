@@ -9,7 +9,7 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.env_util import unwrap_wrapper
 from tqdm.notebook import tqdm
 
-from backend import CheetahBackend
+from backend import EACheetahBackend
 from bayesopt import BayesianOptimizationAgent, observation_to_scaled_action
 from environment import EATransverseTuning
 from trial import Trial, load_trials
@@ -22,7 +22,7 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     bo_takeover = 0.00015
 
     # Create the environment
-    cheetah_backend = CheetahBackend(
+    cheetah_backend = EACheetahBackend(
         incoming_mode="constant",
         incoming_values=trial.incoming_beam,
         misalignment_mode="constant",

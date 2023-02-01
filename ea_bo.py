@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 from gym.wrappers import RecordVideo, RescaleAction, TimeLimit
 
-from backend import DOOCSBackend
+from backend import EADOOCSBackend
 from bayesopt import BayesianOptimizationAgent
 from ea_optimize import (
     ARESEAeLog,
@@ -44,7 +44,7 @@ def optimize(
 
     # Create the environment
     env = EATransverseTuning(
-        backend=DOOCSBackend(),
+        backend=EADOOCSBackend(),
         action_mode="direct_unidirectional_quads",
         magnet_init_mode="constant",
         magnet_init_values=magnet_init_values,
