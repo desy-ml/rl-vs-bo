@@ -5,11 +5,13 @@ from stable_baselines3.common.env_checker import check_env
 from backend import (
     BCCheetahBackend,
     BCDOOCSBackend,
+    DLCheetahBackend,
+    DLDOOCSBackend,
     EACheetahBackend,
     EADOOCSBackend,
     EAOcelotBackend,
 )
-from environment import EATransverseTuning, MRTransverseTuning
+from environment import DLTransverseTuning, EATransverseTuning, MRTransverseTuning
 
 
 @pytest.mark.parametrize(
