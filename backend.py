@@ -563,6 +563,8 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
     """
 
     def __init__(self) -> None:
+        self.screen_name = "AR.EA.BSC.R.1"
+
         self.beam_parameter_compute_failed = {"x": False, "y": False}
         self.reset_accelerator_was_just_called = False
 
@@ -675,10 +677,10 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
     def get_binning(self):
         return np.array(
             (
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL")[
-                    "data"
-                ],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL")[
+                pydoocs.read(
+                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
+                )["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
                     "data"
                 ],
             )
@@ -687,8 +689,8 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
     def get_screen_resolution(self):
         return np.array(
             [
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/WIDTH")["data"],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/HEIGHT")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
             ]
         )
 
@@ -697,15 +699,15 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
             np.array(
                 [
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/X.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/Y.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                 ]
@@ -745,7 +747,9 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
 
     def capture_screen(self):
         """Capture and image from the screen."""
-        return pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ")["data"]
+        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
+            "data"
+        ]
 
     def set_cathode_laser(self, setto: bool) -> None:
         """
@@ -780,9 +784,9 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
             del self.screen_after_reset
 
         # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read("SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/GAINRAW")[
-            "data"
-        ]
+        info["camera_gain"] = pydoocs.read(
+            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
+        )["data"]
 
         # Steerers upstream of Experimental Area
         for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
@@ -1024,6 +1028,8 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
     """
 
     def __init__(self) -> None:
+        self.screen_name = "AR.BC.BSC.E.1"
+
         self.beam_parameter_compute_failed = {"x": False, "y": False}
         self.reset_accelerator_was_just_called = False
 
@@ -1136,10 +1142,10 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
     def get_binning(self):
         return np.array(
             (
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/BINNINGHORIZONTAL")[
-                    "data"
-                ],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/BINNINGVERTICAL")[
+                pydoocs.read(
+                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
+                )["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
                     "data"
                 ],
             )
@@ -1148,8 +1154,8 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
     def get_screen_resolution(self):
         return np.array(
             [
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/WIDTH")["data"],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/HEIGHT")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
             ]
         )
 
@@ -1158,15 +1164,15 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
             np.array(
                 [
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/X.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/Y.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                 ]
@@ -1206,7 +1212,9 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
 
     def capture_screen(self):
         """Capture and image from the screen."""
-        return pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/IMAGE_EXT_ZMQ")["data"]
+        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
+            "data"
+        ]
 
     def set_cathode_laser(self, setto: bool) -> None:
         """
@@ -1241,9 +1249,9 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
             del self.screen_after_reset
 
         # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read("SINBAD.DIAG/CAMERA/AR.BC.BSC.E.1/GAINRAW")[
-            "data"
-        ]
+        info["camera_gain"] = pydoocs.read(
+            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
+        )["data"]
 
         # Steerers upstream of Experimental Area
         for steerer in ["ARMRMCHM3", "ARMRMCVM3", "ARMRMCVM4", "ARMRMCHM4"]:
@@ -1457,6 +1465,8 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
     """
 
     def __init__(self) -> None:
+        self.screen_name = "AR.DL.BSC.R.1"
+
         self.beam_parameter_compute_failed = {"x": False, "y": False}
         self.reset_accelerator_was_just_called = False
 
@@ -1567,10 +1577,10 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
     def get_binning(self):
         return np.array(
             (
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/BINNINGHORIZONTAL")[
-                    "data"
-                ],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/BINNINGVERTICAL")[
+                pydoocs.read(
+                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
+                )["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
                     "data"
                 ],
             )
@@ -1579,8 +1589,8 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
     def get_screen_resolution(self):
         return np.array(
             [
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/WIDTH")["data"],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/HEIGHT")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
             ]
         )
 
@@ -1589,15 +1599,15 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
             np.array(
                 [
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/X.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/Y.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                 ]
@@ -1637,7 +1647,9 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
 
     def capture_screen(self):
         """Capture and image from the screen."""
-        return pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/IMAGE_EXT_ZMQ")["data"]
+        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
+            "data"
+        ]
 
     def set_cathode_laser(self, setto: bool) -> None:
         """
@@ -1672,9 +1684,9 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
             del self.screen_after_reset
 
         # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read("SINBAD.DIAG/CAMERA/AR.DL.BSC.R.1/GAINRAW")[
-            "data"
-        ]
+        info["camera_gain"] = pydoocs.read(
+            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
+        )["data"]
 
         # Gun solenoid
         info["gun_solenoid"] = pydoocs.read(
@@ -1882,6 +1894,8 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
     """
 
     def __init__(self) -> None:
+        self.screen_name = "AR.SH.BSC.E.2"
+
         self.beam_parameter_compute_failed = {"x": False, "y": False}
         self.reset_accelerator_was_just_called = False
 
@@ -1992,10 +2006,10 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
     def get_binning(self):
         return np.array(
             (
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/BINNINGHORIZONTAL")[
-                    "data"
-                ],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/BINNINGVERTICAL")[
+                pydoocs.read(
+                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
+                )["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
                     "data"
                 ],
             )
@@ -2004,8 +2018,8 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
     def get_screen_resolution(self):
         return np.array(
             [
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/WIDTH")["data"],
-                pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/HEIGHT")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
             ]
         )
 
@@ -2014,15 +2028,15 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
             np.array(
                 [
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/X.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                     abs(
-                        pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/Y.POLY_SCALE")[
-                            "data"
-                        ][2]
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
+                        )["data"][2]
                     )
                     / 1000,
                 ]
@@ -2062,7 +2076,9 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
 
     def capture_screen(self):
         """Capture and image from the screen."""
-        return pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/IMAGE_EXT_ZMQ")["data"]
+        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
+            "data"
+        ]
 
     def set_cathode_laser(self, setto: bool) -> None:
         """
@@ -2097,9 +2113,9 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
             del self.screen_after_reset
 
         # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read("SINBAD.DIAG/CAMERA/AR.SH.BSC.E.2/GAINRAW")[
-            "data"
-        ]
+        info["camera_gain"] = pydoocs.read(
+            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
+        )["data"]
 
         # Gun solenoid
         info["gun_solenoid"] = pydoocs.read(
