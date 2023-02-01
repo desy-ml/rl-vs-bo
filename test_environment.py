@@ -10,8 +10,15 @@ from backend import (
     EACheetahBackend,
     EADOOCSBackend,
     EAOcelotBackend,
+    SHCheetahBackend,
+    SHDOOCSBackend,
 )
-from environment import DLTransverseTuning, EATransverseTuning, MRTransverseTuning
+from environment import (
+    DLTransverseTuning,
+    EATransverseTuning,
+    MRTransverseTuning,
+    SHTransverseTuning,
+)
 
 
 @pytest.mark.parametrize(
