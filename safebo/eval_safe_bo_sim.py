@@ -1,61 +1,33 @@
-import json
 import os
+from pathlib import Path
 from time import sleep
 
 import numpy as np
 from gym.wrappers import RescaleAction, TimeLimit
 
-from ea_train import EATransverseTuning
+from backend import CheetahBackend
+from environment import EATransverseTuning
+from trial import Trial, load_trials
 from utils import RecordEpisode
 
 
-def convert_incoming_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["incoming"]["energy"],
-            problem["incoming"]["mu_x"],
-            problem["incoming"]["mu_xp"],
-            problem["incoming"]["mu_y"],
-            problem["incoming"]["mu_yp"],
-            problem["incoming"]["sigma_x"],
-            problem["incoming"]["sigma_xp"],
-            problem["incoming"]["sigma_y"],
-            problem["incoming"]["sigma_yp"],
-            problem["incoming"]["sigma_s"],
-            problem["incoming"]["sigma_p"],
-        ]
-    )
-
-
-def convert_misalignments_from_problem(problem: dict) -> np.ndarray:
-    return np.array(problem["misalignments"])
-
-
-def convert_target_from_problem(problem: dict) -> np.ndarray:
-    return np.array(
-        [
-            problem["desired"][0],
-            problem["desired"][2],
-            problem["desired"][1],
-            problem["desired"][3],
-        ]
-    )
-
-
-def try_problem(problem_index: int, problem: dict):
+def try_problem(trial_index: int, trial: Trial) -> None:
     # Create the environment
-    env = CheetahBackend(
-        action_mode="direct_unidirectional_quads",
+    cheetah_backend = CheetahBackend(
         incoming_mode="constant",
-        incoming_values=convert_incoming_from_problem(problem),
+        incoming_values=trial.incoming_beam,
+        misalignment_mode="constant",
+        misalignment_values=trial.misalignments,
+    )
+    env = EATransverseTuning(
+        backend=cheetah_backend,
+        action_mode="direct_unidirectional_quads",
         log_beam_distance=True,
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
-        misalignment_mode="constant",
-        misalignment_values=convert_misalignments_from_problem(problem),
         reward_mode="feedback",
         target_beam_mode="constant",
-        target_beam_values=convert_target_from_problem(problem),
+        target_beam_values=trial.target_beam,
         target_mu_x_threshold=None,
         target_mu_y_threshold=None,
         target_sigma_x_threshold=None,
@@ -76,7 +48,7 @@ def try_problem(problem_index: int, problem: dict):
     )
     env = TimeLimit(env, 150)
     env = RecordEpisode(
-        env, save_dir=f"data/bo_vs_rl/simulation/safe_bo/problem_{problem_index:03d}"
+        env, save_dir=f"data/bo_vs_rl/simulation/safe_bo/problem_{trial_index:03d}"
     )
     env = RescaleAction(env, -1, 1)
 
@@ -239,11 +211,10 @@ class MatlabSafeBO:
 
 
 def main():
-    with open("problems.json", "r") as f:
-        problems = json.load(f)
+    trials = load_trials(Path("trials.yaml"))
 
     i = 34
-    try_problem(i, problems[i])
+    try_problem(i, trials[i])
 
 
 if __name__ == "__main__":
