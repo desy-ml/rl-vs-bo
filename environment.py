@@ -458,7 +458,7 @@ class EATransverseTuning(gym.Env):
         return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
 
 
-class MRTransverseTuning(gym.Env):
+class BCTransverseTuning(gym.Env):
     """
     Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
 

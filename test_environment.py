@@ -16,7 +16,7 @@ from backend import (
 from environment import (
     DLTransverseTuning,
     EATransverseTuning,
-    MRTransverseTuning,
+    BCTransverseTuning,
     SHTransverseTuning,
 )
 
@@ -32,7 +32,7 @@ def test_ea_check_env(backend_cls):
 
 @pytest.mark.parametrize("backend_cls", [BCCheetahBackend, BCDOOCSBackend])
 def test_bc_check_env(backend_cls):
-    env = MRTransverseTuning(backend=backend_cls(), w_beam=1.0, w_mu_x=1.0)
+    env = BCTransverseTuning(backend=backend_cls(), w_beam=1.0, w_mu_x=1.0)
     env = RescaleAction(env, -1, 1)
     check_env(env)
 
