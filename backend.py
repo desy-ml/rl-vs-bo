@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Optional
 
 import cheetah
-import dummypydoocs as pydoocs
+import pydoocs
 import numpy as np
 import ocelot as oc
 from gym import spaces
