@@ -51,7 +51,7 @@ class TransverseTuningBaseBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_magnets(self, magnets: np.ndarray) -> None:
+    def set_magnets(self, values: np.ndarray) -> None:
         """
         Set the magnets to the given values.
 
@@ -169,6 +169,249 @@ class TransverseTuningBaseBackend(ABC):
         return {}
 
 
+class DOOCSBackend(TransverseTuningBaseBackend, ABC):
+    """"""
+
+    def __init__(
+        self, screen_name: str, magnet_names: list[str], property_names: list[str]
+    ) -> None:
+        self.screen_name = screen_name
+        self.magnet_names = magnet_names
+        self.property_names = property_names
+
+        self.beam_parameter_compute_failed = {"x": False, "y": False}
+        self.reset_accelerator_was_just_called = False
+
+    def is_beam_on_screen(self) -> bool:
+        return not all(self.beam_parameter_compute_failed.values())
+
+    def get_magnets(self) -> np.ndarray:
+        return np.array(
+            [
+                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{location}/{property}.RBV")[
+                    "data"
+                ]
+                for location, property in zip(self.magnet_names, self.property_names)
+            ]
+        )
+
+    def set_magnets(self, values: np.ndarray) -> None:
+        with ThreadPoolExecutor(max_workers=len(self.magnet_names)) as executor:
+            executor.map(
+                self.set_magnet, self.magnet_names, self.property_names, values
+            )
+
+    def set_magnet(self, location: str, property: str, value: float) -> None:
+        """
+        Set the value of a certain magnet. Returns only when the magnet has arrived at
+        the set point.
+        """
+        pydoocs.write(f"SINBAD.MAGNETS/MAGNET.ML/{location}/{property}.SP", value)
+        time.sleep(3.0)  # Give magnets time to receive the command
+
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{location}/BUSY")["data"]
+            is_ps_on = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{location}/PS_ON")[
+                "data"
+            ]
+            time.sleep(0.1)
+
+    def reset(self):
+        self.update()
+
+        self.magnets_before_reset = self.get_magnets()
+        self.screen_before_reset = self.get_screen_image()
+        self.beam_before_reset = self.get_beam_parameters()
+
+        # In order to record a screen image right after the accelerator was reset, this
+        # flag is set so that we know to record the image the next time
+        # `update_accelerator` is called.
+        self.reset_accelerator_was_just_called = True
+
+    def update(self):
+        self.screen_image = self.capture_clean_screen_image()
+
+        # Record the beam image just after reset (because there is no info on reset).
+        # It will be included in `info` of the next step.
+        if self.reset_accelerator_was_just_called:
+            self.screen_after_reset = self.screen_image
+            self.reset_accelerator_was_just_called = False
+
+    def get_beam_parameters(self):
+        img = self.get_screen_image()
+        pixel_size = self.get_pixel_size()
+        resolution = self.get_screen_resolution()
+
+        parameters = {}
+        for axis, direction in zip([0, 1], ["x", "y"]):
+            projection = img.sum(axis=axis)
+            minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
+            filtered = uniform_filter1d(
+                minfiltered, size=5, mode="nearest"
+            )  # TODO rethink filters
+
+            (half_values,) = np.where(filtered >= 0.5 * filtered.max())
+
+            if len(half_values) > 0:
+                fwhm_pixel = half_values[-1] - half_values[0]
+                center_pixel = half_values[0] + fwhm_pixel / 2
+
+                # If (almost) all pixels are in FWHM, the beam might not be on screen
+                self.beam_parameter_compute_failed[direction] = (
+                    len(half_values) > 0.95 * resolution[axis]
+                )
+            else:
+                fwhm_pixel = 42  # TODO figure out what to do with these
+                center_pixel = 42
+
+            parameters[f"mu_{direction}"] = (
+                center_pixel - len(filtered) / 2
+            ) * pixel_size[axis]
+            parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
+
+        parameters["mu_y"] = -parameters["mu_y"]
+
+        return np.array(
+            [
+                parameters["mu_x"],
+                parameters["sigma_x"],
+                parameters["mu_y"],
+                parameters["sigma_y"],
+            ]
+        )
+
+    def get_screen_image(self):
+        return self.screen_image
+
+    def get_binning(self):
+        return np.array(
+            (
+                pydoocs.read(
+                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
+                )["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
+                    "data"
+                ],
+            )
+        )
+
+    def get_screen_resolution(self):
+        return np.array(
+            [
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
+                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
+            ]
+        )
+
+    def get_pixel_size(self):
+        return (
+            np.array(
+                [
+                    abs(
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
+                        )["data"][2]
+                    )
+                    / 1000,
+                    abs(
+                        pydoocs.read(
+                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
+                        )["data"][2]
+                    )
+                    / 1000,
+                ]
+            )
+            * self.get_binning()
+        )
+
+    def capture_clean_screen_image(self, average=5):
+        """
+        Capture a clean image of the beam from the screen using `average` images with
+        beam on and `average` images of the background and then removing the background.
+
+        Saves the image to a property of the object.
+        """
+        # Laser off
+        self.set_cathode_laser(False)
+        background_images = self.capture_interval(n=average, dt=0.1)
+        median_background = np.median(background_images.astype("float64"), axis=0)
+
+        # Laser on
+        self.set_cathode_laser(True)
+        screen_images = self.capture_interval(n=average, dt=0.1)
+        median_beam = np.median(screen_images.astype("float64"), axis=0)
+
+        removed = (median_beam - median_background).clip(0, 2**16 - 1)
+        flipped = np.flipud(removed)
+
+        return flipped.astype(np.uint16)
+
+    def capture_interval(self, n, dt):
+        """Capture `n` images from the screen and wait `dt` seconds in between them."""
+        images = []
+        for _ in range(n):
+            images.append(self.capture_screen())
+            time.sleep(dt)
+        return np.array(images)
+
+    def capture_screen(self):
+        """Capture and image from the screen."""
+        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
+            "data"
+        ]
+
+    def set_cathode_laser(self, setto: bool) -> None:
+        """
+        Sets the bool switch of the cathode laser event to `setto` and waits a second.
+        """
+        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
+        bits = pydoocs.read(address)["data"]
+        bits[0] = 1 if setto else 0
+        pydoocs.write(address, bits)
+        time.sleep(1)
+
+    def get_info(self) -> dict:
+        # If magnets or the beam were recorded before reset, add them info on the first
+        # step, so a generalised data recording wrapper captures them.
+        info = {}
+
+        # Screen image
+        info["screen_image"] = self.get_screen_image()
+
+        if hasattr(self, "magnets_before_reset"):
+            info["magnets_before_reset"] = self.magnets_before_reset
+            del self.magnets_before_reset
+        if hasattr(self, "screen_before_reset"):
+            info["screen_before_reset"] = self.screen_before_reset
+            del self.screen_before_reset
+        if hasattr(self, "beam_before_reset"):
+            info["beam_before_reset"] = self.beam_before_reset
+            del self.beam_before_reset
+
+        if hasattr(self, "screen_after_reset"):
+            info["screen_after_reset"] = self.screen_after_reset
+            del self.screen_after_reset
+
+        # Gain of camera for AREABSCR1
+        info["camera_gain"] = pydoocs.read(
+            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
+        )["data"]
+
+        # Steerers upstream of Experimental Area
+        for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
+            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK.RBV")
+            info[steerer] = response["data"]
+
+        # Gun solenoid
+        info["gun_solenoid"] = pydoocs.read(
+            "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV"
+        )["data"]
+
+        return info
+
+
 class EACheetahBackend(TransverseTuningBaseBackend):
     """Cheetah simulation backend to the ARES Experimental Area."""
 
@@ -254,12 +497,12 @@ class EACheetahBackend(TransverseTuningBaseBackend):
             ]
         )
 
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        self.segment.AREAMQZM1.k1 = magnets[0]
-        self.segment.AREAMQZM2.k1 = magnets[1]
-        self.segment.AREAMCVM1.angle = magnets[2]
-        self.segment.AREAMQZM3.k1 = magnets[3]
-        self.segment.AREAMCHM1.angle = magnets[4]
+    def set_magnets(self, values: np.ndarray) -> None:
+        self.segment.AREAMQZM1.k1 = values[0]
+        self.segment.AREAMQZM2.k1 = values[1]
+        self.segment.AREAMCVM1.angle = values[2]
+        self.segment.AREAMQZM3.k1 = values[3]
+        self.segment.AREAMCHM1.angle = values[4]
 
     def reset(self) -> None:
         # New domain randomisation
@@ -470,12 +713,12 @@ class EAOcelotBackend(TransverseTuningBaseBackend):
             ]
         )
 
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        self.lattice[ares_oc.areamqzm1].k1 = magnets[0]
-        self.lattice[ares_oc.areamqzm2].k1 = magnets[1]
-        self.lattice[ares_oc.areamcvm1].angle = magnets[2]
-        self.lattice[ares_oc.areamqzm3].k1 = magnets[3]
-        self.lattice[ares_oc.areamqzm1].angle = magnets[4]
+    def set_magnets(self, values: np.ndarray) -> None:
+        self.lattice[ares_oc.areamqzm1].k1 = values[0]
+        self.lattice[ares_oc.areamqzm2].k1 = values[1]
+        self.lattice[ares_oc.areamcvm1].angle = values[2]
+        self.lattice[ares_oc.areamqzm3].k1 = values[3]
+        self.lattice[ares_oc.areamqzm1].angle = values[4]
         self.lattcie = self.lattice.update_transfer_maps()
 
     def reset(self) -> None:
@@ -561,254 +804,24 @@ class EAOcelotBackend(TransverseTuningBaseBackend):
         return self.screen_pixel_size
 
 
-class EADOOCSBackend(TransverseTuningBaseBackend):
+class EADOOCSBackend(DOOCSBackend):
     """
     Backend for the ARES EA to communicate with the real accelerator through the DOOCS
     control system.
     """
 
     def __init__(self) -> None:
-        self.screen_name = "AR.EA.BSC.R.1"
-
-        self.beam_parameter_compute_failed = {"x": False, "y": False}
-        self.reset_accelerator_was_just_called = False
-
-    def is_beam_on_screen(self):
-        return not all(self.beam_parameter_compute_failed.values())
-
-    def get_magnets(self):
-        return np.array(
-            [
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK.RBV")["data"],
-            ]
+        super().__init__(
+            screen_name="AR.EA.BSC.R.1",
+            magnet_names=[
+                "AREAMQZM1",
+                "AREAMQZM2",
+                "AREAMCVM1",
+                "AREAMQZM3",
+                "AREAMCHM1",
+            ],
+            property_names=["STRENGTH", "STRENGTH", "KICK", "STRENGTH", "KICK"],
         )
-
-    def set_magnets(self, magnets):
-        channels = [
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK.SP",
-        ]
-
-        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
-            executor.map(self.set_magnet, channels, magnets)
-
-    def set_magnet(self, channel: str, value: float) -> None:
-        """
-        Set the value of a certain magnet. Returns only when the magnet has arrived at
-        the set point.
-        """
-        pydoocs.write(channel, value)
-        time.sleep(3.0)  # Give magnets time to receive the command
-
-        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
-        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
-
-        is_busy = True
-        is_ps_on = True
-        while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(busy_channel)["data"]
-            is_ps_on = pydoocs.read(ps_on_channel)["data"]
-            time.sleep(0.1)
-
-    def reset(self):
-        self.update()
-
-        self.magnets_before_reset = self.get_magnets()
-        self.screen_before_reset = self.get_screen_image()
-        self.beam_before_reset = self.get_beam_parameters()
-
-        # In order to record a screen image right after the accelerator was reset, this
-        # flag is set so that we know to record the image the next time
-        # `update_accelerator` is called.
-        self.reset_accelerator_was_just_called = True
-
-    def update(self):
-        self.screen_image = self.capture_clean_screen_image()
-
-        # Record the beam image just after reset (because there is no info on reset).
-        # It will be included in `info` of the next step.
-        if self.reset_accelerator_was_just_called:
-            self.screen_after_reset = self.screen_image
-            self.reset_accelerator_was_just_called = False
-
-    def get_beam_parameters(self):
-        img = self.get_screen_image()
-        pixel_size = self.get_pixel_size()
-        resolution = self.get_screen_resolution()
-
-        parameters = {}
-        for axis, direction in zip([0, 1], ["x", "y"]):
-            projection = img.sum(axis=axis)
-            minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
-            filtered = uniform_filter1d(
-                minfiltered, size=5, mode="nearest"
-            )  # TODO rethink filters
-
-            (half_values,) = np.where(filtered >= 0.5 * filtered.max())
-
-            if len(half_values) > 0:
-                fwhm_pixel = half_values[-1] - half_values[0]
-                center_pixel = half_values[0] + fwhm_pixel / 2
-
-                # If (almost) all pixels are in FWHM, the beam might not be on screen
-                self.beam_parameter_compute_failed[direction] = (
-                    len(half_values) > 0.95 * resolution[axis]
-                )
-            else:
-                fwhm_pixel = 42  # TODO figure out what to do with these
-                center_pixel = 42
-
-            parameters[f"mu_{direction}"] = (
-                center_pixel - len(filtered) / 2
-            ) * pixel_size[axis]
-            parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
-
-        parameters["mu_y"] = -parameters["mu_y"]
-
-        return np.array(
-            [
-                parameters["mu_x"],
-                parameters["sigma_x"],
-                parameters["mu_y"],
-                parameters["sigma_y"],
-            ]
-        )
-
-    def get_screen_image(self):
-        return self.screen_image
-
-    def get_binning(self):
-        return np.array(
-            (
-                pydoocs.read(
-                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
-                )["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
-                    "data"
-                ],
-            )
-        )
-
-    def get_screen_resolution(self):
-        return np.array(
-            [
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
-            ]
-        )
-
-    def get_pixel_size(self):
-        return (
-            np.array(
-                [
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                ]
-            )
-            * self.get_binning()
-        )
-
-    def capture_clean_screen_image(self, average=5):
-        """
-        Capture a clean image of the beam from the screen using `average` images with
-        beam on and `average` images of the background and then removing the background.
-
-        Saves the image to a property of the object.
-        """
-        # Laser off
-        self.set_cathode_laser(False)
-        background_images = self.capture_interval(n=average, dt=0.1)
-        median_background = np.median(background_images.astype("float64"), axis=0)
-
-        # Laser on
-        self.set_cathode_laser(True)
-        screen_images = self.capture_interval(n=average, dt=0.1)
-        median_beam = np.median(screen_images.astype("float64"), axis=0)
-
-        removed = (median_beam - median_background).clip(0, 2**16 - 1)
-        flipped = np.flipud(removed)
-
-        return flipped.astype(np.uint16)
-
-    def capture_interval(self, n, dt):
-        """Capture `n` images from the screen and wait `dt` seconds in between them."""
-        images = []
-        for _ in range(n):
-            images.append(self.capture_screen())
-            time.sleep(dt)
-        return np.array(images)
-
-    def capture_screen(self):
-        """Capture and image from the screen."""
-        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
-            "data"
-        ]
-
-    def set_cathode_laser(self, setto: bool) -> None:
-        """
-        Sets the bool switch of the cathode laser event to `setto` and waits a second.
-        """
-        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-        bits = pydoocs.read(address)["data"]
-        bits[0] = 1 if setto else 0
-        pydoocs.write(address, bits)
-        time.sleep(1)
-
-    def get_info(self) -> dict:
-        # If magnets or the beam were recorded before reset, add them info on the first
-        # step, so a generalised data recording wrapper captures them.
-        info = {}
-
-        # Screen image
-        info["screen_image"] = self.get_screen_image()
-
-        if hasattr(self, "magnets_before_reset"):
-            info["magnets_before_reset"] = self.magnets_before_reset
-            del self.magnets_before_reset
-        if hasattr(self, "screen_before_reset"):
-            info["screen_before_reset"] = self.screen_before_reset
-            del self.screen_before_reset
-        if hasattr(self, "beam_before_reset"):
-            info["beam_before_reset"] = self.beam_before_reset
-            del self.beam_before_reset
-
-        if hasattr(self, "screen_after_reset"):
-            info["screen_after_reset"] = self.screen_after_reset
-            del self.screen_after_reset
-
-        # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read(
-            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
-        )["data"]
-
-        # Steerers upstream of Experimental Area
-        for steerer in ["ARLIMCHM1", "ARLIMCVM1", "ARLIMCHM2", "ARLIMCVM2"]:
-            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK.RBV")
-            info[steerer] = response["data"]
-
-        # Gun solenoid
-        info["gun_solenoid"] = pydoocs.read(
-            "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV"
-        )["data"]
-
-        return info
 
 
 class BCCheetahBackend(TransverseTuningBaseBackend):
@@ -921,12 +934,12 @@ class BCCheetahBackend(TransverseTuningBaseBackend):
             ]
         )
 
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        self.segment.ARMRMQZM4.k1 = magnets[0]
-        self.segment.ARMRMQZM5.k1 = magnets[1]
-        self.segment.ARMRMCVM5.angle = magnets[2]
-        self.segment.ARMRMCHM5.angle = magnets[3]
-        self.segment.ARMRMQZM6.k1 = magnets[4]
+    def set_magnets(self, values: np.ndarray) -> None:
+        self.segment.ARMRMQZM4.k1 = values[0]
+        self.segment.ARMRMQZM5.k1 = values[1]
+        self.segment.ARMRMCVM5.angle = values[2]
+        self.segment.ARMRMCHM5.angle = values[3]
+        self.segment.ARMRMQZM6.k1 = values[4]
 
     def reset(self) -> None:
         # New domain randomisation
@@ -1031,254 +1044,24 @@ class BCCheetahBackend(TransverseTuningBaseBackend):
         }
 
 
-class BCDOOCSBackend(TransverseTuningBaseBackend):
+class BCDOOCSBackend(DOOCSBackend):
     """
     Backend for the ARES Matching Region right before the Bunch Compressor to
     communicate with the real accelerator through the DOOCS control system.
     """
 
     def __init__(self) -> None:
-        self.screen_name = "AR.BC.BSC.E.1"
-
-        self.beam_parameter_compute_failed = {"x": False, "y": False}
-        self.reset_accelerator_was_just_called = False
-
-    def is_beam_on_screen(self):
-        return not all(self.beam_parameter_compute_failed.values())
-
-    def get_magnets(self):
-        return np.array(
-            [
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM4/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM5/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM6/STRENGTH.RBV")["data"],
-            ]
+        super().__init__(
+            screen_name="AR.BC.BSC.E.1",
+            magnet_names=[
+                "ARMRMQZM4",
+                "ARMRMQZM5",
+                "ARMRMCVM5",
+                "ARMRMCHM5",
+                "ARMRMQZM6",
+            ],
+            property_names=["STRENGTH", "STRENGTH", "KICK", "KICK", "STRENGTH"],
         )
-
-    def set_magnets(self, magnets):
-        channels = [
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM4/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM5/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM6/STRENGTH.SP",
-        ]
-
-        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
-            executor.map(self.set_magnet, channels, magnets)
-
-    def set_magnet(self, channel: str, value: float) -> None:
-        """
-        Set the value of a certain magnet. Returns only when the magnet has arrived at
-        the set point.
-        """
-        pydoocs.write(channel, value)
-        time.sleep(3.0)  # Give magnets time to receive the command
-
-        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
-        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
-
-        is_busy = True
-        is_ps_on = True
-        while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(busy_channel)["data"]
-            is_ps_on = pydoocs.read(ps_on_channel)["data"]
-            time.sleep(0.1)
-
-    def reset(self):
-        self.update()
-
-        self.magnets_before_reset = self.get_magnets()
-        self.screen_before_reset = self.get_screen_image()
-        self.beam_before_reset = self.get_beam_parameters()
-
-        # In order to record a screen image right after the accelerator was reset, this
-        # flag is set so that we know to record the image the next time
-        # `update_accelerator` is called.
-        self.reset_accelerator_was_just_called = True
-
-    def update(self):
-        self.screen_image = self.capture_clean_screen_image()
-
-        # Record the beam image just after reset (because there is no info on reset).
-        # It will be included in `info` of the next step.
-        if self.reset_accelerator_was_just_called:
-            self.screen_after_reset = self.screen_image
-            self.reset_accelerator_was_just_called = False
-
-    def get_beam_parameters(self):
-        img = self.get_screen_image()
-        pixel_size = self.get_pixel_size()
-        resolution = self.get_screen_resolution()
-
-        parameters = {}
-        for axis, direction in zip([0, 1], ["x", "y"]):
-            projection = img.sum(axis=axis)
-            minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
-            filtered = uniform_filter1d(
-                minfiltered, size=5, mode="nearest"
-            )  # TODO rethink filters
-
-            (half_values,) = np.where(filtered >= 0.5 * filtered.max())
-
-            if len(half_values) > 0:
-                fwhm_pixel = half_values[-1] - half_values[0]
-                center_pixel = half_values[0] + fwhm_pixel / 2
-
-                # If (almost) all pixels are in FWHM, the beam might not be on screen
-                self.beam_parameter_compute_failed[direction] = (
-                    len(half_values) > 0.95 * resolution[axis]
-                )
-            else:
-                fwhm_pixel = 42  # TODO figure out what to do with these
-                center_pixel = 42
-
-            parameters[f"mu_{direction}"] = (
-                center_pixel - len(filtered) / 2
-            ) * pixel_size[axis]
-            parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
-
-        parameters["mu_y"] = -parameters["mu_y"]
-
-        return np.array(
-            [
-                parameters["mu_x"],
-                parameters["sigma_x"],
-                parameters["mu_y"],
-                parameters["sigma_y"],
-            ]
-        )
-
-    def get_screen_image(self):
-        return self.screen_image
-
-    def get_binning(self):
-        return np.array(
-            (
-                pydoocs.read(
-                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
-                )["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
-                    "data"
-                ],
-            )
-        )
-
-    def get_screen_resolution(self):
-        return np.array(
-            [
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
-            ]
-        )
-
-    def get_pixel_size(self):
-        return (
-            np.array(
-                [
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                ]
-            )
-            * self.get_binning()
-        )
-
-    def capture_clean_screen_image(self, average=5):
-        """
-        Capture a clean image of the beam from the screen using `average` images with
-        beam on and `average` images of the background and then removing the background.
-
-        Saves the image to a property of the object.
-        """
-        # Laser off
-        self.set_cathode_laser(False)
-        background_images = self.capture_interval(n=average, dt=0.1)
-        median_background = np.median(background_images.astype("float64"), axis=0)
-
-        # Laser on
-        self.set_cathode_laser(True)
-        screen_images = self.capture_interval(n=average, dt=0.1)
-        median_beam = np.median(screen_images.astype("float64"), axis=0)
-
-        removed = (median_beam - median_background).clip(0, 2**16 - 1)
-        flipped = np.flipud(removed)
-
-        return flipped.astype(np.uint16)
-
-    def capture_interval(self, n, dt):
-        """Capture `n` images from the screen and wait `dt` seconds in between them."""
-        images = []
-        for _ in range(n):
-            images.append(self.capture_screen())
-            time.sleep(dt)
-        return np.array(images)
-
-    def capture_screen(self):
-        """Capture and image from the screen."""
-        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
-            "data"
-        ]
-
-    def set_cathode_laser(self, setto: bool) -> None:
-        """
-        Sets the bool switch of the cathode laser event to `setto` and waits a second.
-        """
-        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-        bits = pydoocs.read(address)["data"]
-        bits[0] = 1 if setto else 0
-        pydoocs.write(address, bits)
-        time.sleep(1)
-
-    def get_info(self) -> dict:
-        # If magnets or the beam were recorded before reset, add them info on the first
-        # step, so a generalised data recording wrapper captures them.
-        info = {}
-
-        # Screen image
-        info["screen_image"] = self.get_screen_image()
-
-        if hasattr(self, "magnets_before_reset"):
-            info["magnets_before_reset"] = self.magnets_before_reset
-            del self.magnets_before_reset
-        if hasattr(self, "screen_before_reset"):
-            info["screen_before_reset"] = self.screen_before_reset
-            del self.screen_before_reset
-        if hasattr(self, "beam_before_reset"):
-            info["beam_before_reset"] = self.beam_before_reset
-            del self.beam_before_reset
-
-        if hasattr(self, "screen_after_reset"):
-            info["screen_after_reset"] = self.screen_after_reset
-            del self.screen_after_reset
-
-        # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read(
-            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
-        )["data"]
-
-        # Steerers upstream of Experimental Area
-        for steerer in ["ARMRMCHM3", "ARMRMCVM3", "ARMRMCVM4", "ARMRMCHM4"]:
-            response = pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{steerer}/KICK.RBV")
-            info[steerer] = response["data"]
-
-        # Gun solenoid
-        info["gun_solenoid"] = pydoocs.read(
-            "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV"
-        )["data"]
-
-        return info
 
 
 class DLCheetahBackend(TransverseTuningBaseBackend):
@@ -1367,11 +1150,11 @@ class DLCheetahBackend(TransverseTuningBaseBackend):
             ]
         )
 
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        self.segment.ARDLMCVM1.angle = magnets[0]
-        self.segment.ARDLMCHM1.angle = magnets[1]
-        self.segment.ARDLMQZM1.k1 = magnets[2]
-        self.segment.ARDLMQZM2.k1 = magnets[3]
+    def set_magnets(self, values: np.ndarray) -> None:
+        self.segment.ARDLMCVM1.angle = values[0]
+        self.segment.ARDLMCHM1.angle = values[1]
+        self.segment.ARDLMQZM1.k1 = values[2]
+        self.segment.ARDLMQZM2.k1 = values[3]
 
     def reset(self) -> None:
         # New domain randomisation
@@ -1473,247 +1256,18 @@ class DLCheetahBackend(TransverseTuningBaseBackend):
         }
 
 
-class DLDOOCSBackend(TransverseTuningBaseBackend):
+class DLDOOCSBackend(DOOCSBackend):
     """
     Backend for the ARES Matching Region right before the Bunch Compressor to
     communicate with the real accelerator through the DOOCS control system.
     """
 
     def __init__(self) -> None:
-        self.screen_name = "AR.DL.BSC.R.1"
-
-        self.beam_parameter_compute_failed = {"x": False, "y": False}
-        self.reset_accelerator_was_just_called = False
-
-    def is_beam_on_screen(self):
-        return not all(self.beam_parameter_compute_failed.values())
-
-    def get_magnets(self):
-        return np.array(
-            [
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM1/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM1/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM1/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM2/STRENGTH.RBV")["data"],
-            ]
+        super().__init__(
+            screen_name="AR.DL.BSC.R.1",
+            magnet_names=["ARDLMCVM1", "ARDLMCHM1", "ARDLMQZM1", "ARDLMQZM2"],
+            property_names=["KICK", "KICK", "STRENGTH", "STRENGTH"],
         )
-
-    def set_magnets(self, magnets):
-        channels = [
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM1/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM1/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM1/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM2/STRENGTH.SP",
-        ]
-
-        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
-            executor.map(self.set_magnet, channels, magnets)
-
-    def set_magnet(self, channel: str, value: float) -> None:
-        """
-        Set the value of a certain magnet. Returns only when the magnet has arrived at
-        the set point.
-        """
-        pydoocs.write(channel, value)
-        time.sleep(3.0)  # Give magnets time to receive the command
-
-        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
-        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
-
-        is_busy = True
-        is_ps_on = True
-        while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(busy_channel)["data"]
-            is_ps_on = pydoocs.read(ps_on_channel)["data"]
-            time.sleep(0.1)
-
-    def reset(self):
-        self.update()
-
-        self.magnets_before_reset = self.get_magnets()
-        self.screen_before_reset = self.get_screen_image()
-        self.beam_before_reset = self.get_beam_parameters()
-
-        # In order to record a screen image right after the accelerator was reset, this
-        # flag is set so that we know to record the image the next time
-        # `update_accelerator` is called.
-        self.reset_accelerator_was_just_called = True
-
-    def update(self):
-        self.screen_image = self.capture_clean_screen_image()
-
-        # Record the beam image just after reset (because there is no info on reset).
-        # It will be included in `info` of the next step.
-        if self.reset_accelerator_was_just_called:
-            self.screen_after_reset = self.screen_image
-            self.reset_accelerator_was_just_called = False
-
-    def get_beam_parameters(self):
-        img = self.get_screen_image()
-        pixel_size = self.get_pixel_size()
-        resolution = self.get_screen_resolution()
-
-        parameters = {}
-        for axis, direction in zip([0, 1], ["x", "y"]):
-            projection = img.sum(axis=axis)
-            minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
-            filtered = uniform_filter1d(
-                minfiltered, size=5, mode="nearest"
-            )  # TODO rethink filters
-
-            (half_values,) = np.where(filtered >= 0.5 * filtered.max())
-
-            if len(half_values) > 0:
-                fwhm_pixel = half_values[-1] - half_values[0]
-                center_pixel = half_values[0] + fwhm_pixel / 2
-
-                # If (almost) all pixels are in FWHM, the beam might not be on screen
-                self.beam_parameter_compute_failed[direction] = (
-                    len(half_values) > 0.95 * resolution[axis]
-                )
-            else:
-                fwhm_pixel = 42  # TODO figure out what to do with these
-                center_pixel = 42
-
-            parameters[f"mu_{direction}"] = (
-                center_pixel - len(filtered) / 2
-            ) * pixel_size[axis]
-            parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
-
-        parameters["mu_y"] = -parameters["mu_y"]
-
-        return np.array(
-            [
-                parameters["mu_x"],
-                parameters["sigma_x"],
-                parameters["mu_y"],
-                parameters["sigma_y"],
-            ]
-        )
-
-    def get_screen_image(self):
-        return self.screen_image
-
-    def get_binning(self):
-        return np.array(
-            (
-                pydoocs.read(
-                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
-                )["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
-                    "data"
-                ],
-            )
-        )
-
-    def get_screen_resolution(self):
-        return np.array(
-            [
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
-            ]
-        )
-
-    def get_pixel_size(self):
-        return (
-            np.array(
-                [
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                ]
-            )
-            * self.get_binning()
-        )
-
-    def capture_clean_screen_image(self, average=5):
-        """
-        Capture a clean image of the beam from the screen using `average` images with
-        beam on and `average` images of the background and then removing the background.
-
-        Saves the image to a property of the object.
-        """
-        # Laser off
-        self.set_cathode_laser(False)
-        background_images = self.capture_interval(n=average, dt=0.1)
-        median_background = np.median(background_images.astype("float64"), axis=0)
-
-        # Laser on
-        self.set_cathode_laser(True)
-        screen_images = self.capture_interval(n=average, dt=0.1)
-        median_beam = np.median(screen_images.astype("float64"), axis=0)
-
-        removed = (median_beam - median_background).clip(0, 2**16 - 1)
-        flipped = np.flipud(removed)
-
-        return flipped.astype(np.uint16)
-
-    def capture_interval(self, n, dt):
-        """Capture `n` images from the screen and wait `dt` seconds in between them."""
-        images = []
-        for _ in range(n):
-            images.append(self.capture_screen())
-            time.sleep(dt)
-        return np.array(images)
-
-    def capture_screen(self):
-        """Capture and image from the screen."""
-        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
-            "data"
-        ]
-
-    def set_cathode_laser(self, setto: bool) -> None:
-        """
-        Sets the bool switch of the cathode laser event to `setto` and waits a second.
-        """
-        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-        bits = pydoocs.read(address)["data"]
-        bits[0] = 1 if setto else 0
-        pydoocs.write(address, bits)
-        time.sleep(1)
-
-    def get_info(self) -> dict:
-        # If magnets or the beam were recorded before reset, add them info on the first
-        # step, so a generalised data recording wrapper captures them.
-        info = {}
-
-        # Screen image
-        info["screen_image"] = self.get_screen_image()
-
-        if hasattr(self, "magnets_before_reset"):
-            info["magnets_before_reset"] = self.magnets_before_reset
-            del self.magnets_before_reset
-        if hasattr(self, "screen_before_reset"):
-            info["screen_before_reset"] = self.screen_before_reset
-            del self.screen_before_reset
-        if hasattr(self, "beam_before_reset"):
-            info["beam_before_reset"] = self.beam_before_reset
-            del self.beam_before_reset
-
-        if hasattr(self, "screen_after_reset"):
-            info["screen_after_reset"] = self.screen_after_reset
-            del self.screen_after_reset
-
-        # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read(
-            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
-        )["data"]
-
-        # Gun solenoid
-        info["gun_solenoid"] = pydoocs.read(
-            "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV"
-        )["data"]
-
-        return info
 
 
 class SHCheetahBackend(TransverseTuningBaseBackend):
@@ -1801,11 +1355,11 @@ class SHCheetahBackend(TransverseTuningBaseBackend):
             ]
         )
 
-    def set_magnets(self, magnets: np.ndarray) -> None:
-        self.segment.ARDLMCVM2.angle = magnets[0]
-        self.segment.ARDLMQZM3.k1 = magnets[1]
-        self.segment.ARDLMCHM2.angle = magnets[2]
-        self.segment.ARDLMQZM4.k1 = magnets[3]
+    def set_magnets(self, values: np.ndarray) -> None:
+        self.segment.ARDLMCVM2.angle = values[0]
+        self.segment.ARDLMQZM3.k1 = values[1]
+        self.segment.ARDLMCHM2.angle = values[2]
+        self.segment.ARDLMQZM4.k1 = values[3]
 
     def reset(self) -> None:
         # New domain randomisation
@@ -1907,244 +1461,20 @@ class SHCheetahBackend(TransverseTuningBaseBackend):
         }
 
 
-class SHDOOCSBackend(TransverseTuningBaseBackend):
+class SHDOOCSBackend(DOOCSBackend):
     """
     Backend for the ARES Matching Region right before the Bunch Compressor to
     communicate with the real accelerator through the DOOCS control system.
     """
 
     def __init__(self) -> None:
-        self.screen_name = "AR.SH.BSC.E.2"
-
-        self.beam_parameter_compute_failed = {"x": False, "y": False}
-        self.reset_accelerator_was_just_called = False
-
-    def is_beam_on_screen(self):
-        return not all(self.beam_parameter_compute_failed.values())
-
-    def get_magnets(self):
-        return np.array(
-            [
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM2/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM3/STRENGTH.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM2/KICK.RBV")["data"],
-                pydoocs.read("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM4/STRENGTH.RBV")["data"],
-            ]
+        super().__init__(
+            screen_name="AR.SH.BSC.E.2",
+            magnet_names=[
+                "ARDLMCVM2",
+                "ARDLMQZM3",
+                "ARDLMCHM2",
+                "ARDLMQZM4",
+            ],
+            property_names=["KICK", "STRENGTH", "KICK", "STRENGTH"],
         )
-
-    def set_magnets(self, magnets):
-        channels = [
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM2/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM3/STRENGTH.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM2/KICK.SP",
-            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM4/STRENGTH.SP",
-        ]
-
-        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
-            executor.map(self.set_magnet, channels, magnets)
-
-    def set_magnet(self, channel: str, value: float) -> None:
-        """
-        Set the value of a certain magnet. Returns only when the magnet has arrived at
-        the set point.
-        """
-        pydoocs.write(channel, value)
-        time.sleep(3.0)  # Give magnets time to receive the command
-
-        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
-        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
-
-        is_busy = True
-        is_ps_on = True
-        while is_busy or not is_ps_on:
-            is_busy = pydoocs.read(busy_channel)["data"]
-            is_ps_on = pydoocs.read(ps_on_channel)["data"]
-            time.sleep(0.1)
-
-    def reset(self):
-        self.update()
-
-        self.magnets_before_reset = self.get_magnets()
-        self.screen_before_reset = self.get_screen_image()
-        self.beam_before_reset = self.get_beam_parameters()
-
-        # In order to record a screen image right after the accelerator was reset, this
-        # flag is set so that we know to record the image the next time
-        # `update_accelerator` is called.
-        self.reset_accelerator_was_just_called = True
-
-    def update(self):
-        self.screen_image = self.capture_clean_screen_image()
-
-        # Record the beam image just after reset (because there is no info on reset).
-        # It will be included in `info` of the next step.
-        if self.reset_accelerator_was_just_called:
-            self.screen_after_reset = self.screen_image
-            self.reset_accelerator_was_just_called = False
-
-    def get_beam_parameters(self):
-        img = self.get_screen_image()
-        pixel_size = self.get_pixel_size()
-        resolution = self.get_screen_resolution()
-
-        parameters = {}
-        for axis, direction in zip([0, 1], ["x", "y"]):
-            projection = img.sum(axis=axis)
-            minfiltered = minimum_filter1d(projection, size=5, mode="nearest")
-            filtered = uniform_filter1d(
-                minfiltered, size=5, mode="nearest"
-            )  # TODO rethink filters
-
-            (half_values,) = np.where(filtered >= 0.5 * filtered.max())
-
-            if len(half_values) > 0:
-                fwhm_pixel = half_values[-1] - half_values[0]
-                center_pixel = half_values[0] + fwhm_pixel / 2
-
-                # If (almost) all pixels are in FWHM, the beam might not be on screen
-                self.beam_parameter_compute_failed[direction] = (
-                    len(half_values) > 0.95 * resolution[axis]
-                )
-            else:
-                fwhm_pixel = 42  # TODO figure out what to do with these
-                center_pixel = 42
-
-            parameters[f"mu_{direction}"] = (
-                center_pixel - len(filtered) / 2
-            ) * pixel_size[axis]
-            parameters[f"sigma_{direction}"] = fwhm_pixel / 2.355 * pixel_size[axis]
-
-        parameters["mu_y"] = -parameters["mu_y"]
-
-        return np.array(
-            [
-                parameters["mu_x"],
-                parameters["sigma_x"],
-                parameters["mu_y"],
-                parameters["sigma_y"],
-            ]
-        )
-
-    def get_screen_image(self):
-        return self.screen_image
-
-    def get_binning(self):
-        return np.array(
-            (
-                pydoocs.read(
-                    f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGHORIZONTAL"
-                )["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/BINNINGVERTICAL")[
-                    "data"
-                ],
-            )
-        )
-
-    def get_screen_resolution(self):
-        return np.array(
-            [
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/WIDTH")["data"],
-                pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/HEIGHT")["data"],
-            ]
-        )
-
-    def get_pixel_size(self):
-        return (
-            np.array(
-                [
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/X.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                    abs(
-                        pydoocs.read(
-                            f"SINBAD.DIAG/CAMERA/{self.screen_name}/Y.POLY_SCALE"
-                        )["data"][2]
-                    )
-                    / 1000,
-                ]
-            )
-            * self.get_binning()
-        )
-
-    def capture_clean_screen_image(self, average=5):
-        """
-        Capture a clean image of the beam from the screen using `average` images with
-        beam on and `average` images of the background and then removing the background.
-
-        Saves the image to a property of the object.
-        """
-        # Laser off
-        self.set_cathode_laser(False)
-        background_images = self.capture_interval(n=average, dt=0.1)
-        median_background = np.median(background_images.astype("float64"), axis=0)
-
-        # Laser on
-        self.set_cathode_laser(True)
-        screen_images = self.capture_interval(n=average, dt=0.1)
-        median_beam = np.median(screen_images.astype("float64"), axis=0)
-
-        removed = (median_beam - median_background).clip(0, 2**16 - 1)
-        flipped = np.flipud(removed)
-
-        return flipped.astype(np.uint16)
-
-    def capture_interval(self, n, dt):
-        """Capture `n` images from the screen and wait `dt` seconds in between them."""
-        images = []
-        for _ in range(n):
-            images.append(self.capture_screen())
-            time.sleep(dt)
-        return np.array(images)
-
-    def capture_screen(self):
-        """Capture and image from the screen."""
-        return pydoocs.read(f"SINBAD.DIAG/CAMERA/{self.screen_name}/IMAGE_EXT_ZMQ")[
-            "data"
-        ]
-
-    def set_cathode_laser(self, setto: bool) -> None:
-        """
-        Sets the bool switch of the cathode laser event to `setto` and waits a second.
-        """
-        address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-        bits = pydoocs.read(address)["data"]
-        bits[0] = 1 if setto else 0
-        pydoocs.write(address, bits)
-        time.sleep(1)
-
-    def get_info(self) -> dict:
-        # If magnets or the beam were recorded before reset, add them info on the first
-        # step, so a generalised data recording wrapper captures them.
-        info = {}
-
-        # Screen image
-        info["screen_image"] = self.get_screen_image()
-
-        if hasattr(self, "magnets_before_reset"):
-            info["magnets_before_reset"] = self.magnets_before_reset
-            del self.magnets_before_reset
-        if hasattr(self, "screen_before_reset"):
-            info["screen_before_reset"] = self.screen_before_reset
-            del self.screen_before_reset
-        if hasattr(self, "beam_before_reset"):
-            info["beam_before_reset"] = self.beam_before_reset
-            del self.beam_before_reset
-
-        if hasattr(self, "screen_after_reset"):
-            info["screen_after_reset"] = self.screen_after_reset
-            del self.screen_after_reset
-
-        # Gain of camera for AREABSCR1
-        info["camera_gain"] = pydoocs.read(
-            f"SINBAD.DIAG/CAMERA/{self.screen_name}/GAINRAW"
-        )["data"]
-
-        # Gun solenoid
-        info["gun_solenoid"] = pydoocs.read(
-            "SINBAD.MAGNETS/MAGNET.ML/ARLIMSOG1+-/FIELD.RBV"
-        )["data"]
-
-        return info
