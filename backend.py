@@ -175,7 +175,6 @@ class CheetahBackend(TransverseTuningBaseBackend):
 
     def __init__(
         self,
-        n_misalignments: int,
         ocelot_cell: list[oc.Element],
         screen_name: str,
         screen_resolution: tuple[int, int],
@@ -197,6 +196,8 @@ class CheetahBackend(TransverseTuningBaseBackend):
         self.max_misalignment = max_misalignment
         self.misalignment_mode = misalignment_mode
         self.misalignment_values = misalignment_values
+
+        n_misalignments = 2 * (len(quadrupole_names) + 1)
 
         # Set up domain randomisation spaces
         self.incoming_beam_space = spaces.Box(
@@ -612,7 +613,6 @@ class EACheetahBackend(CheetahBackend):
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
         super().__init__(
-            n_misalignments=8,
             ocelot_cell=(
                 ares_oc.areasola1,
                 ares_oc.drift_areasola1,
@@ -880,7 +880,6 @@ class BCCheetahBackend(CheetahBackend):
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
         super().__init__(
-            n_misalignments=8,
             ocelot_cell=(
                 ares_oc.drift_armrbscr1,
                 ares_oc.armrmqzm4,
@@ -970,7 +969,6 @@ class DLCheetahBackend(CheetahBackend):
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
         super().__init__(
-            n_misalignments=6,
             ocelot_cell=(
                 ares_oc.ardlsolm1,
                 ares_oc.drift_ardlsolm1,
@@ -1033,7 +1031,6 @@ class SHCheetahBackend(CheetahBackend):
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
         super().__init__(
-            n_misalignments=6,
             ocelot_cell=(
                 ares_oc.ardlmcvm2,
                 ares_oc.drift_armrmqzm1,
