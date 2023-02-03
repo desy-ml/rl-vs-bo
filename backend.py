@@ -4,7 +4,6 @@ from copy import deepcopy
 from typing import Optional
 
 import cheetah
-import dummypydoocs as pydoocs
 import numpy as np
 import ocelot as oc
 from gym import spaces
@@ -30,6 +29,11 @@ from ARESlatticeStage3v1_9 import (
     drift_areamqzm3,
     drift_areasola1,
 )
+
+try:
+    import pydoocs  # type: ignore
+except ModuleNotFoundError:
+    import dummypydoocs as pydoocs
 
 
 class TransverseTuningBaseBackend(ABC):
