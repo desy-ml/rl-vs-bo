@@ -2,6 +2,7 @@ import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from itertools import chain
 from typing import Optional
 
 import cheetah
@@ -167,6 +168,193 @@ class TransverseTuningBaseBackend(ABC):
         Override with backend-specific imlementation. Optional.
         """
         return {}
+
+
+class CheetahBackend(TransverseTuningBaseBackend):
+    """"""
+
+    def __init__(
+        self,
+        n_misalignments: int,
+        ocelot_cell: list[oc.Element],
+        screen_name: str,
+        screen_resolution: tuple[int, int],
+        screen_pixel_size: tuple[float, float],
+        magnet_names: list[str],
+        quadrupole_names: list[str],
+        property_names: list[str],
+        incoming_mode: str = "random",
+        incoming_values: Optional[np.ndarray] = None,
+        max_misalignment: float = 5e-4,
+        misalignment_mode: str = "random",
+        misalignment_values: Optional[np.ndarray] = None,
+    ) -> None:
+        self.screen_name = screen_name
+        self.magnet_names = magnet_names
+        self.property_names = property_names
+        self.incoming_mode = incoming_mode
+        self.incoming_values = incoming_values
+        self.max_misalignment = max_misalignment
+        self.misalignment_mode = misalignment_mode
+        self.misalignment_values = misalignment_values
+
+        # Set up domain randomisation spaces
+        self.incoming_beam_space = spaces.Box(
+            low=np.array(
+                [
+                    80e6,
+                    -1e-3,
+                    -1e-4,
+                    -1e-3,
+                    -1e-4,
+                    1e-5,
+                    1e-6,
+                    1e-5,
+                    1e-6,
+                    1e-6,
+                    1e-4,
+                ],
+                dtype=np.float32,
+            ),
+            high=np.array(
+                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
+                dtype=np.float32,
+            ),
+        )
+        self.misalignment_space = spaces.Box(
+            low=-self.max_misalignment,
+            high=self.max_misalignment,
+            shape=(n_misalignments,),
+        )
+
+        self.segment = cheetah.Segment.from_ocelot(
+            ocelot_cell, warnings=False, device="cpu"
+        )
+        self.quadrupoles = [getattr(self.segment, name) for name in quadrupole_names]
+        self.screen = getattr(self.segment, self.screen_name)
+        self.screen.resolution = screen_resolution
+        self.screen.pixel_size = screen_pixel_size
+        self.screen.binning = 1
+        self.screen.is_active = True
+
+    def is_beam_on_screen(self) -> bool:
+        beam_position = np.array(
+            [self.screen.read_beam.mu_x, self.screen.read_beam.mu_y]
+        )
+        limits = np.array(self.screen.resolution) / 2 * np.array(self.screen.pixel_size)
+        return np.all(np.abs(beam_position) < limits)
+
+    def get_magnets(self) -> np.ndarray:
+        return np.array(
+            [
+                getattr(getattr(self.segment, magnet_name), property_name)
+                for magnet_name, property_name in zip(
+                    self.magnet_names, self.property_names
+                )
+            ]
+        )
+
+    def set_magnets(self, values: np.ndarray) -> None:
+        for magnet_name, property_name, value in zip(
+            self.magnet_names, self.property_names, values
+        ):
+            magnet = getattr(self.segment, magnet_name)
+            setattr(magnet, property_name, value)
+
+    def reset(self) -> None:
+        # New domain randomisation
+        if self.incoming_mode == "constant":
+            incoming_parameters = self.incoming_values
+        elif self.incoming_mode == "random":
+            incoming_parameters = self.incoming_beam_space.sample()
+        else:
+            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
+        self.incoming = cheetah.ParameterBeam.from_parameters(
+            energy=incoming_parameters[0],
+            mu_x=incoming_parameters[1],
+            mu_xp=incoming_parameters[2],
+            mu_y=incoming_parameters[3],
+            mu_yp=incoming_parameters[4],
+            sigma_x=incoming_parameters[5],
+            sigma_xp=incoming_parameters[6],
+            sigma_y=incoming_parameters[7],
+            sigma_yp=incoming_parameters[8],
+            sigma_s=incoming_parameters[9],
+            sigma_p=incoming_parameters[10],
+        )
+
+        if self.misalignment_mode == "constant":
+            misalignments = self.misalignment_values
+        elif self.misalignment_mode == "random":
+            misalignments = self.misalignment_space.sample()
+        else:
+            raise ValueError(
+                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
+            )
+        for i, quadrupole in enumerate(self.quadrupoles):
+            quadrupole.misalignment = misalignments[2 * i : 2 * i + 2]
+        self.screen.misalignmnet = misalignments[-2:]
+
+    def update(self) -> None:
+        self.segment(self.incoming)
+
+    def get_beam_parameters(self) -> np.ndarray:
+        return np.array(
+            [
+                self.screen.read_beam.mu_x,
+                self.screen.read_beam.sigma_x,
+                self.screen.read_beam.mu_y,
+                self.screen.read_beam.sigma_y,
+            ]
+        )
+
+    def get_incoming_parameters(self) -> np.ndarray:
+        # Parameters of incoming are typed out to guarantee their order, as the
+        # order would not be guaranteed creating np.array from dict.
+        return np.array(
+            [
+                self.incoming.energy,
+                self.incoming.mu_x,
+                self.incoming.mu_xp,
+                self.incoming.mu_y,
+                self.incoming.mu_yp,
+                self.incoming.sigma_x,
+                self.incoming.sigma_xp,
+                self.incoming.sigma_y,
+                self.incoming.sigma_yp,
+                self.incoming.sigma_s,
+                self.incoming.sigma_p,
+            ]
+        )
+
+    def get_misalignments(self) -> np.ndarray:
+        quadrupole_misalignments = chain.from_iterable(
+            [quadrupole.misalignment for quadrupole in self.quadrupoles]
+        )
+        all_misalignments = chain.from_iterable(
+            [quadrupole_misalignments, self.screen.misalignment]
+        )
+        return np.array(list(all_misalignments), dtype=np.float32)
+
+    def get_screen_image(self) -> np.ndarray:
+        # Screen image to look like real image by dividing by goodlooking number and
+        # scaling to 12 bits)
+        return self.screen.reading / 1e9 * 2**12
+
+    def get_binning(self) -> np.ndarray:
+        return np.array(self.screen.binning)
+
+    def get_screen_resolution(self) -> np.ndarray:
+        return np.array(self.screen.resolution) / self.get_binning()
+
+    def get_pixel_size(self) -> np.ndarray:
+        return np.array(self.screen.pixel_size) * self.get_binning()
+
+    def get_info(self) -> dict:
+        return {
+            "incoming_beam": self.get_incoming_parameters(),
+            "misalignments": self.get_misalignments(),
+        }
 
 
 class DOOCSBackend(TransverseTuningBaseBackend, ABC):
@@ -412,7 +600,7 @@ class DOOCSBackend(TransverseTuningBaseBackend, ABC):
         return info
 
 
-class EACheetahBackend(TransverseTuningBaseBackend):
+class EACheetahBackend(CheetahBackend):
     """Cheetah simulation backend to the ARES Experimental Area."""
 
     def __init__(
@@ -423,188 +611,41 @@ class EACheetahBackend(TransverseTuningBaseBackend):
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
-        self.incoming_mode = incoming_mode
-        self.incoming_values = incoming_values
-        self.max_misalignment = max_misalignment
-        self.misalignment_mode = misalignment_mode
-        self.misalignment_values = misalignment_values
-
-        # Set up domain randomisation spaces
-        self.incoming_beam_space = spaces.Box(
-            low=np.array(
-                [
-                    80e6,
-                    -1e-3,
-                    -1e-4,
-                    -1e-3,
-                    -1e-4,
-                    1e-5,
-                    1e-6,
-                    1e-5,
-                    1e-6,
-                    1e-6,
-                    1e-4,
-                ],
-                dtype=np.float32,
+        super().__init__(
+            n_misalignments=8,
+            ocelot_cell=(
+                ares_oc.areasola1,
+                ares_oc.drift_areasola1,
+                ares_oc.areamqzm1,
+                ares_oc.drift_areamqzm1,
+                ares_oc.areamqzm2,
+                ares_oc.drift_areamqzm2,
+                ares_oc.areamcvm1,
+                ares_oc.drift_areamcvm1,
+                ares_oc.areamqzm3,
+                ares_oc.drift_areamqzm3,
+                ares_oc.areamchm1,
+                ares_oc.drift_areamchm1,
+                ares_oc.areabscr1,
             ),
-            high=np.array(
-                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
-                dtype=np.float32,
-            ),
-        )
-        self.misalignment_space = spaces.Box(
-            low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
-        )
-
-        # Create particle simulation
-        ocelot_cell = (
-            ares_oc.areasola1,
-            ares_oc.drift_areasola1,
-            ares_oc.areamqzm1,
-            ares_oc.drift_areamqzm1,
-            ares_oc.areamqzm2,
-            ares_oc.drift_areamqzm2,
-            ares_oc.areamcvm1,
-            ares_oc.drift_areamcvm1,
-            ares_oc.areamqzm3,
-            ares_oc.drift_areamqzm3,
-            ares_oc.areamchm1,
-            ares_oc.drift_areamchm1,
-            ares_oc.areabscr1,
-        )
-        self.segment = cheetah.Segment.from_ocelot(
-            ocelot_cell, warnings=False, device="cpu"
-        )
-        self.segment.AREABSCR1.resolution = (2448, 2040)
-        self.segment.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
-        self.segment.AREABSCR1.binning = 4
-        self.segment.AREABSCR1.is_active = True
-
-    def is_beam_on_screen(self) -> bool:
-        screen = self.segment.AREABSCR1
-        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
-        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
-        return np.all(np.abs(beam_position) < limits)
-
-    def get_magnets(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.AREAMQZM1.k1,
-                self.segment.AREAMQZM2.k1,
-                self.segment.AREAMCVM1.angle,
-                self.segment.AREAMQZM3.k1,
-                self.segment.AREAMCHM1.angle,
-            ]
-        )
-
-    def set_magnets(self, values: np.ndarray) -> None:
-        self.segment.AREAMQZM1.k1 = values[0]
-        self.segment.AREAMQZM2.k1 = values[1]
-        self.segment.AREAMCVM1.angle = values[2]
-        self.segment.AREAMQZM3.k1 = values[3]
-        self.segment.AREAMCHM1.angle = values[4]
-
-    def reset(self) -> None:
-        # New domain randomisation
-        if self.incoming_mode == "constant":
-            incoming_parameters = self.incoming_values
-        elif self.incoming_mode == "random":
-            incoming_parameters = self.incoming_beam_space.sample()
-        else:
-            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
-        self.incoming = cheetah.ParameterBeam.from_parameters(
-            energy=incoming_parameters[0],
-            mu_x=incoming_parameters[1],
-            mu_xp=incoming_parameters[2],
-            mu_y=incoming_parameters[3],
-            mu_yp=incoming_parameters[4],
-            sigma_x=incoming_parameters[5],
-            sigma_xp=incoming_parameters[6],
-            sigma_y=incoming_parameters[7],
-            sigma_yp=incoming_parameters[8],
-            sigma_s=incoming_parameters[9],
-            sigma_p=incoming_parameters[10],
-        )
-
-        if self.misalignment_mode == "constant":
-            misalignments = self.misalignment_values
-        elif self.misalignment_mode == "random":
-            misalignments = self.misalignment_space.sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
-            )
-        self.segment.AREAMQZM1.misalignment = misalignments[0:2]
-        self.segment.AREAMQZM2.misalignment = misalignments[2:4]
-        self.segment.AREAMQZM3.misalignment = misalignments[4:6]
-        self.segment.AREABSCR1.misalignment = misalignments[6:8]
-
-    def update(self) -> None:
-        self.segment(self.incoming)
-
-    def get_beam_parameters(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.AREABSCR1.read_beam.mu_x,
-                self.segment.AREABSCR1.read_beam.sigma_x,
-                self.segment.AREABSCR1.read_beam.mu_y,
-                self.segment.AREABSCR1.read_beam.sigma_y,
-            ]
-        )
-
-    def get_incoming_parameters(self) -> np.ndarray:
-        # Parameters of incoming are typed out to guarantee their order, as the
-        # order would not be guaranteed creating np.array from dict.
-        return np.array(
-            [
-                self.incoming.energy,
-                self.incoming.mu_x,
-                self.incoming.mu_xp,
-                self.incoming.mu_y,
-                self.incoming.mu_yp,
-                self.incoming.sigma_x,
-                self.incoming.sigma_xp,
-                self.incoming.sigma_y,
-                self.incoming.sigma_yp,
-                self.incoming.sigma_s,
-                self.incoming.sigma_p,
-            ]
-        )
-
-    def get_misalignments(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.AREAMQZM1.misalignment[0],
-                self.segment.AREAMQZM1.misalignment[1],
-                self.segment.AREAMQZM2.misalignment[0],
-                self.segment.AREAMQZM2.misalignment[1],
-                self.segment.AREAMQZM3.misalignment[0],
-                self.segment.AREAMQZM3.misalignment[1],
-                self.segment.AREABSCR1.misalignment[0],
-                self.segment.AREABSCR1.misalignment[1],
+            screen_name="AREABSCR1",
+            screen_resolution=(2448, 2040),
+            screen_pixel_size=(3.3198e-6, 2.4469e-6),
+            magnet_names=[
+                "AREAMQZM1",
+                "AREAMQZM2",
+                "AREAMCVM1",
+                "AREAMQZM3",
+                "AREAMCHM1",
             ],
-            dtype=np.float32,
+            quadrupole_names=["AREAMQZM1", "AREAMQZM2", "AREAMQZM3"],
+            property_names=["k1", "k1", "angle", "k1", "angle"],
+            incoming_mode=incoming_mode,
+            incoming_values=incoming_values,
+            max_misalignment=max_misalignment,
+            misalignment_mode=misalignment_mode,
+            misalignment_values=misalignment_values,
         )
-
-    def get_screen_image(self) -> np.ndarray:
-        # Screen image to look like real image by dividing by goodlooking number and
-        # scaling to 12 bits)
-        return self.segment.AREABSCR1.reading / 1e9 * 2**12
-
-    def get_binning(self) -> np.ndarray:
-        return np.array(self.segment.AREABSCR1.binning)
-
-    def get_screen_resolution(self) -> np.ndarray:
-        return np.array(self.segment.AREABSCR1.resolution) / self.get_binning()
-
-    def get_pixel_size(self) -> np.ndarray:
-        return np.array(self.segment.AREABSCR1.pixel_size) * self.get_binning()
-
-    def get_info(self) -> dict:
-        return {
-            "incoming_beam": self.get_incoming_parameters(),
-            "misalignments": self.get_misalignments(),
-        }
 
 
 class EAOcelotBackend(TransverseTuningBaseBackend):
@@ -824,7 +865,7 @@ class EADOOCSBackend(DOOCSBackend):
         )
 
 
-class BCCheetahBackend(TransverseTuningBaseBackend):
+class BCCheetahBackend(CheetahBackend):
     """
     Cheetah simulation backend to the end of the ARES Matching Region right before the
     Bunch Compressor.
@@ -838,210 +879,63 @@ class BCCheetahBackend(TransverseTuningBaseBackend):
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
-        self.incoming_mode = incoming_mode
-        self.incoming_values = incoming_values
-        self.max_misalignment = max_misalignment
-        self.misalignment_mode = misalignment_mode
-        self.misalignment_values = misalignment_values
-
-        # Set up domain randomisation spaces
-        self.incoming_beam_space = spaces.Box(
-            low=np.array(
-                [
-                    80e6,
-                    -1e-3,
-                    -1e-4,
-                    -1e-3,
-                    -1e-4,
-                    1e-5,
-                    1e-6,
-                    1e-5,
-                    1e-6,
-                    1e-6,
-                    1e-4,
-                ],
-                dtype=np.float32,
+        super().__init__(
+            n_misalignments=8,
+            ocelot_cell=(
+                ares_oc.drift_armrbscr1,
+                ares_oc.armrmqzm4,
+                ares_oc.drift_armrmqzm4,
+                ares_oc.armreolt1,
+                ares_oc.ardgsolo1,
+                ares_oc.drift_ardgsolo1,
+                ares_oc.ardgeolo1,
+                ares_oc.armrsolb1,
+                ares_oc.drift_armrsolb1,
+                ares_oc.armrbpmg3,
+                ares_oc.drift_armrbpmg3,
+                ares_oc.armrmqzm5,
+                ares_oc.drift_armrmqzm5,
+                ares_oc.armrmcvm5,
+                ares_oc.drift_armrmcvm5,
+                ares_oc.armrmchm5,
+                ares_oc.drift_armrmchm2,
+                ares_oc.armrbscr3,
+                ares_oc.drift_armrbscr1,
+                ares_oc.armrmqzm6,
+                ares_oc.drift_armrmqzm6,
+                ares_oc.armreolb1,
+                ares_oc.arbcsolc,
+                ares_oc.drift_arbcsolc,
+                ares_oc.arbcmbhb1,
+                ares_oc.drift_arbcmbhb1,
+                ares_oc.arbcmbhb2,
+                ares_oc.drift_arbcmbhb2,
+                ares_oc.arbcbpml1,
+                ares_oc.drift_arbcbpml1,
+                ares_oc.arbcslhb1,
+                ares_oc.drift_arbcslhb1,
+                ares_oc.arbcslhs1,
+                ares_oc.drift_arbcslhs1,
+                ares_oc.arbcbsce1,
             ),
-            high=np.array(
-                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
-                dtype=np.float32,
-            ),
-        )
-        self.misalignment_space = spaces.Box(
-            low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
-        )
-
-        # Create particle simulation
-        ocelot_cell = [
-            ares_oc.drift_armrbscr1,
-            ares_oc.armrmqzm4,
-            ares_oc.drift_armrmqzm4,
-            ares_oc.armreolt1,
-            ares_oc.ardgsolo1,
-            ares_oc.drift_ardgsolo1,
-            ares_oc.ardgeolo1,
-            ares_oc.armrsolb1,
-            ares_oc.drift_armrsolb1,
-            ares_oc.armrbpmg3,
-            ares_oc.drift_armrbpmg3,
-            ares_oc.armrmqzm5,
-            ares_oc.drift_armrmqzm5,
-            ares_oc.armrmcvm5,
-            ares_oc.drift_armrmcvm5,
-            ares_oc.armrmchm5,
-            ares_oc.drift_armrmchm2,
-            ares_oc.armrbscr3,
-            ares_oc.drift_armrbscr1,
-            ares_oc.armrmqzm6,
-            ares_oc.drift_armrmqzm6,
-            ares_oc.armreolb1,
-            ares_oc.arbcsolc,
-            ares_oc.drift_arbcsolc,
-            ares_oc.arbcmbhb1,
-            ares_oc.drift_arbcmbhb1,
-            ares_oc.arbcmbhb2,
-            ares_oc.drift_arbcmbhb2,
-            ares_oc.arbcbpml1,
-            ares_oc.drift_arbcbpml1,
-            ares_oc.arbcslhb1,
-            ares_oc.drift_arbcslhb1,
-            ares_oc.arbcslhs1,
-            ares_oc.drift_arbcslhs1,
-            ares_oc.arbcbsce1,
-        ]
-        self.segment = cheetah.Segment.from_ocelot(
-            ocelot_cell, warnings=False, device="cpu"
-        )  # .subcell("Drift_ARMRBSCR1", "ARBCBSCE1")
-        self.segment.ARBCBSCE1.resolution = (2463, 2055)
-        self.segment.ARBCBSCE1.pixel_size = (6.0000e-6, 4.1200e-6)
-        self.segment.ARBCBSCE1.binning = 4
-        self.segment.ARBCBSCE1.is_active = True
-
-    def is_beam_on_screen(self) -> bool:
-        screen = self.segment.ARBCBSCE1
-        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
-        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
-        return np.all(np.abs(beam_position) < limits)
-
-    def get_magnets(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARMRMQZM4.k1,
-                self.segment.ARMRMQZM5.k1,
-                self.segment.ARMRMCVM5.angle,
-                self.segment.ARMRMCHM5.angle,
-                self.segment.ARMRMQZM6.k1,
-            ]
-        )
-
-    def set_magnets(self, values: np.ndarray) -> None:
-        self.segment.ARMRMQZM4.k1 = values[0]
-        self.segment.ARMRMQZM5.k1 = values[1]
-        self.segment.ARMRMCVM5.angle = values[2]
-        self.segment.ARMRMCHM5.angle = values[3]
-        self.segment.ARMRMQZM6.k1 = values[4]
-
-    def reset(self) -> None:
-        # New domain randomisation
-        if self.incoming_mode == "constant":
-            incoming_parameters = self.incoming_values
-        elif self.incoming_mode == "random":
-            incoming_parameters = self.incoming_beam_space.sample()
-        else:
-            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
-        self.incoming = cheetah.ParameterBeam.from_parameters(
-            energy=incoming_parameters[0],
-            mu_x=incoming_parameters[1],
-            mu_xp=incoming_parameters[2],
-            mu_y=incoming_parameters[3],
-            mu_yp=incoming_parameters[4],
-            sigma_x=incoming_parameters[5],
-            sigma_xp=incoming_parameters[6],
-            sigma_y=incoming_parameters[7],
-            sigma_yp=incoming_parameters[8],
-            sigma_s=incoming_parameters[9],
-            sigma_p=incoming_parameters[10],
-        )
-
-        if self.misalignment_mode == "constant":
-            misalignments = self.misalignment_values
-        elif self.misalignment_mode == "random":
-            misalignments = self.misalignment_space.sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
-            )
-        self.segment.ARMRMQZM4.misalignment = misalignments[0:2]
-        self.segment.ARMRMQZM5.misalignment = misalignments[2:4]
-        self.segment.ARMRMQZM6.misalignment = misalignments[4:6]
-        self.segment.ARBCBSCE1.misalignment = misalignments[6:8]
-
-    def update(self) -> None:
-        self.segment(self.incoming)
-
-    def get_beam_parameters(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARBCBSCE1.read_beam.mu_x,
-                self.segment.ARBCBSCE1.read_beam.sigma_x,
-                self.segment.ARBCBSCE1.read_beam.mu_y,
-                self.segment.ARBCBSCE1.read_beam.sigma_y,
-            ]
-        )
-
-    def get_incoming_parameters(self) -> np.ndarray:
-        # Parameters of incoming are typed out to guarantee their order, as the
-        # order would not be guaranteed creating np.array from dict.
-        return np.array(
-            [
-                self.incoming.energy,
-                self.incoming.mu_x,
-                self.incoming.mu_xp,
-                self.incoming.mu_y,
-                self.incoming.mu_yp,
-                self.incoming.sigma_x,
-                self.incoming.sigma_xp,
-                self.incoming.sigma_y,
-                self.incoming.sigma_yp,
-                self.incoming.sigma_s,
-                self.incoming.sigma_p,
-            ]
-        )
-
-    def get_misalignments(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARMRMQZM4.misalignment[0],
-                self.segment.ARMRMQZM4.misalignment[1],
-                self.segment.ARMRMQZM5.misalignment[0],
-                self.segment.ARMRMQZM5.misalignment[1],
-                self.segment.ARMRMQZM6.misalignment[0],
-                self.segment.ARMRMQZM6.misalignment[1],
-                self.segment.ARBCBSCE1.misalignment[0],
-                self.segment.ARBCBSCE1.misalignment[1],
+            screen_name="ARBCBSCE1",
+            screen_resolution=(2463, 2055),
+            screen_pixel_size=(6.0000e-6, 4.1200e-6),
+            magnet_names=[
+                "ARMRMQZM4",
+                "ARMRMQZM5",
+                "ARMRMCVM5",
+                "ARMRMCHM5",
+                "ARMRMQZM6",
             ],
-            dtype=np.float32,
+            quadrupole_names=["ARMRMQZM4", "ARMRMQZM5", "ARMRMQZM6"],
+            property_names=["k1", "k1", "angle", "angle", "k1"],
+            incoming_mode=incoming_mode,
+            incoming_values=incoming_values,
+            max_misalignment=max_misalignment,
+            misalignment_mode=misalignment_mode,
+            misalignment_values=misalignment_values,
         )
-
-    def get_screen_image(self) -> np.ndarray:
-        # Screen image to look like real image by dividing by goodlooking number and
-        # scaling to 12 bits)
-        return self.segment.ARBCBSCE1.reading / 1e9 * 2**12
-
-    def get_binning(self) -> np.ndarray:
-        return np.array(self.segment.ARBCBSCE1.binning)
-
-    def get_screen_resolution(self) -> np.ndarray:
-        return np.array(self.segment.ARBCBSCE1.resolution) / self.get_binning()
-
-    def get_pixel_size(self) -> np.ndarray:
-        return np.array(self.segment.ARBCBSCE1.pixel_size) * self.get_binning()
-
-    def get_info(self) -> dict:
-        return {
-            "incoming_beam": self.get_incoming_parameters(),
-            "misalignments": self.get_misalignments(),
-        }
 
 
 class BCDOOCSBackend(DOOCSBackend):
@@ -1064,7 +958,7 @@ class BCDOOCSBackend(DOOCSBackend):
         )
 
 
-class DLCheetahBackend(TransverseTuningBaseBackend):
+class DLCheetahBackend(CheetahBackend):
     """Cheetah simulation backend to the end of the ARES DL section."""
 
     def __init__(
@@ -1075,185 +969,42 @@ class DLCheetahBackend(TransverseTuningBaseBackend):
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
-        self.incoming_mode = incoming_mode
-        self.incoming_values = incoming_values
-        self.max_misalignment = max_misalignment
-        self.misalignment_mode = misalignment_mode
-        self.misalignment_values = misalignment_values
-
-        # Set up domain randomisation spaces
-        self.incoming_beam_space = spaces.Box(
-            low=np.array(
-                [
-                    80e6,
-                    -1e-3,
-                    -1e-4,
-                    -1e-3,
-                    -1e-4,
-                    1e-5,
-                    1e-6,
-                    1e-5,
-                    1e-6,
-                    1e-6,
-                    1e-4,
-                ],
-                dtype=np.float32,
+        super().__init__(
+            n_misalignments=6,
+            ocelot_cell=(
+                ares_oc.ardlsolm1,
+                ares_oc.drift_ardlsolm1,
+                ares_oc.ardlmcvm1,
+                ares_oc.drift_ardlmcvm1,
+                ares_oc.ardltorf1,
+                ares_oc.drift_ardltorf1,
+                ares_oc.ardlmchm1,
+                ares_oc.drift_armrmqzm1,
+                ares_oc.ardlmqzm1,
+                ares_oc.drift_ardlmqzm1,
+                ares_oc.ardlbpmg1,
+                ares_oc.drift_ardlbpmg1,
+                ares_oc.ardlmqzm2,
+                ares_oc.drift_ardlmqzm2,
+                ares_oc.ardlbscr1,
             ),
-            high=np.array(
-                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
-                dtype=np.float32,
-            ),
-        )
-        self.misalignment_space = spaces.Box(
-            low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
-        )
-
-        # Create particle simulation
-        ocelot_cell = [
-            ares_oc.ardlsolm1,
-            ares_oc.drift_ardlsolm1,
-            ares_oc.ardlmcvm1,
-            ares_oc.drift_ardlmcvm1,
-            ares_oc.ardltorf1,
-            ares_oc.drift_ardltorf1,
-            ares_oc.ardlmchm1,
-            ares_oc.drift_armrmqzm1,
-            ares_oc.ardlmqzm1,
-            ares_oc.drift_ardlmqzm1,
-            ares_oc.ardlbpmg1,
-            ares_oc.drift_ardlbpmg1,
-            ares_oc.ardlmqzm2,
-            ares_oc.drift_ardlmqzm2,
-            ares_oc.ardlbscr1,
-        ]
-        self.segment = cheetah.Segment.from_ocelot(
-            ocelot_cell, warnings=False, device="cpu"
-        )
-        self.segment.ARDLBSCR1.resolution = (2463, 2055)
-        self.segment.ARDLBSCR1.pixel_size = (3.5310e-6, 2.5370e-6)
-        self.segment.ARDLBSCR1.binning = 4
-        self.segment.ARDLBSCR1.is_active = True
-
-    def is_beam_on_screen(self) -> bool:
-        screen = self.segment.ARDLBSCR1
-        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
-        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
-        return np.all(np.abs(beam_position) < limits)
-
-    def get_magnets(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARDLMCVM1.angle,
-                self.segment.ARDLMCHM1.angle,
-                self.segment.ARDLMQZM1.k1,
-                self.segment.ARDLMQZM2.k1,
-            ]
-        )
-
-    def set_magnets(self, values: np.ndarray) -> None:
-        self.segment.ARDLMCVM1.angle = values[0]
-        self.segment.ARDLMCHM1.angle = values[1]
-        self.segment.ARDLMQZM1.k1 = values[2]
-        self.segment.ARDLMQZM2.k1 = values[3]
-
-    def reset(self) -> None:
-        # New domain randomisation
-        if self.incoming_mode == "constant":
-            incoming_parameters = self.incoming_values
-        elif self.incoming_mode == "random":
-            incoming_parameters = self.incoming_beam_space.sample()
-        else:
-            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
-        self.incoming = cheetah.ParameterBeam.from_parameters(
-            energy=incoming_parameters[0],
-            mu_x=incoming_parameters[1],
-            mu_xp=incoming_parameters[2],
-            mu_y=incoming_parameters[3],
-            mu_yp=incoming_parameters[4],
-            sigma_x=incoming_parameters[5],
-            sigma_xp=incoming_parameters[6],
-            sigma_y=incoming_parameters[7],
-            sigma_yp=incoming_parameters[8],
-            sigma_s=incoming_parameters[9],
-            sigma_p=incoming_parameters[10],
-        )
-
-        if self.misalignment_mode == "constant":
-            misalignments = self.misalignment_values
-        elif self.misalignment_mode == "random":
-            misalignments = self.misalignment_space.sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
-            )
-        self.segment.ARDLMQZM1.misalignment = misalignments[0:2]
-        self.segment.ARDLMQZM2.misalignment = misalignments[2:4]
-        self.segment.ARDLBSCR1.misalignment = misalignments[4:6]
-
-    def update(self) -> None:
-        self.segment(self.incoming)
-
-    def get_beam_parameters(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARDLBSCR1.read_beam.mu_x,
-                self.segment.ARDLBSCR1.read_beam.sigma_x,
-                self.segment.ARDLBSCR1.read_beam.mu_y,
-                self.segment.ARDLBSCR1.read_beam.sigma_y,
-            ]
-        )
-
-    def get_incoming_parameters(self) -> np.ndarray:
-        # Parameters of incoming are typed out to guarantee their order, as the
-        # order would not be guaranteed creating np.array from dict.
-        return np.array(
-            [
-                self.incoming.energy,
-                self.incoming.mu_x,
-                self.incoming.mu_xp,
-                self.incoming.mu_y,
-                self.incoming.mu_yp,
-                self.incoming.sigma_x,
-                self.incoming.sigma_xp,
-                self.incoming.sigma_y,
-                self.incoming.sigma_yp,
-                self.incoming.sigma_s,
-                self.incoming.sigma_p,
-            ]
-        )
-
-    def get_misalignments(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARDLMQZM1.misalignment[0],
-                self.segment.ARDLMQZM1.misalignment[1],
-                self.segment.ARDLMQZM2.misalignment[0],
-                self.segment.ARDLMQZM2.misalignment[1],
-                self.segment.ARDLBSCR1.misalignment[0],
-                self.segment.ARDLBSCR1.misalignment[1],
+            screen_name="ARDLBSCR1",
+            screen_resolution=(2463, 2055),
+            screen_pixel_size=(3.5310e-6, 2.5370e-6),
+            magnet_names=[
+                "ARDLMCVM1",
+                "ARDLMCHM1",
+                "ARDLMQZM1",
+                "ARDLMQZM2",
             ],
-            dtype=np.float32,
+            quadrupole_names=["ARDLMQZM1", "ARDLMQZM2"],
+            property_names=["angle", "angle", "k1", "k1"],
+            incoming_mode=incoming_mode,
+            incoming_values=incoming_values,
+            max_misalignment=max_misalignment,
+            misalignment_mode=misalignment_mode,
+            misalignment_values=misalignment_values,
         )
-
-    def get_screen_image(self) -> np.ndarray:
-        # Screen image to look like real image by dividing by goodlooking number and
-        # scaling to 12 bits)
-        return self.segment.ARDLBSCR1.reading / 1e9 * 2**12
-
-    def get_binning(self) -> np.ndarray:
-        return np.array(self.segment.ARDLBSCR1.binning)
-
-    def get_screen_resolution(self) -> np.ndarray:
-        return np.array(self.segment.ARDLBSCR1.resolution) / self.get_binning()
-
-    def get_pixel_size(self) -> np.ndarray:
-        return np.array(self.segment.ARDLBSCR1.pixel_size) * self.get_binning()
-
-    def get_info(self) -> dict:
-        return {
-            "incoming_beam": self.get_incoming_parameters(),
-            "misalignments": self.get_misalignments(),
-        }
 
 
 class DLDOOCSBackend(DOOCSBackend):
@@ -1270,7 +1021,7 @@ class DLDOOCSBackend(DOOCSBackend):
         )
 
 
-class SHCheetahBackend(TransverseTuningBaseBackend):
+class SHCheetahBackend(CheetahBackend):
     """Cheetah simulation backend to the end of the ARES SH section."""
 
     def __init__(
@@ -1281,184 +1032,41 @@ class SHCheetahBackend(TransverseTuningBaseBackend):
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
     ) -> None:
-        self.incoming_mode = incoming_mode
-        self.incoming_values = incoming_values
-        self.max_misalignment = max_misalignment
-        self.misalignment_mode = misalignment_mode
-        self.misalignment_values = misalignment_values
-
-        # Set up domain randomisation spaces
-        self.incoming_beam_space = spaces.Box(
-            low=np.array(
-                [
-                    80e6,
-                    -1e-3,
-                    -1e-4,
-                    -1e-3,
-                    -1e-4,
-                    1e-5,
-                    1e-6,
-                    1e-5,
-                    1e-6,
-                    1e-6,
-                    1e-4,
-                ],
-                dtype=np.float32,
+        super().__init__(
+            n_misalignments=6,
+            ocelot_cell=(
+                ares_oc.ardlmcvm2,
+                ares_oc.drift_armrmqzm1,
+                ares_oc.ardlmqzm3,
+                ares_oc.drift_ardlmqzm3,
+                ares_oc.ardlmchm2,
+                ares_oc.drift_armrmqzm1,
+                ares_oc.ardlmqzm4,
+                ares_oc.drift_ardlmqzm4,
+                ares_oc.ardleolm1,
+                ares_oc.arshsolh1,
+                ares_oc.drift_arshsolh1,
+                ares_oc.arshmbho1,
+                ares_oc.drift_arshmbho1,
+                ares_oc.arshbsce2,
             ),
-            high=np.array(
-                [160e6, 1e-3, 1e-4, 1e-3, 1e-4, 5e-4, 5e-5, 5e-4, 5e-5, 5e-5, 1e-3],
-                dtype=np.float32,
-            ),
-        )
-        self.misalignment_space = spaces.Box(
-            low=-self.max_misalignment, high=self.max_misalignment, shape=(8,)
-        )
-
-        # Create particle simulation
-        ocelot_cell = [
-            ares_oc.ardlmcvm2,
-            ares_oc.drift_armrmqzm1,
-            ares_oc.ardlmqzm3,
-            ares_oc.drift_ardlmqzm3,
-            ares_oc.ardlmchm2,
-            ares_oc.drift_armrmqzm1,
-            ares_oc.ardlmqzm4,
-            ares_oc.drift_ardlmqzm4,
-            ares_oc.ardleolm1,
-            ares_oc.arshsolh1,
-            ares_oc.drift_arshsolh1,
-            ares_oc.arshmbho1,
-            ares_oc.drift_arshmbho1,
-            ares_oc.arshbsce2,
-        ]
-        self.segment = cheetah.Segment.from_ocelot(
-            ocelot_cell, warnings=False, device="cpu"
-        )
-        self.segment.ARSHBSCE2.resolution = (2464, 2056)
-        self.segment.ARSHBSCE2.pixel_size = (4.7650e-6, 3.3720e-6)
-        self.segment.ARSHBSCE2.binning = 4
-        self.segment.ARSHBSCE2.is_active = True
-
-    def is_beam_on_screen(self) -> bool:
-        screen = self.segment.ARSHBSCE2
-        beam_position = np.array([screen.read_beam.mu_x, screen.read_beam.mu_y])
-        limits = np.array(screen.resolution) / 2 * np.array(screen.pixel_size)
-        return np.all(np.abs(beam_position) < limits)
-
-    def get_magnets(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARDLMCVM2.angle,
-                self.segment.ARDLMQZM3.k1,
-                self.segment.ARDLMCHM2.angle,
-                self.segment.ARDLMQZM4.k1,
-            ]
-        )
-
-    def set_magnets(self, values: np.ndarray) -> None:
-        self.segment.ARDLMCVM2.angle = values[0]
-        self.segment.ARDLMQZM3.k1 = values[1]
-        self.segment.ARDLMCHM2.angle = values[2]
-        self.segment.ARDLMQZM4.k1 = values[3]
-
-    def reset(self) -> None:
-        # New domain randomisation
-        if self.incoming_mode == "constant":
-            incoming_parameters = self.incoming_values
-        elif self.incoming_mode == "random":
-            incoming_parameters = self.incoming_beam_space.sample()
-        else:
-            raise ValueError(f'Invalid value "{self.incoming_mode}" for incoming_mode')
-        self.incoming = cheetah.ParameterBeam.from_parameters(
-            energy=incoming_parameters[0],
-            mu_x=incoming_parameters[1],
-            mu_xp=incoming_parameters[2],
-            mu_y=incoming_parameters[3],
-            mu_yp=incoming_parameters[4],
-            sigma_x=incoming_parameters[5],
-            sigma_xp=incoming_parameters[6],
-            sigma_y=incoming_parameters[7],
-            sigma_yp=incoming_parameters[8],
-            sigma_s=incoming_parameters[9],
-            sigma_p=incoming_parameters[10],
-        )
-
-        if self.misalignment_mode == "constant":
-            misalignments = self.misalignment_values
-        elif self.misalignment_mode == "random":
-            misalignments = self.misalignment_space.sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
-            )
-        self.segment.ARDLMQZM3.misalignment = misalignments[0:2]
-        self.segment.ARDLMQZM4.misalignment = misalignments[2:4]
-        self.segment.ARSHBSCE2.misalignment = misalignments[4:6]
-
-    def update(self) -> None:
-        self.segment(self.incoming)
-
-    def get_beam_parameters(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARSHBSCE2.read_beam.mu_x,
-                self.segment.ARSHBSCE2.read_beam.sigma_x,
-                self.segment.ARSHBSCE2.read_beam.mu_y,
-                self.segment.ARSHBSCE2.read_beam.sigma_y,
-            ]
-        )
-
-    def get_incoming_parameters(self) -> np.ndarray:
-        # Parameters of incoming are typed out to guarantee their order, as the
-        # order would not be guaranteed creating np.array from dict.
-        return np.array(
-            [
-                self.incoming.energy,
-                self.incoming.mu_x,
-                self.incoming.mu_xp,
-                self.incoming.mu_y,
-                self.incoming.mu_yp,
-                self.incoming.sigma_x,
-                self.incoming.sigma_xp,
-                self.incoming.sigma_y,
-                self.incoming.sigma_yp,
-                self.incoming.sigma_s,
-                self.incoming.sigma_p,
-            ]
-        )
-
-    def get_misalignments(self) -> np.ndarray:
-        return np.array(
-            [
-                self.segment.ARDLMQZM3.misalignment[0],
-                self.segment.ARDLMQZM3.misalignment[1],
-                self.segment.ARDLMQZM4.misalignment[0],
-                self.segment.ARDLMQZM4.misalignment[1],
-                self.segment.ARSHBSCE2.misalignment[0],
-                self.segment.ARSHBSCE2.misalignment[1],
+            screen_name="ARSHBSCE2",
+            screen_resolution=(2464, 2056),
+            screen_pixel_size=(4.7650e-6, 3.3720e-6),
+            magnet_names=[
+                "ARDLMCVM2",
+                "ARDLMQZM3",
+                "ARDLMCHM2",
+                "ARDLMQZM4",
             ],
-            dtype=np.float32,
+            quadrupole_names=["ARDLMQZM3", "ARDLMQZM3"],
+            property_names=["angle", "k1", "angle", "k1"],
+            incoming_mode=incoming_mode,
+            incoming_values=incoming_values,
+            max_misalignment=max_misalignment,
+            misalignment_mode=misalignment_mode,
+            misalignment_values=misalignment_values,
         )
-
-    def get_screen_image(self) -> np.ndarray:
-        # Screen image to look like real image by dividing by goodlooking number and
-        # scaling to 12 bits)
-        return self.segment.ARSHBSCE2.reading / 1e9 * 2**12
-
-    def get_binning(self) -> np.ndarray:
-        return np.array(self.segment.ARSHBSCE2.binning)
-
-    def get_screen_resolution(self) -> np.ndarray:
-        return np.array(self.segment.ARSHBSCE2.resolution) / self.get_binning()
-
-    def get_pixel_size(self) -> np.ndarray:
-        return np.array(self.segment.ARSHBSCE2.pixel_size) * self.get_binning()
-
-    def get_info(self) -> dict:
-        return {
-            "incoming_beam": self.get_incoming_parameters(),
-            "misalignments": self.get_misalignments(),
-        }
 
 
 class SHDOOCSBackend(DOOCSBackend):

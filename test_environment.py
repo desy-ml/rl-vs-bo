@@ -14,9 +14,9 @@ from backend import (
     SHDOOCSBackend,
 )
 from environment import (
+    BCTransverseTuning,
     DLTransverseTuning,
     EATransverseTuning,
-    BCTransverseTuning,
     SHTransverseTuning,
 )
 
