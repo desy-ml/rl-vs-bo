@@ -1,5 +1,6 @@
 import time
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from typing import Optional
 
@@ -587,29 +588,34 @@ class EADOOCSBackend(TransverseTuningBaseBackend):
         )
 
     def set_magnets(self, magnets):
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP", magnets[0])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP", magnets[1])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK.SP", magnets[2])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.SP", magnets[3])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK.SP", magnets[4])
+        channels = [
+            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK.SP",
+        ]
 
-        # Wait until magnets have reached their setpoints
+        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
+            executor.map(self.set_magnet, channels, magnets)
 
-        time.sleep(3.0)  # Wait for magnets to realise they received a command
+    def set_magnet(self, channel: str, value: float) -> None:
+        """
+        Set the value of a certain magnet. Returns only when the magnet has arrived at
+        the set point.
+        """
+        pydoocs.write(channel, value)
+        time.sleep(3.0)  # Give magnets time to receive the command
 
-        magnets = ["AREAMQZM1", "AREAMQZM2", "AREAMCVM1", "AREAMQZM3", "AREAMCHM1"]
+        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
+        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
 
-        are_busy = [True] * 5
-        are_ps_on = [True] * 5
-        while any(are_busy) or not all(are_ps_on):
-            are_busy = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"]
-                for magnet in magnets
-            ]
-            are_ps_on = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/PS_ON")["data"]
-                for magnet in magnets
-            ]
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(busy_channel)["data"]
+            is_ps_on = pydoocs.read(ps_on_channel)["data"]
+            time.sleep(0.1)
 
     def reset(self):
         self.update()
@@ -1052,29 +1058,34 @@ class BCDOOCSBackend(TransverseTuningBaseBackend):
         )
 
     def set_magnets(self, magnets):
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM4/STRENGTH.SP", magnets[0])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM5/STRENGTH.SP", magnets[1])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK.SP", magnets[2])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK.SP", magnets[3])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM6/STRENGTH.SP", magnets[4])
+        channels = [
+            "SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM4/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM5/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARMRMCVM5/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARMRMCHM5/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARMRMQZM6/STRENGTH.SP",
+        ]
 
-        # Wait until magnets have reached their setpoints
+        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
+            executor.map(self.set_magnet, channels, magnets)
 
-        time.sleep(3.0)  # Wait for magnets to realise they received a command
+    def set_magnet(self, channel: str, value: float) -> None:
+        """
+        Set the value of a certain magnet. Returns only when the magnet has arrived at
+        the set point.
+        """
+        pydoocs.write(channel, value)
+        time.sleep(3.0)  # Give magnets time to receive the command
 
-        magnets = ["ARMRMQZM4", "ARMRMQZM5", "ARMRMCVM5", "ARMRMCHM5", "ARMRMQZM6"]
+        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
+        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
 
-        are_busy = [True] * 5
-        are_ps_on = [True] * 5
-        while any(are_busy) or not all(are_ps_on):
-            are_busy = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"]
-                for magnet in magnets
-            ]
-            are_ps_on = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/PS_ON")["data"]
-                for magnet in magnets
-            ]
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(busy_channel)["data"]
+            is_ps_on = pydoocs.read(ps_on_channel)["data"]
+            time.sleep(0.1)
 
     def reset(self):
         self.update()
@@ -1488,28 +1499,33 @@ class DLDOOCSBackend(TransverseTuningBaseBackend):
         )
 
     def set_magnets(self, magnets):
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM1/KICK.SP", magnets[0])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM1/KICK.SP", magnets[1])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM1/STRENGTH.SP", magnets[2])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM2/STRENGTH.SP", magnets[3])
+        channels = [
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM1/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM1/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM1/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM2/STRENGTH.SP",
+        ]
 
-        # Wait until magnets have reached their setpoints
+        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
+            executor.map(self.set_magnet, channels, magnets)
 
-        time.sleep(3.0)  # Wait for magnets to realise they received a command
+    def set_magnet(self, channel: str, value: float) -> None:
+        """
+        Set the value of a certain magnet. Returns only when the magnet has arrived at
+        the set point.
+        """
+        pydoocs.write(channel, value)
+        time.sleep(3.0)  # Give magnets time to receive the command
 
-        magnets = ["ARDLMCVM1", "ARDLMCHM1", "ARDLMQZM1", "ARDLMQZM2"]
+        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
+        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
 
-        are_busy = [True] * 5
-        are_ps_on = [True] * 5
-        while any(are_busy) or not all(are_ps_on):
-            are_busy = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"]
-                for magnet in magnets
-            ]
-            are_ps_on = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/PS_ON")["data"]
-                for magnet in magnets
-            ]
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(busy_channel)["data"]
+            is_ps_on = pydoocs.read(ps_on_channel)["data"]
+            time.sleep(0.1)
 
     def reset(self):
         self.update()
@@ -1917,28 +1933,33 @@ class SHDOOCSBackend(TransverseTuningBaseBackend):
         )
 
     def set_magnets(self, magnets):
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM2/KICK.SP", magnets[0])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM3/STRENGTH.SP", magnets[1])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM2/KICK.SP", magnets[2])
-        pydoocs.write("SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM4/STRENGTH.SP", magnets[3])
+        channels = [
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCVM2/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM3/STRENGTH.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMCHM2/KICK.SP",
+            "SINBAD.MAGNETS/MAGNET.ML/ARDLMQZM4/STRENGTH.SP",
+        ]
 
-        # Wait until magnets have reached their setpoints
+        with ThreadPoolExecutor(max_workers=len(channels)) as executor:
+            executor.map(self.set_magnet, channels, magnets)
 
-        time.sleep(3.0)  # Wait for magnets to realise they received a command
+    def set_magnet(self, channel: str, value: float) -> None:
+        """
+        Set the value of a certain magnet. Returns only when the magnet has arrived at
+        the set point.
+        """
+        pydoocs.write(channel, value)
+        time.sleep(3.0)  # Give magnets time to receive the command
 
-        magnets = ["ARDLMCVM2", "ARDLMQZM3", "ARDLMCHM2", "ARDLMQZM4"]
+        busy_channel = "/".join(channel.split("/")[:-1] + ["BUSY"])
+        ps_on_channel = "/".join(channel.split("/")[:-1] + ["PS_ON"])
 
-        are_busy = [True] * 5
-        are_ps_on = [True] * 5
-        while any(are_busy) or not all(are_ps_on):
-            are_busy = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/BUSY")["data"]
-                for magnet in magnets
-            ]
-            are_ps_on = [
-                pydoocs.read(f"SINBAD.MAGNETS/MAGNET.ML/{magnet}/PS_ON")["data"]
-                for magnet in magnets
-            ]
+        is_busy = True
+        is_ps_on = True
+        while is_busy or not is_ps_on:
+            is_busy = pydoocs.read(busy_channel)["data"]
+            is_ps_on = pydoocs.read(ps_on_channel)["data"]
+            time.sleep(0.1)
 
     def reset(self):
         self.update()
