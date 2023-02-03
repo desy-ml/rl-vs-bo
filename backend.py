@@ -12,24 +12,6 @@ from ocelot.cpbd.beam import generate_parray
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
 import ARESlatticeStage3v1_9 as ares_oc
-from ARESlatticeStage3v1_9 import (
-    areabscr1,
-    areamchm1,
-    areamcvm1,
-    areamqzm1,
-    areamqzm2,
-    areamqzm3,
-    areasola1,
-)
-from ARESlatticeStage3v1_9 import cell as ares_lattice
-from ARESlatticeStage3v1_9 import (
-    drift_areamchm1,
-    drift_areamcvm1,
-    drift_areamqzm1,
-    drift_areamqzm2,
-    drift_areamqzm3,
-    drift_areasola1,
-)
 
 try:
     import pydoocs  # type: ignore
@@ -232,9 +214,24 @@ class EACheetahBackend(TransverseTuningBaseBackend):
         )
 
         # Create particle simulation
+        ocelot_cell = (
+            ares_oc.areasola1,
+            ares_oc.drift_areasola1,
+            ares_oc.areamqzm1,
+            ares_oc.drift_areamqzm1,
+            ares_oc.areamqzm2,
+            ares_oc.drift_areamqzm2,
+            ares_oc.areamcvm1,
+            ares_oc.drift_areamcvm1,
+            ares_oc.areamqzm3,
+            ares_oc.drift_areamqzm3,
+            ares_oc.areamchm1,
+            ares_oc.drift_areamchm1,
+            ares_oc.areabscr1,
+        )
         self.segment = cheetah.Segment.from_ocelot(
-            ares_lattice, warnings=False, device="cpu"
-        ).subcell("AREASOLA1", "AREABSCR1")
+            ocelot_cell, warnings=False, device="cpu"
+        )
         self.segment.AREABSCR1.resolution = (2448, 2040)
         self.segment.AREABSCR1.pixel_size = (3.3198e-6, 2.4469e-6)
         self.segment.AREABSCR1.binning = 4
@@ -435,23 +432,26 @@ class EAOcelotBackend(TransverseTuningBaseBackend):
 
         # Build lattice
         self.cell = (
-            areasola1,
-            drift_areasola1,
-            areamqzm1,
-            drift_areamqzm1,
-            areamqzm2,
-            drift_areamqzm2,
-            areamcvm1,
-            drift_areamcvm1,
-            areamqzm3,
-            drift_areamqzm3,
-            areamchm1,
-            drift_areamchm1,
-            areabscr1,
+            ares_oc.areasola1,
+            ares_oc.drift_areasola1,
+            ares_oc.areamqzm1,
+            ares_oc.drift_areamqzm1,
+            ares_oc.areamqzm2,
+            ares_oc.drift_areamqzm2,
+            ares_oc.areamcvm1,
+            ares_oc.drift_areamcvm1,
+            ares_oc.areamqzm3,
+            ares_oc.drift_areamqzm3,
+            ares_oc.areamchm1,
+            ares_oc.drift_areamchm1,
+            ares_oc.areabscr1,
         )
 
         self.lattice = oc.MagneticLattice(
-            self.cell, start=areasola1, stop=areabscr1, method=self.method
+            self.cell,
+            start=ares_oc.areasola1,
+            stop=ares_oc.areabscr1,
+            method=self.method,
         )
 
     def is_beam_on_screen(self) -> bool:
@@ -462,20 +462,20 @@ class EAOcelotBackend(TransverseTuningBaseBackend):
     def get_magnets(self) -> np.ndarray:
         return np.array(
             [
-                self.lattice[areamqzm1].k1,
-                self.lattice[areamqzm2].k1,
-                self.lattice[areamcvm1].angle,
-                self.lattice[areamqzm3].k1,
-                self.lattice[areamchm1].angle,
+                self.lattice[ares_oc.areamqzm1].k1,
+                self.lattice[ares_oc.areamqzm2].k1,
+                self.lattice[ares_oc.areamcvm1].angle,
+                self.lattice[ares_oc.areamqzm3].k1,
+                self.lattice[ares_oc.areamchm1].angle,
             ]
         )
 
     def set_magnets(self, magnets: np.ndarray) -> None:
-        self.lattice[areamqzm1].k1 = magnets[0]
-        self.lattice[areamqzm2].k1 = magnets[1]
-        self.lattice[areamcvm1].angle = magnets[2]
-        self.lattice[areamqzm3].k1 = magnets[3]
-        self.lattice[areamqzm1].angle = magnets[4]
+        self.lattice[ares_oc.areamqzm1].k1 = magnets[0]
+        self.lattice[ares_oc.areamqzm2].k1 = magnets[1]
+        self.lattice[ares_oc.areamcvm1].angle = magnets[2]
+        self.lattice[ares_oc.areamqzm3].k1 = magnets[3]
+        self.lattice[ares_oc.areamqzm1].angle = magnets[4]
         self.lattcie = self.lattice.update_transfer_maps()
 
     def reset(self) -> None:
@@ -511,12 +511,12 @@ class EAOcelotBackend(TransverseTuningBaseBackend):
             raise ValueError(
                 f'Invalid value "{self.misalignment_mode}" for misalignment_mode'
             )
-        self.lattice[areamqzm1].dx = self.misalignments[0]
-        self.lattice[areamqzm1].dy = self.misalignments[1]
-        self.lattice[areamqzm2].dx = self.misalignments[2]
-        self.lattice[areamqzm2].dy = self.misalignments[3]
-        self.lattice[areamqzm3].dx = self.misalignments[4]
-        self.lattice[areamqzm3].dy = self.misalignments[5]
+        self.lattice[ares_oc.areamqzm1].dx = self.misalignments[0]
+        self.lattice[ares_oc.areamqzm1].dy = self.misalignments[1]
+        self.lattice[ares_oc.areamqzm2].dx = self.misalignments[2]
+        self.lattice[ares_oc.areamqzm2].dy = self.misalignments[3]
+        self.lattice[ares_oc.areamqzm3].dx = self.misalignments[4]
+        self.lattice[ares_oc.areamqzm3].dy = self.misalignments[5]
         self.screen_misalignment = self.misalignments[6:8]
 
     def update(self) -> None:
