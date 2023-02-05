@@ -224,7 +224,6 @@ class Episode:
         plt.title(title)
         plt.xlabel("Step")
         plt.ylabel("Beam Parameter (μm)")
-        plt.grid()
         plt.legend()
         plt.tight_layout()
 
@@ -243,14 +242,12 @@ class Episode:
         ax0.plot(magnets[:, 1], label="Q2")
         ax0.plot(magnets[:, 3], label="Q3")
         ax0.set_ylabel("Quadrupole Strength (m^(-2))")
-        ax0.grid()
         ax0.legend()
 
         ax1.plot(magnets[:, 2], label="CV")
         ax1.plot(magnets[:, 4], label="CH")
         ax1.set_ylabel("Steering Angle (rad)")
         ax1.set_xlabel("Step")
-        ax1.grid()
         ax1.legend()
         ax1.sharex(ax0)
 
@@ -266,7 +263,6 @@ class Episode:
         if show_best_mae:
             plt.plot(self.min_maes(), label="Best MAE")
             plt.legend()
-        plt.grid()
         plt.ylabel("MAE (m)")
         plt.xlabel("Step")
 
@@ -482,7 +478,6 @@ class Study:
         plt.figure(figsize=(5, 2))
         plt.title("Deviation when returning to best")
         sns.boxplot(x=deviations, y=["Deviation"] * len(deviations))
-        plt.grid(ls="--")
         plt.gca().set_axisbelow(True)
         plt.xlabel("MAE")
         plt.tight_layout()
@@ -594,7 +589,6 @@ def plot_best_mae_box(studies: list[Study], save_path: Optional[str] = None) -> 
     plt.title("Best MAEs")
     sns.boxplot(x=combined_best_maes, y=combined_names)
     plt.xscale("log")
-    plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -635,7 +629,6 @@ def plot_best_mae_diff_over_problem(
     plt.legend()
     plt.xlabel("Problem Index")
     plt.ylabel("Best MAE")
-    plt.grid()
 
     if save_path is not None:
         plt.savefig(save_path)
@@ -686,7 +679,6 @@ def plot_best_mae_over_time(
         plt.yscale("log")
     else:
         plt.ylim(0, None)
-    plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -722,7 +714,6 @@ def plot_final_mae_box(
     sns.boxplot(x=combined_final_maes, y=combined_names)
     plt.xscale("log")
     plt.xlabel("MAE (μm)")
-    plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -774,7 +765,6 @@ def plot_mae_over_time(
         plt.yscale("log")
     else:
         plt.ylim(0, None)
-    plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -805,7 +795,6 @@ def plot_steps_to_convergence_box(
     plt.figure(figsize=(5, 0.6 * len(studies)))
     plt.title(f"Steps to convergence (limit = {threshold})")
     sns.boxplot(x=combined_steps, y=combined_names)
-    plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
     plt.tight_layout()
@@ -836,7 +825,6 @@ def plot_steps_to_threshold_box(
     plt.figure(figsize=(5, 0.6 * len(studies)))
     plt.title(f"Steps to MAE below {threshold}")
     sns.boxplot(x=combined_steps, y=combined_names)
-    plt.grid(ls="--")
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
     plt.tight_layout()
