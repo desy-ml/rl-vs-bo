@@ -130,6 +130,13 @@ def try_problem(trial_index: int, trial: Trial) -> None:
         # Set back to
         action = bo_model.X[bo_model.Y.argmax()].detach().numpy()
         env.step(action)
+
+        # Take note that BO took over
+        with open(
+            f"data/bo_vs_rl/simulation/hybrid_{bo_takeover}/problem_{trial_index:03d}/bo_took_over.txt",
+            "w",
+        ) as f:
+            f.write("bo_took_over")
     else:
         while not done:
             action, _ = rl_model.predict(observation, deterministic=True)
