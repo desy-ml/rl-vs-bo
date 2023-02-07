@@ -223,7 +223,7 @@ class Episode:
 
         plt.title(title)
         plt.xlabel("Step")
-        plt.ylabel("Beam Parameter (μm)")
+        plt.ylabel(r"Beam Parameter ($\mu$m)")
         plt.legend()
         plt.tight_layout()
 
@@ -241,7 +241,7 @@ class Episode:
         ax0.plot(magnets[:, 0], label="Q1")
         ax0.plot(magnets[:, 1], label="Q2")
         ax0.plot(magnets[:, 3], label="Q3")
-        ax0.set_ylabel("Quadrupole Strength (m^(-2))")
+        ax0.set_ylabel(r"Quadrupole Strength ($m^{-2}$)")
         ax0.legend()
 
         ax1.plot(magnets[:, 2], label="CV")
@@ -736,6 +736,7 @@ def plot_best_mae_over_time(
     if threshold is not None:
         plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
     sns.lineplot(x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df)
+    plt.ylabel(r"MAE ($\mu$m)")
     plt.title(title)
     plt.xlim(0, None)
     if logarithmic:
@@ -776,7 +777,7 @@ def plot_final_mae_box(
     plt.title(title)
     sns.boxplot(x=combined_final_maes, y=combined_names)
     plt.xscale("log")
-    plt.xlabel("MAE (μm)")
+    plt.xlabel(r"MAE ($\mu$m)")
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -827,6 +828,7 @@ def plot_mae_over_time(
         x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df, legend=legend
     )
     plt.title(title)
+    plt.ylabel(r"MAE ($\mu$m)")
     plt.xlim(0, None)
     if logarithmic:
         plt.yscale("log")
