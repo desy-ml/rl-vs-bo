@@ -189,6 +189,7 @@ class Episode:
         show_target: bool = True,
         vertical_marker: Union[float, tuple[float, str]] = None,
         title: Optional[str] = None,
+        figsize: tuple[float, float] = (6, 3),
         save_path: Optional[str] = None,
     ) -> None:
         """
@@ -200,7 +201,7 @@ class Episode:
         beams = [obs["beam"] for obs in self.observations]
         targets = [obs["target"] for obs in self.observations]
 
-        plt.figure(figsize=(6, 3))
+        plt.figure(figsize=figsize)
 
         if isinstance(vertical_marker, (int, float)):
             plt.axvline(vertical_marker, ls="--", color="tab:purple")
@@ -755,6 +756,7 @@ def plot_best_mae_over_time(
 def plot_final_mae_box(
     studies: list[Study],
     title: Optional[str] = "Final MAEs",
+    figsize: tuple[float, float] = (5, 3),
     save_path: Optional[str] = None,
 ) -> None:
     """
@@ -773,7 +775,7 @@ def plot_final_mae_box(
 
     combined_final_maes = np.array(combined_final_maes) * 1e6  # Convert to micro meters
 
-    plt.figure(figsize=(5, 0.6 * len(studies)))
+    plt.figure(figsize=figsize)
     plt.title(title)
     sns.boxplot(x=combined_final_maes, y=combined_names)
     plt.xscale("log")
