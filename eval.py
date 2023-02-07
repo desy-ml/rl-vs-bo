@@ -401,6 +401,28 @@ class Study:
 
         return np.median(steps) if len(steps) > 0 else None
 
+    def rmse(self, max_steps: Optional[int] = None) -> float:
+        """
+        RMSE over all samples in all episode in the study and over all beam parameters
+        as used in https://www.nature.com/articles/s41586-021-04301-9.
+        """
+        beams = np.stack(
+            [
+                obs["beam"]
+                for episode in self.episodes
+                for obs in episode.observations[:max_steps]
+            ]
+        )
+        targets = np.stack(
+            [
+                obs["target"]
+                for episode in self.episodes
+                for obs in episode.observations[:max_steps]
+            ]
+        )
+        rmse = np.sqrt(np.mean(np.square(targets - beams)))
+        return rmse
+
     def problem_indicies(self) -> list[int]:
         """
         Return unsorted list of problem indicies in this study. `None` is returned for
