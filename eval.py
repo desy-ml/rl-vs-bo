@@ -201,26 +201,28 @@ class Episode:
         beams = [obs["beam"] for obs in self.observations]
         targets = [obs["target"] for obs in self.observations]
 
+        palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
         plt.figure(figsize=figsize)
 
         if isinstance(vertical_marker, (int, float)):
-            plt.axvline(vertical_marker, ls="--", color="tab:purple")
+            plt.axvline(vertical_marker, ls="--", color=palette_colors[5])
         elif isinstance(vertical_marker, tuple):
             marker_position, marker_label = vertical_marker
             plt.axvline(
-                marker_position, label=marker_label, ls="--", color="tab:purple"
+                marker_position, label=marker_label, ls="--", color=palette_colors[5]
             )
 
-        plt.plot(np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c="tab:blue")
-        plt.plot(np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c="tab:orange")
-        plt.plot(np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c="tab:green")
-        plt.plot(np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c="tab:red")
+        plt.plot(np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c=palette_colors[0])
+        plt.plot(np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c=palette_colors[1])
+        plt.plot(np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c=palette_colors[2])
+        plt.plot(np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c=palette_colors[3])
 
         if show_target:
-            plt.plot(np.array(targets)[:, 0] * 1e6, c="tab:blue", ls="--")
-            plt.plot(np.array(targets)[:, 1] * 1e6, c="tab:orange", ls="--")
-            plt.plot(np.array(targets)[:, 2] * 1e6, c="tab:green", ls="--")
-            plt.plot(np.array(targets)[:, 3] * 1e6, c="tab:red", ls="--")
+            plt.plot(np.array(targets)[:, 0] * 1e6, c=palette_colors[0], ls="--")
+            plt.plot(np.array(targets)[:, 1] * 1e6, c=palette_colors[1], ls="--")
+            plt.plot(np.array(targets)[:, 2] * 1e6, c=palette_colors[2], ls="--")
+            plt.plot(np.array(targets)[:, 3] * 1e6, c=palette_colors[3], ls="--")
 
         plt.title(title)
         plt.xlabel("Step")
