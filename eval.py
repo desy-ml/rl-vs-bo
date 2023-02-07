@@ -703,6 +703,7 @@ def plot_best_mae_over_time(
     threshold: Optional[float] = None,
     logarithmic: bool = False,
     title: Optional[str] = "Mean Best MAE Over Time",
+    figsize: tuple[float, float] = (5, 3),
     study_name_str: str = "Study",
     save_path: Optional[str] = None,
 ) -> None:
@@ -729,12 +730,12 @@ def plot_best_mae_over_time(
     combined_df = pd.concat(dfs)
 
     # Convert unit to mm
-    combined_df["MAE (mm)"] = combined_df["MAE (m)"] * 1e3
+    combined_df["MAE (μm)"] = combined_df["MAE (m)"] * 1e6
 
-    plt.figure(figsize=(5, 3))
+    plt.figure(figsize=figsize)
     if threshold is not None:
         plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
-    sns.lineplot(x="Step", y="MAE (mm)", hue=study_name_str, data=combined_df)
+    sns.lineplot(x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df)
     plt.title(title)
     plt.xlim(0, None)
     if logarithmic:
@@ -789,7 +790,9 @@ def plot_mae_over_time(
     studies: list[Study],
     threshold: Optional[float] = None,
     logarithmic: bool = False,
+    legend: bool = True,
     title: Optional[str] = "Mean MAE Over Time",
+    figsize: tuple[float, float] = (5, 3),
     study_name_str: str = "Study",
     save_path: Optional[str] = None,
 ) -> None:
@@ -815,12 +818,14 @@ def plot_mae_over_time(
     combined_df = pd.concat(dfs)
 
     # Convert unit to mm
-    combined_df["MAE (mm)"] = combined_df["MAE (m)"] * 1e3
+    combined_df["MAE (μm)"] = combined_df["MAE (m)"] * 1e6
 
-    plt.figure(figsize=(5, 3))
+    plt.figure(figsize=figsize)
     if threshold is not None:
         plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
-    sns.lineplot(x="Step", y="MAE (mm)", hue=study_name_str, data=combined_df)
+    sns.lineplot(
+        x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df, legend=legend
+    )
     plt.title(title)
     plt.xlim(0, None)
     if logarithmic:
