@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy.ndimage import uniform_filter
 
 
 class Episode:
@@ -256,7 +257,7 @@ class Episode:
 
         plt.show()
 
-    def plot_maes(self, show_best_mae: bool = True):
+    def plot_maes(self, show_best_mae: bool = True) -> None:
         """
         Plot MAE over time. If `show_best_mae` is `True`, add best MAE seen up to a
         certain point to the plot.
@@ -271,7 +272,7 @@ class Episode:
 
         plt.show()
 
-    def drop_screen_images(self):
+    def drop_screen_images(self) -> None:
         """
         Drop all screen images from this loaded copy of the episode. This can help to
         save RAM while working with the data, when the images are not needed.
@@ -280,6 +281,103 @@ class Episode:
             info.pop("beam_image", None)
             info.pop("screen_before_reset", None)
             info.pop("screen_after_reset", None)
+
+    def plot_summary(
+        self, figsize: tuple[float, float] = (12, 10), save_path: Optional[str] = None
+    ) -> None:
+        """Summary plot of important data about this episode."""
+        beams = [obs["beam"] for obs in self.observations]
+        targets = [obs["target"] for obs in self.observations]
+
+        palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+        fig, axs = plt.subplots(2, 2, figsize=figsize, sharex="col")
+
+        axs[0, 0].plot(
+            np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c=palette_colors[0]
+        )
+        axs[0, 0].plot(
+            np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c=palette_colors[1]
+        )
+        axs[0, 0].plot(
+            np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c=palette_colors[2]
+        )
+        axs[0, 0].plot(
+            np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c=palette_colors[3]
+        )
+
+        axs[0, 0].plot(np.array(targets)[:, 0] * 1e6, c=palette_colors[0], ls="--")
+        axs[0, 0].plot(np.array(targets)[:, 1] * 1e6, c=palette_colors[1], ls="--")
+        axs[0, 0].plot(np.array(targets)[:, 2] * 1e6, c=palette_colors[2], ls="--")
+        axs[0, 0].plot(np.array(targets)[:, 3] * 1e6, c=palette_colors[3], ls="--")
+        axs[0, 0].set_ylabel(r"Beam Parameter ($\mu$m)")
+        axs[0, 0].legend()
+
+        magnets = np.array([obs["magnets"] for obs in self.observations])
+
+        axs[1, 0].plot(magnets[:, 0], c=palette_colors[0], label="Q1")
+        axs[1, 0].plot(magnets[:, 1], c=palette_colors[1], label="Q2")
+        axs[1, 0].plot([], c=palette_colors[2], label="CV")  # Dummy for legend
+        axs[1, 0].plot(magnets[:, 3], c=palette_colors[3], label="Q3")
+        axs[1, 0].plot([], c=palette_colors[4], label="CH")  # Dummy for legend
+        axs[1, 0].set_xlabel("Step")
+        axs[1, 0].set_xlim(0, None)
+        axs[1, 0].set_ylabel(r"Quadrupole Strength ($m^{-2}$)")
+        axs[1, 0].set_ylim(-72, 72)
+        axs[1, 0].legend()
+
+        ax10_twin = axs[1, 0].twinx()
+
+        ax10_twin.plot(magnets[:, 2] * 1e3, c=palette_colors[2], label="CV")
+        ax10_twin.plot(magnets[:, 4] * 1e3, c=palette_colors[4], label="CH")
+        ax10_twin.set_ylabel("Steering Angle (mrad)")
+        ax10_twin.set_ylim(-6.1782, 6.1782)
+
+        first_screen_image = (
+            self.infos[0]["screen_before_reset"]
+            if "screen_before_reset" in self.infos[0]
+            else self.infos[0]["beam_image"]
+        ).astype("float")
+        last_screen_image = self.infos[-1]["beam_image"].astype("float")
+        first_screen_image = uniform_filter(first_screen_image, size=10)
+        last_screen_image = uniform_filter(last_screen_image, size=10)
+        vmax = np.max(np.stack([first_screen_image, last_screen_image]))
+        first_screen_image[first_screen_image < 10] = np.nan
+        last_screen_image[last_screen_image < 10] = np.nan
+        axs[0, 1].imshow(
+            first_screen_image,
+            vmin=0,
+            vmax=vmax,
+            aspect="equal",
+            interpolation="none",
+            extent=screen_extent(
+                self.infos[0]["screen_resolution"],
+                self.infos[0]["pixel_size"] * 1e6,
+            ),
+            cmap="rainbow",
+        )
+        axs[0, 1].set_ylabel(r"($\mu$m)")
+        axs[1, 1].imshow(
+            last_screen_image,
+            vmin=0,
+            vmax=vmax,
+            aspect="equal",
+            interpolation="none",
+            extent=screen_extent(
+                self.infos[-1]["screen_resolution"],
+                self.infos[-1]["pixel_size"] * 1e6,
+            ),
+            cmap="rainbow",
+        )
+        axs[1, 1].set_xlabel(r"($\mu$m)")
+        axs[1, 1].set_ylabel(r"($\mu$m)")
+
+        plt.tight_layout()
+
+        if save_path is not None:
+            plt.savefig(save_path)
+
+        plt.show()
 
 
 class Study:
