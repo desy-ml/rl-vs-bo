@@ -285,7 +285,10 @@ class Episode:
             info.pop("screen_after_reset", None)
 
     def plot_summary(
-        self, figsize: tuple[float, float] = (7.0, 3.5), save_path: Optional[str] = None
+        self,
+        title: Optional[str] = None,
+        figsize: tuple[float, float] = (7.0, 3.5),
+        save_path: Optional[str] = None,
     ) -> None:
         """Summary plot of important data about this episode."""
         beams = [obs["beam"] for obs in self.observations]
@@ -294,6 +297,8 @@ class Episode:
         palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
         fig, axs = plt.subplots(2, 2, figsize=figsize, sharex="col")
+
+        fig.suptitle(title)
 
         axs[0, 0].plot(
             np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c=palette_colors[0]
