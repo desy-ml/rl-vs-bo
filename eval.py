@@ -245,26 +245,51 @@ class Episode:
 
         return ax
 
-    def plot_magnets(self) -> None:
+    def plot_magnets(
+        self,
+        xlabel: bool = True,
+        ylabel_left: bool = True,
+        ylabel_right: bool = True,
+        figsize: tuple[float, float] = (6, 3),
+        ax: Optional[matplotlib.axes.Axes] = None,
+        save_path: Optional[str] = None,
+    ) -> None:
         """Plot magnet values over episdoe."""
         magnets = np.array([obs["magnets"] for obs in self.observations])
 
-        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(6, 6))
-        ax0.set_title("Magnet Settings")
-        ax0.plot(magnets[:, 0], label="Q1")
-        ax0.plot(magnets[:, 1], label="Q2")
-        ax0.plot(magnets[:, 3], label="Q3")
-        ax0.set_ylabel(r"Quadrupole Strength ($m^{-2}$)")
-        ax0.legend()
+        palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-        ax1.plot(magnets[:, 2], label="CV")
-        ax1.plot(magnets[:, 4], label="CH")
-        ax1.set_ylabel("Steering Angle (rad)")
-        ax1.set_xlabel("Step")
-        ax1.legend()
-        ax1.sharex(ax0)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-        plt.show()
+        ax.plot(magnets[:, 0], c=palette_colors[0], label="Q1")
+        ax.plot(magnets[:, 1], c=palette_colors[1], label="Q2")
+        ax.plot([], c=palette_colors[2], label="CV")  # Dummy for legend
+        ax.plot(magnets[:, 3], c=palette_colors[3], label="Q3")
+        ax.plot([], c=palette_colors[4], label="CH")  # Dummy for legend
+        ax.set_xlim(0, None)
+        ax.set_ylim(-72, 72)
+        ax.legend()
+
+        ax_twinx = ax.twinx()
+
+        ax_twinx.plot(magnets[:, 2] * 1e3, c=palette_colors[2], label="CV")
+        ax_twinx.plot(magnets[:, 4] * 1e3, c=palette_colors[4], label="CH")
+        ax_twinx.set_ylabel("Steering Angle (mrad)")
+        ax_twinx.set_ylim(-6.1782, 6.1782)
+
+        if xlabel:
+            ax.set_xlabel("Step")
+        if ylabel_left:
+            ax.set_ylabel(r"Quadrupole Strength ($m^{-2}$)")
+        if ylabel_right:
+            ax_twinx.set_ylabel("Steering Angle (mrad)")
+
+        if save_path is not None:
+            assert fig is not None, "Cannot save figure when axes was passed."
+            fig.savefig(save_path)
+
+        return ax
 
     def plot_maes(self, show_best_mae: bool = True) -> None:
         """
@@ -298,33 +323,13 @@ class Episode:
         save_path: Optional[str] = None,
     ) -> None:
         """Summary plot of important data about this episode."""
-        palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-
         fig, axs = plt.subplots(2, 2, figsize=figsize, sharex="col")
 
         fig.suptitle(title)
 
         self.plot_beam_parameters(ax=axs[0, 0], xlabel=False)
 
-        magnets = np.array([obs["magnets"] for obs in self.observations])
-
-        axs[1, 0].plot(magnets[:, 0], c=palette_colors[0], label="Q1")
-        axs[1, 0].plot(magnets[:, 1], c=palette_colors[1], label="Q2")
-        axs[1, 0].plot([], c=palette_colors[2], label="CV")  # Dummy for legend
-        axs[1, 0].plot(magnets[:, 3], c=palette_colors[3], label="Q3")
-        axs[1, 0].plot([], c=palette_colors[4], label="CH")  # Dummy for legend
-        axs[1, 0].set_xlabel("Step")
-        axs[1, 0].set_xlim(0, None)
-        axs[1, 0].set_ylabel(r"Quadrupole Strength ($m^{-2}$)")
-        axs[1, 0].set_ylim(-72, 72)
-        axs[1, 0].legend()
-
-        ax10_twin = axs[1, 0].twinx()
-
-        ax10_twin.plot(magnets[:, 2] * 1e3, c=palette_colors[2], label="CV")
-        ax10_twin.plot(magnets[:, 4] * 1e3, c=palette_colors[4], label="CH")
-        ax10_twin.set_ylabel("Steering Angle (mrad)")
-        ax10_twin.set_ylim(-6.1782, 6.1782)
+        self.plot_magnets(ax=axs[1, 0])
 
         # Plot screen images if there are any
         if "beam_image" in self.infos[0]:
