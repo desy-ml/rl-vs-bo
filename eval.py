@@ -192,9 +192,12 @@ class Episode:
         show_target: bool = True,
         vertical_marker: Union[float, tuple[float, str]] = None,
         title: Optional[str] = None,
+        xlabel: bool = True,
+        ylabel: bool = True,
         figsize: tuple[float, float] = (6, 3),
+        ax: Optional[matplotlib.axes.Axes] = None,
         save_path: Optional[str] = None,
-    ) -> None:
+    ) -> matplotlib.axes.Axes:
         """
         Plot beam parameters over the episode and optionally add the target beam
         parameters if `show_target` is `True`. A vertical line to mark a point in time
@@ -206,37 +209,41 @@ class Episode:
 
         palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-        plt.figure(figsize=figsize)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
 
         if isinstance(vertical_marker, (int, float)):
-            plt.axvline(vertical_marker, ls="--", color=palette_colors[5])
+            ax.axvline(vertical_marker, ls="--", color=palette_colors[5])
         elif isinstance(vertical_marker, tuple):
             marker_position, marker_label = vertical_marker
-            plt.axvline(
+            ax.axvline(
                 marker_position, label=marker_label, ls="--", color=palette_colors[5]
             )
 
-        plt.plot(np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c=palette_colors[0])
-        plt.plot(np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c=palette_colors[1])
-        plt.plot(np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c=palette_colors[2])
-        plt.plot(np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c=palette_colors[3])
+        ax.plot(np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c=palette_colors[0])
+        ax.plot(np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c=palette_colors[1])
+        ax.plot(np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c=palette_colors[2])
+        ax.plot(np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c=palette_colors[3])
 
         if show_target:
-            plt.plot(np.array(targets)[:, 0] * 1e6, c=palette_colors[0], ls="--")
-            plt.plot(np.array(targets)[:, 1] * 1e6, c=palette_colors[1], ls="--")
-            plt.plot(np.array(targets)[:, 2] * 1e6, c=palette_colors[2], ls="--")
-            plt.plot(np.array(targets)[:, 3] * 1e6, c=palette_colors[3], ls="--")
+            ax.plot(np.array(targets)[:, 0] * 1e6, c=palette_colors[0], ls="--")
+            ax.plot(np.array(targets)[:, 1] * 1e6, c=palette_colors[1], ls="--")
+            ax.plot(np.array(targets)[:, 2] * 1e6, c=palette_colors[2], ls="--")
+            ax.plot(np.array(targets)[:, 3] * 1e6, c=palette_colors[3], ls="--")
 
-        plt.title(title)
-        plt.xlabel("Step")
-        plt.ylabel(r"Beam Parameter ($\mu$m)")
-        plt.legend()
-        plt.tight_layout()
+        ax.set_title(title)
+        ax.legend()
+
+        if xlabel:
+            ax.set_xlabel("Step")
+        if ylabel:
+            ax.set_ylabel(r"Beam Parameter ($\mu$m)")
 
         if save_path is not None:
-            plt.savefig(save_path)
+            assert fig is not None, "Cannot save figure when axes was passed."
+            fig.savefig(save_path)
 
-        plt.show()
+        return ax
 
     def plot_magnets(self) -> None:
         """Plot magnet values over episdoe."""
@@ -291,34 +298,13 @@ class Episode:
         save_path: Optional[str] = None,
     ) -> None:
         """Summary plot of important data about this episode."""
-        beams = [obs["beam"] for obs in self.observations]
-        targets = [obs["target"] for obs in self.observations]
-
         palette_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
         fig, axs = plt.subplots(2, 2, figsize=figsize, sharex="col")
 
         fig.suptitle(title)
 
-        axs[0, 0].plot(
-            np.array(beams)[:, 0] * 1e6, label=r"$\mu_x$", c=palette_colors[0]
-        )
-        axs[0, 0].plot(
-            np.array(beams)[:, 1] * 1e6, label=r"$\sigma_x$", c=palette_colors[1]
-        )
-        axs[0, 0].plot(
-            np.array(beams)[:, 2] * 1e6, label=r"$\mu_y$", c=palette_colors[2]
-        )
-        axs[0, 0].plot(
-            np.array(beams)[:, 3] * 1e6, label=r"$\sigma_y$", c=palette_colors[3]
-        )
-
-        axs[0, 0].plot(np.array(targets)[:, 0] * 1e6, c=palette_colors[0], ls="--")
-        axs[0, 0].plot(np.array(targets)[:, 1] * 1e6, c=palette_colors[1], ls="--")
-        axs[0, 0].plot(np.array(targets)[:, 2] * 1e6, c=palette_colors[2], ls="--")
-        axs[0, 0].plot(np.array(targets)[:, 3] * 1e6, c=palette_colors[3], ls="--")
-        axs[0, 0].set_ylabel(r"Beam Parameter ($\mu$m)")
-        axs[0, 0].legend()
+        self.plot_beam_parameters(ax=axs[0, 0], xlabel=False)
 
         magnets = np.array([obs["magnets"] for obs in self.observations])
 
@@ -1046,7 +1032,7 @@ def plot_screen_image(
 ) -> matplotlib.axes.Axes:
     """Plot an image of a diagnostic screen."""
     if ax is None:
-        fig, (ax,) = plt.subplots(1, 1, figsize=figsize)
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
 
     image_float = image.astype("float")
     image_filtered = uniform_filter(image_float, size=10)
@@ -1093,7 +1079,7 @@ def plot_beam_parameters_on_screen(
     overlay.
     """
     if ax is None:
-        fig, (ax,) = plt.subplots(1, 1, figsize=figsize)
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
 
     sigma_x = max(sigma_x, measurement_accuracy)
     sigma_y = max(sigma_y, measurement_accuracy)
