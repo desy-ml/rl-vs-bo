@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.patches import Ellipse
 from scipy.ndimage import uniform_filter
 
 
@@ -334,34 +335,63 @@ class Episode:
         ax10_twin.set_ylabel("Steering Angle (mrad)")
         ax10_twin.set_ylim(-6.1782, 6.1782)
 
-        first_screen_image = (
-            self.infos[0]["screen_before_reset"]
-            if "screen_before_reset" in self.infos[0]
-            else self.infos[0]["beam_image"]
-        )
-        last_screen_image = self.infos[-1]["beam_image"]
-        shared_vmax = np.max(
-            np.stack(
-                [
-                    uniform_filter(first_screen_image, size=10),
-                    uniform_filter(last_screen_image, size=10),
-                ]
+        # Plot screen images if there are any
+        if "beam_image" in self.infos[0]:
+            first_screen_image = (
+                self.infos[0]["screen_before_reset"]
+                if "screen_before_reset" in self.infos[0]
+                else self.infos[0]["beam_image"]
             )
+            last_screen_image = self.infos[-1]["beam_image"]
+            shared_vmax = np.max(
+                np.stack(
+                    [
+                        uniform_filter(first_screen_image, size=10),
+                        uniform_filter(last_screen_image, size=10),
+                    ]
+                )
+            )
+            plot_screen_image(
+                image=first_screen_image,
+                resolution=self.infos[0]["screen_resolution"],
+                pixel_size=self.infos[0]["pixel_size"],
+                ax=axs[0, 1],
+                vmax=shared_vmax,
+                xlabel=False,
+            )
+            plot_screen_image(
+                image=last_screen_image,
+                resolution=self.infos[-1]["screen_resolution"],
+                pixel_size=self.infos[-1]["pixel_size"],
+                ax=axs[1, 1],
+                vmax=shared_vmax,
+            )
+
+        # Plot target beam parameters
+        initial_beam = (
+            self.infos[0]["beam_before_reset"]
+            if "beam_before_reset" in self.infos[0]
+            else self.observations[0]["beam"]
         )
-        plot_screen_image(
-            image=first_screen_image,
+        target_beam = self.observations[0]["target"]
+        plot_beam_parameters_on_screen(
+            mu_x=initial_beam[0],
+            sigma_x=initial_beam[1],
+            mu_y=initial_beam[2],
+            sigma_y=initial_beam[3],
             resolution=self.infos[0]["screen_resolution"],
             pixel_size=self.infos[0]["pixel_size"],
             ax=axs[0, 1],
-            vmax=shared_vmax,
             xlabel=False,
         )
-        plot_screen_image(
-            image=last_screen_image,
-            resolution=self.infos[-1]["screen_resolution"],
-            pixel_size=self.infos[-1]["pixel_size"],
+        plot_beam_parameters_on_screen(
+            mu_x=target_beam[0],
+            sigma_x=target_beam[1],
+            mu_y=target_beam[2],
+            sigma_y=target_beam[3],
+            resolution=self.infos[0]["screen_resolution"],
+            pixel_size=self.infos[0]["pixel_size"],
             ax=axs[1, 1],
-            vmax=shared_vmax,
         )
 
         plt.tight_layout()
@@ -1002,7 +1032,7 @@ def plot_screen_image(
     image: np.ndarray,
     resolution: np.ndarray,
     pixel_size: np.ndarray,
-    ax: Optional[matplotlib.axes.Axes],
+    ax: Optional[matplotlib.axes.Axes] = None,
     figsize: tuple[float, float] = (12, 10),
     save_path: Optional[Path] = None,
     vmax: Optional[float] = None,
@@ -1027,6 +1057,60 @@ def plot_screen_image(
         extent=screen_extent(resolution, pixel_size * 1e6),
         cmap="rainbow",
     )
+    if xlabel:
+        ax.set_xlabel(r"($\mu$m)")
+    if ylabel:
+        ax.set_ylabel(r"($\mu$m)")
+
+    if save_path is not None:
+        assert fig is not None, "Cannot save figure when axes was passed."
+        fig.savefig(save_path)
+
+    return ax
+
+
+def plot_beam_parameters_on_screen(
+    mu_x: float,
+    sigma_x: float,
+    mu_y: float,
+    sigma_y: float,
+    resolution: Optional[np.ndarray] = None,
+    pixel_size: Optional[np.ndarray] = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    figsize: tuple[float, float] = (12, 10),
+    save_path: Optional[Path] = None,
+    xlabel: bool = True,
+    ylabel: bool = True,
+    measurement_accuracy: float = 20e-6,
+) -> matplotlib.axes.Axes:
+    """
+    Plot beam parameters indicated on an area representing the screen. Can be used as an
+    overlay.
+    """
+    if ax is None:
+        fig, (ax,) = plt.subplots(1, 1, figsize=figsize)
+
+    sigma_x = max(sigma_x, measurement_accuracy)
+    sigma_y = max(sigma_y, measurement_accuracy)
+
+    ax.axvline(mu_x * 1e6)
+    ax.axhline(mu_y * 1e6)
+
+    sigma_ellipse = Ellipse(
+        xy=(mu_x * 1e6, mu_y * 1e6),
+        width=6 * sigma_x * 1e6 / 2,
+        height=6 * sigma_y * 1e6 / 2,
+        facecolor="none",
+        edgecolor="red",
+        lw=1,
+    )
+    ax.add_patch(sigma_ellipse)
+
+    if resolution is not None and pixel_size is not None:
+        (left, right, bottom, top) = screen_extent(resolution, pixel_size * 1e6)
+        ax.set_xlim(left, right)
+        ax.set_ylim(bottom, top)
+
     if xlabel:
         ax.set_xlabel(r"($\mu$m)")
     if ylabel:
