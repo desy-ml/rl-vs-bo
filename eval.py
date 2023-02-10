@@ -285,7 +285,7 @@ class Episode:
             info.pop("screen_after_reset", None)
 
     def plot_summary(
-        self, figsize: tuple[float, float] = (12, 10), save_path: Optional[str] = None
+        self, figsize: tuple[float, float] = (7.0, 3.5), save_path: Optional[str] = None
     ) -> None:
         """Summary plot of important data about this episode."""
         beams = [obs["beam"] for obs in self.observations]
