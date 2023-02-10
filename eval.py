@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -337,40 +338,31 @@ class Episode:
             self.infos[0]["screen_before_reset"]
             if "screen_before_reset" in self.infos[0]
             else self.infos[0]["beam_image"]
-        ).astype("float")
-        last_screen_image = self.infos[-1]["beam_image"].astype("float")
-        first_screen_image = uniform_filter(first_screen_image, size=10)
-        last_screen_image = uniform_filter(last_screen_image, size=10)
-        vmax = np.max(np.stack([first_screen_image, last_screen_image]))
-        first_screen_image[first_screen_image < 10] = np.nan
-        last_screen_image[last_screen_image < 10] = np.nan
-        axs[0, 1].imshow(
-            first_screen_image,
-            vmin=0,
-            vmax=vmax,
-            aspect="equal",
-            interpolation="none",
-            extent=screen_extent(
-                self.infos[0]["screen_resolution"],
-                self.infos[0]["pixel_size"] * 1e6,
-            ),
-            cmap="rainbow",
         )
-        axs[0, 1].set_ylabel(r"($\mu$m)")
-        axs[1, 1].imshow(
-            last_screen_image,
-            vmin=0,
-            vmax=vmax,
-            aspect="equal",
-            interpolation="none",
-            extent=screen_extent(
-                self.infos[-1]["screen_resolution"],
-                self.infos[-1]["pixel_size"] * 1e6,
-            ),
-            cmap="rainbow",
+        last_screen_image = self.infos[-1]["beam_image"]
+        shared_vmax = np.max(
+            np.stack(
+                [
+                    uniform_filter(first_screen_image, size=10),
+                    uniform_filter(last_screen_image, size=10),
+                ]
+            )
         )
-        axs[1, 1].set_xlabel(r"($\mu$m)")
-        axs[1, 1].set_ylabel(r"($\mu$m)")
+        plot_screen_image(
+            image=first_screen_image,
+            resolution=self.infos[0]["screen_resolution"],
+            pixel_size=self.infos[0]["pixel_size"],
+            ax=axs[0, 1],
+            vmax=shared_vmax,
+            xlabel=False,
+        )
+        plot_screen_image(
+            image=last_screen_image,
+            resolution=self.infos[-1]["screen_resolution"],
+            pixel_size=self.infos[-1]["pixel_size"],
+            ax=axs[1, 1],
+            vmax=shared_vmax,
+        )
 
         plt.tight_layout()
 
@@ -1004,3 +996,44 @@ def plot_steps_to_threshold_box(
         plt.savefig(save_path)
 
     plt.show()
+
+
+def plot_screen_image(
+    image: np.ndarray,
+    resolution: np.ndarray,
+    pixel_size: np.ndarray,
+    ax: Optional[matplotlib.axes.Axes],
+    figsize: tuple[float, float] = (12, 10),
+    save_path: Optional[Path] = None,
+    vmax: Optional[float] = None,
+    xlabel: bool = True,
+    ylabel: bool = True,
+) -> matplotlib.axes.Axes:
+    """Plot an image of a diagnostic screen."""
+    if ax is None:
+        fig, (ax,) = plt.subplots(1, 1, figsize=figsize)
+
+    image_float = image.astype("float")
+    image_filtered = uniform_filter(image_float, size=10)
+    image_nan = image_filtered.copy()
+    image_nan[image_filtered < 10] = np.nan
+
+    ax.imshow(
+        image_nan,
+        vmin=0,
+        vmax=image_filtered.max() if vmax is None else vmax,
+        aspect="equal",
+        interpolation="none",
+        extent=screen_extent(resolution, pixel_size * 1e6),
+        cmap="rainbow",
+    )
+    if xlabel:
+        ax.set_xlabel(r"($\mu$m)")
+    if ylabel:
+        ax.set_ylabel(r"($\mu$m)")
+
+    if save_path is not None:
+        assert fig is not None, "Cannot save figure when axes was passed."
+        fig.savefig(save_path)
+
+    return ax
