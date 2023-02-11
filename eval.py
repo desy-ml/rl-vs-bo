@@ -683,6 +683,134 @@ class Study:
         ]
         return np.mean(first_inferences + other_inferences)
 
+    def plot_correlations_to_mae(self):
+        """
+        Plot a MAE in relation to a number of different variables to investigate
+        possible correlations with optimiser performance.
+        """
+        final_maes = [episode.final_mae() for episode in self.episodes]
+        misalignments = np.array(
+            [episode.observations[0]["misalignments"] for episode in self.episodes]
+        )
+        target_beams = np.array(
+            [episode.observations[0]["target"] for episode in self.episodes]
+        )
+        initial_beams = np.array(
+            [episode.observations[0]["beam"] for episode in self.episodes]
+        )
+        incoming_beams = np.array(
+            [episode.observations[0]["incoming"] for episode in self.episodes]
+        )[:, [1, 5, 3, 7]]
+
+        plt.figure(figsize=(15, 57.5))
+        for i in range(8):
+            plt.subplot(23, 4, i + 1)
+            sns.regplot(x=misalignments[:, i], y=final_maes)
+            plt.xlabel(f"Misalignment {i}")
+            plt.ylabel("MAE")
+        for i in range(8):
+            plt.subplot(23, 4, 8 + i + 1)
+            sns.regplot(x=np.abs(misalignments[:, i]), y=final_maes)
+            plt.xlabel(f"|Misalignment {i}|")
+            plt.ylabel("MAE")
+        plt.subplot(23, 4, 17)
+        sns.regplot(x=np.sum(np.abs(misalignments), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ misalignments")
+        plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 20 + i + 1)
+            sns.regplot(x=target_beams[:, i], y=final_maes)
+            plt.xlabel(f"Target beam {i}")
+            plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 24 + i + 1)
+            sns.regplot(x=np.abs(target_beams[:, i]), y=final_maes)
+            plt.xlabel(f"|Target beam {i}|")
+            plt.ylabel("MAE")
+        plt.subplot(23, 4, 29)
+        sns.regplot(x=np.sum(np.abs(target_beams), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ target beams")
+        plt.ylabel("MAE")
+        plt.subplot(23, 4, 33)
+        sns.regplot(x=np.sum(np.abs(target_beams[:, [1, 3]]), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ target beam sizes")
+        plt.ylabel("MAE")
+
+        for i in range(4):
+            plt.subplot(23, 4, 36 + i + 1)
+            sns.regplot(x=initial_beams[:, i], y=final_maes)
+            plt.xlabel(f"Initial beam {i}")
+            plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 40 + i + 1)
+            sns.regplot(x=np.abs(initial_beams[:, i]), y=final_maes)
+            plt.xlabel(f"|Initial beam {i}|")
+            plt.ylabel("MAE")
+        plt.subplot(23, 4, 45)
+        sns.regplot(x=np.sum(np.abs(initial_beams), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ Target beam")
+        plt.ylabel("MAE")
+        plt.subplot(23, 4, 49)
+        sns.regplot(x=np.sum(np.abs(initial_beams[:, [1, 3]]), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ Target beam size")
+        plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 52 + i + 1)
+            sns.regplot(x=target_beams[:, i] - initial_beams[:, i], y=final_maes)
+            plt.xlabel(f"Target beam - initial beam {i}")
+            plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 56 + i + 1)
+            sns.regplot(
+                x=np.abs(target_beams[:, i] - initial_beams[:, i]), y=final_maes
+            )
+            plt.xlabel(f"|Target beam - initial beam {i}|")
+            plt.ylabel("MAE")
+        plt.subplot(23, 4, 61)
+        sns.regplot(
+            x=np.sum(np.abs(target_beams - initial_beams), axis=1), y=final_maes
+        )
+        plt.xlabel(r"$\sum$ |Target beam - initial beam|")
+        plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 64 + i + 1)
+            sns.regplot(x=incoming_beams[:, i], y=final_maes)
+            plt.xlabel(f"Incoming beam {i}")
+            plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 68 + i + 1)
+            sns.regplot(x=np.abs(incoming_beams[:, i]), y=final_maes)
+            plt.xlabel(f"|Incoming beam {i}|")
+            plt.ylabel("MAE")
+        plt.subplot(23, 4, 73)
+        sns.regplot(x=np.sum(np.abs(incoming_beams), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ |Incoming beam|")
+        plt.ylabel("MAE")
+        plt.subplot(23, 4, 77)
+        sns.regplot(x=np.sum(np.abs(incoming_beams[:, [1, 3]]), axis=1), y=final_maes)
+        plt.xlabel(r"$\sum$ |Incoming beam size|")
+        plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 80 + i + 1)
+            sns.regplot(x=target_beams[:, i] - incoming_beams[:, i], y=final_maes)
+            plt.xlabel(f"Target beam - incoming beam {i}")
+            plt.ylabel("MAE")
+        for i in range(4):
+            plt.subplot(23, 4, 84 + i + 1)
+            sns.regplot(
+                x=np.abs(target_beams[:, i] - incoming_beams[:, i]), y=final_maes
+            )
+            plt.xlabel(f"|Target beam - incoming beam {i}|")
+            plt.ylabel("MAE")
+        plt.subplot(23, 4, 89)
+        sns.regplot(
+            x=np.sum(np.abs(target_beams - incoming_beams), axis=1), y=final_maes
+        )
+        plt.xlabel(r"$\sum$ |Target beam - incoming beam|")
+        plt.ylabel("MAE")
+        plt.tight_layout()
+        plt.show()
+
 
 def number_of_better_final_beams(
     study_1: Study,
