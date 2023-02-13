@@ -17,7 +17,7 @@ from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
 
 def try_problem(trial_index: int, trial: Trial) -> None:
-    model_name = "polar-lake-997"
+    model_name = "still-deluge-998"
 
     # Load the model
     model = TD3.load(f"models/{model_name}/model")
@@ -105,7 +105,7 @@ def main():
         ]
 
     # Save data
-    with open("data/bo_vs_rl/simulation/rl_grid/polar_lake.pkl", "wb") as f:
+    with open("data/bo_vs_rl/simulation/rl_grid/still_deluge.pkl", "wb") as f:
         pickle.dump(results, f)
 
 
