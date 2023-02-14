@@ -18,6 +18,8 @@ from utils import RecordEpisode
 
 
 def try_problem(trial_index: int, trial: Trial):
+    print(f" -> Trial {trial_index}")
+
     # Create the environment
     cheetah_backend = EACheetahBackend(
         incoming_mode="constant",
@@ -100,7 +102,7 @@ def main():
     # Get trials for SLURM task
     slurm_array_task_id = int(os.environ["SLURM_ARRAY_TASK_ID"])
     array_task_trials = modified_trials[
-        slurm_array_task_id * 1_000 : slurm_array_task_id * 1_001
+        slurm_array_task_id * 1_000 : slurm_array_task_id * 1_000 + 1_000
     ]
 
     # Run trials
@@ -117,7 +119,9 @@ def main():
 
     # Save data
     Path.mkdir("data/bo_vs_rl/simulation/bo_grid/", parents=True, exist_ok=True)
-    with open("data/bo_vs_rl/simulation/bo_grid/bo.pkl", "wb") as f:
+    with open(
+        f"data/bo_vs_rl/simulation/bo_grid/bo_{slurm_array_task_id:03d}.pkl", "wb"
+    ) as f:
         pickle.dump(results, f)
 
 
