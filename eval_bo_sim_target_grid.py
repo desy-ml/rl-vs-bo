@@ -20,6 +20,8 @@ from utils import RecordEpisode
 def try_problem(trial_index: int, trial: Trial):
     print(f" -> Trial {trial_index}")
 
+    print(f" -> {trial.target_beam =}")
+
     # Create the environment
     cheetah_backend = EACheetahBackend(
         incoming_mode="constant",
@@ -61,12 +63,15 @@ def try_problem(trial_index: int, trial: Trial):
         mean_module=None,
     )
 
+    print(f" -> before optimsation {trial_index}")
+
     # Actual optimisation
     observation = env.reset()
     reward = None
     done = False
     while not done:
         action = model.predict(observation, reward)
+        print(f" -> after predict and before step {trial_index}")
         observation, reward, done, info = env.step(action)
 
     # Set back to best
