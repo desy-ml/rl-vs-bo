@@ -17,7 +17,7 @@ from utils import NotVecNormalize, PolishedDonkeyCompatibility, RecordEpisode
 
 
 def try_problem(trial_index: int, trial: Trial) -> None:
-    model_name = "still-deluge-998"
+    model_name = "polished-donkey-996"
 
     # Load the model
     model = TD3.load(f"models/{model_name}/model")
@@ -74,7 +74,7 @@ def try_problem(trial_index: int, trial: Trial) -> None:
 def main():
     original_trials = load_trials(Path("trials.yaml"))
 
-    base_trial_index = 0
+    base_trial_index = 2
 
     base_trial = original_trials[base_trial_index]
 
@@ -105,7 +105,9 @@ def main():
         ]
 
     # Save data
-    with open("data/bo_vs_rl/simulation/rl_grid/still_deluge.pkl", "wb") as f:
+    with open(
+        "data/bo_vs_rl/simulation/rl_grid/polished_donkey_trial_2.pkl", "wb"
+    ) as f:
         pickle.dump(results, f)
 
 
