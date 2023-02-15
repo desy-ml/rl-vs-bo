@@ -1,6 +1,6 @@
 import os
 import pickle
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from itertools import product
 from pathlib import Path
@@ -107,11 +107,11 @@ def main():
     # Get trials for SLURM task
     slurm_array_task_id = int(os.environ["SLURM_ARRAY_TASK_ID"])
     array_task_trials = modified_trials[
-        slurm_array_task_id * 1_000 : slurm_array_task_id * 1_000 + 1_000
+        slurm_array_task_id * 500 : slurm_array_task_id * 500 + 500
     ]
 
     # Run trials
-    with ProcessPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         futures = tqdm(
             executor.map(try_problem, range(len(array_task_trials)), array_task_trials),
             total=len(array_task_trials),
