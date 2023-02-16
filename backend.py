@@ -181,7 +181,6 @@ class CheetahBackend(TransverseTuningBaseBackend):
         screen_pixel_size: tuple[float, float],
         magnet_names: list[str],
         quadrupole_names: list[str],
-        property_names: list[str],
         incoming_mode: str = "random",
         incoming_values: Optional[np.ndarray] = None,
         max_misalignment: float = 5e-4,
@@ -190,12 +189,15 @@ class CheetahBackend(TransverseTuningBaseBackend):
     ) -> None:
         self.screen_name = screen_name
         self.magnet_names = magnet_names
-        self.property_names = property_names
         self.incoming_mode = incoming_mode
         self.incoming_values = incoming_values
         self.max_misalignment = max_misalignment
         self.misalignment_mode = misalignment_mode
         self.misalignment_values = misalignment_values
+
+        self.property_names = [
+            self.get_property_name(magnet_name) for magnet_name in self.magnet_names
+        ]
 
         n_misalignments = 2 * (len(quadrupole_names) + 1)
 
@@ -357,16 +359,31 @@ class CheetahBackend(TransverseTuningBaseBackend):
             "misalignments": self.get_misalignments(),
         }
 
+    def get_property_name(self, magnet_name: str) -> str:
+        """
+        Figure out the correct property name depending on the magnet type, inferring the
+        latter from its name according to DOOCS conventions.
+        """
+        assert len(magnet_name) == 9
+
+        type_indicator = magnet_name[5]
+        if type_indicator == "Q":
+            return "k1"
+        elif type_indicator == "C":
+            return "angle"
+        else:
+            raise ValueError(f"Cannot determine property for magnet {magnet_name}")
+
 
 class DOOCSBackend(TransverseTuningBaseBackend, ABC):
     """"""
 
-    def __init__(
-        self, screen_name: str, magnet_names: list[str], property_names: list[str]
-    ) -> None:
+    def __init__(self, screen_name: str, magnet_names: list[str]) -> None:
         self.screen_name = screen_name
         self.magnet_names = magnet_names
-        self.property_names = property_names
+        self.property_names = [
+            self.get_property_name(magnet_name) for magnet_name in self.magnet_names
+        ]
 
         self.beam_parameter_compute_failed = {"x": False, "y": False}
         self.reset_accelerator_was_just_called = False
@@ -600,6 +617,21 @@ class DOOCSBackend(TransverseTuningBaseBackend, ABC):
 
         return info
 
+    def get_property_name(self, magnet_name: str) -> str:
+        """
+        Figure out the correct property name depending on the magnet type, inferring the
+        latter from its name according to DOOCS conventions.
+        """
+        assert len(magnet_name) == 9
+
+        type_indicator = magnet_name[5]
+        if type_indicator == "Q":
+            return "STRENGTH"
+        elif type_indicator == "C":
+            return "KICK"
+        else:
+            raise ValueError(f"Cannot determine property for magnet {magnet_name}")
+
 
 class EACheetahBackend(CheetahBackend):
     """Cheetah simulation backend to the ARES Experimental Area."""
@@ -639,7 +671,6 @@ class EACheetahBackend(CheetahBackend):
                 "AREAMCHM1",
             ],
             quadrupole_names=["AREAMQZM1", "AREAMQZM2", "AREAMQZM3"],
-            property_names=["k1", "k1", "angle", "k1", "angle"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -861,7 +892,6 @@ class EADOOCSBackend(DOOCSBackend):
                 "AREAMQZM3",
                 "AREAMCHM1",
             ],
-            property_names=["STRENGTH", "STRENGTH", "KICK", "STRENGTH", "KICK"],
         )
 
 
@@ -928,7 +958,6 @@ class BCCheetahBackend(CheetahBackend):
                 "ARMRMQZM6",
             ],
             quadrupole_names=["ARMRMQZM4", "ARMRMQZM5", "ARMRMQZM6"],
-            property_names=["k1", "k1", "angle", "angle", "k1"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -953,7 +982,6 @@ class BCDOOCSBackend(DOOCSBackend):
                 "ARMRMCHM5",
                 "ARMRMQZM6",
             ],
-            property_names=["STRENGTH", "STRENGTH", "KICK", "KICK", "STRENGTH"],
         )
 
 
@@ -996,7 +1024,6 @@ class DLCheetahBackend(CheetahBackend):
                 "ARDLMQZM2",
             ],
             quadrupole_names=["ARDLMQZM1", "ARDLMQZM2"],
-            property_names=["angle", "angle", "k1", "k1"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -1015,7 +1042,6 @@ class DLDOOCSBackend(DOOCSBackend):
         super().__init__(
             screen_name="AR.DL.BSC.R.1",
             magnet_names=["ARDLMCVM1", "ARDLMCHM1", "ARDLMQZM1", "ARDLMQZM2"],
-            property_names=["KICK", "KICK", "STRENGTH", "STRENGTH"],
         )
 
 
@@ -1057,7 +1083,6 @@ class SHCheetahBackend(CheetahBackend):
                 "ARDLMQZM4",
             ],
             quadrupole_names=["ARDLMQZM3", "ARDLMQZM3"],
-            property_names=["angle", "k1", "angle", "k1"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -1081,5 +1106,4 @@ class SHDOOCSBackend(DOOCSBackend):
                 "ARDLMCHM2",
                 "ARDLMQZM4",
             ],
-            property_names=["KICK", "STRENGTH", "KICK", "STRENGTH"],
         )
