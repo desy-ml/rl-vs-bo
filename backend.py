@@ -180,7 +180,6 @@ class CheetahBackend(TransverseTuningBaseBackend):
         screen_resolution: tuple[int, int],
         screen_pixel_size: tuple[float, float],
         magnet_names: list[str],
-        quadrupole_names: list[str],
         incoming_mode: str = "random",
         incoming_values: Optional[np.ndarray] = None,
         max_misalignment: float = 5e-4,
@@ -198,6 +197,7 @@ class CheetahBackend(TransverseTuningBaseBackend):
         self.property_names = [
             self.get_property_name(magnet_name) for magnet_name in self.magnet_names
         ]
+        quadrupole_names = [name for name in self.magnet_names if name[5] == "Q"]
 
         n_misalignments = 2 * (len(quadrupole_names) + 1)
 
@@ -670,7 +670,6 @@ class EACheetahBackend(CheetahBackend):
                 "AREAMQZM3",
                 "AREAMCHM1",
             ],
-            quadrupole_names=["AREAMQZM1", "AREAMQZM2", "AREAMQZM3"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -957,7 +956,6 @@ class BCCheetahBackend(CheetahBackend):
                 "ARMRMCHM5",
                 "ARMRMQZM6",
             ],
-            quadrupole_names=["ARMRMQZM4", "ARMRMQZM5", "ARMRMQZM6"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -1023,7 +1021,6 @@ class DLCheetahBackend(CheetahBackend):
                 "ARDLMQZM1",
                 "ARDLMQZM2",
             ],
-            quadrupole_names=["ARDLMQZM1", "ARDLMQZM2"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
@@ -1082,7 +1079,6 @@ class SHCheetahBackend(CheetahBackend):
                 "ARDLMCHM2",
                 "ARDLMQZM4",
             ],
-            quadrupole_names=["ARDLMQZM3", "ARDLMQZM3"],
             incoming_mode=incoming_mode,
             incoming_values=incoming_values,
             max_misalignment=max_misalignment,
