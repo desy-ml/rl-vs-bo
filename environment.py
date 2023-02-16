@@ -217,8 +217,6 @@ class EATransverseTuning(TransverseTuningEnv):
         `"constant"` setting requires `target_beam_values` to be set.
     """
 
-    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
-
     def __init__(
         self,
         backend: TransverseTuningBaseBackend,
@@ -504,8 +502,6 @@ class BCTransverseTuning(TransverseTuningEnv):
         Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
         `"constant"` setting requires `target_beam_values` to be set.
     """
-
-    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
 
     def __init__(
         self,
@@ -806,8 +802,6 @@ class DLTransverseTuning(TransverseTuningEnv):
         `"constant"` setting requires `target_beam_values` to be set.
     """
 
-    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
-
     def __init__(
         self,
         backend: TransverseTuningBaseBackend,
@@ -1095,8 +1089,6 @@ class SHTransverseTuning(TransverseTuningEnv):
         Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
         `"constant"` setting requires `target_beam_values` to be set.
     """
-
-    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
 
     def __init__(
         self,
