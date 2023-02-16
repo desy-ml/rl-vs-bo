@@ -9,7 +9,193 @@ from gym import spaces
 from backend import TransverseTuningBaseBackend
 
 
-class EATransverseTuning(gym.Env):
+class TransverseTuningEnv(gym.Env):
+    """
+    Base class for beam positioning and focusing on AREABSCR1 in a screen.
+
+    Parameters
+    ----------
+    action_mode : str
+        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or
+        `"delta"`.
+    magnet_init_mode : str
+        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
+        `"constant"` setting requires `magnet_init_values` to be set.
+    magnet_init_values : np.ndarray
+        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is
+        set to `"constant"`.
+    reward_mode : str
+        How to compute the reward. Choose from `"feedback"` or `"differential"`.
+    target_beam_mode : str
+        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
+        `"constant"` setting requires `target_beam_values` to be set.
+    """
+
+    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
+
+    def reset(self) -> np.ndarray:
+        self.backend.reset()
+
+        if self.magnet_init_mode == "constant":
+            self.backend.set_magnets(self.magnet_init_values)
+        elif self.magnet_init_mode == "random":
+            self.backend.set_magnets(self.observation_space["magnets"].sample())
+        elif self.magnet_init_mode is None:
+            pass  # This really is intended to do nothing
+        else:
+            raise ValueError(
+                f'Invalid value "{self.magnet_init_mode}" for magnet_init_mode'
+            )
+
+        if self.target_beam_mode == "constant":
+            self.target_beam = self.target_beam_values
+        elif self.target_beam_mode == "random":
+            self.target_beam = self.observation_space["target"].sample()
+        else:
+            raise ValueError(
+                f'Invalid value "{self.target_beam_mode}" for target_beam_mode'
+            )
+
+        # Update anything in the accelerator (mainly for running simulations)
+        self.backend.update()
+
+        self.initial_screen_beam = self.backend.get_beam_parameters()
+        self.previous_beam = self.initial_screen_beam
+        self.is_in_threshold_history = []
+        self.steps_taken = 0
+
+        observation = {
+            "beam": self.initial_screen_beam.astype("float32"),
+            "magnets": self.backend.get_magnets().astype("float32"),
+            "target": self.target_beam.astype("float32"),
+        }
+
+        return observation
+
+    def step(self, action: np.ndarray) -> tuple:
+        self.take_action(action)
+
+        # Run the simulation
+        self.backend.update()
+
+        current_beam = self.backend.get_beam_parameters()
+        self.steps_taken += 1
+
+        # Build observation
+        observation = {
+            "beam": current_beam.astype("float32"),
+            "magnets": self.backend.get_magnets().astype("float32"),
+            "target": self.target_beam.astype("float32"),
+        }
+
+        # For readibility in computations below
+        cb = current_beam
+        tb = self.target_beam
+
+        # Compute if done (beam within threshold for a certain time)
+        threshold = np.array(
+            [
+                self.target_mu_x_threshold,
+                self.target_sigma_x_threshold,
+                self.target_mu_y_threshold,
+                self.target_sigma_y_threshold,
+            ],
+            dtype=np.double,
+        )
+        threshold = np.nan_to_num(threshold)
+        is_in_threshold = np.abs(cb - tb) < threshold
+        self.is_in_threshold_history.append(is_in_threshold)
+        is_stable_in_threshold = bool(
+            np.array(self.is_in_threshold_history[-self.threshold_hold :]).all()
+        )
+        done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
+
+        # Compute reward
+        on_screen_reward = 1 if self.backend.is_beam_on_screen() else -1
+        time_reward = -1
+        done_reward = int(done)
+        beam_reward = self.compute_beam_reward(current_beam)
+
+        reward = 0
+        reward += self.w_on_screen * on_screen_reward
+        reward += self.w_beam * beam_reward
+        reward += self.w_time * time_reward
+        reward += self.w_mu_x_in_threshold * is_in_threshold[0]
+        reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
+        reward += self.w_mu_y_in_threshold * is_in_threshold[2]
+        reward += self.w_sigma_y_in_threshold * is_in_threshold[3]
+        reward += self.w_done * done_reward
+        reward = float(reward)
+
+        # Put together info
+        info = {
+            "binning": self.backend.get_binning(),
+            "l1_distance": self.compute_beam_distance(current_beam, ord=1),
+            "on_screen_reward": on_screen_reward,
+            "pixel_size": self.backend.get_pixel_size(),
+            "screen_resolution": self.backend.get_screen_resolution(),
+            "time_reward": time_reward,
+        }
+        info.update(self.backend.get_info())
+
+        self.previous_beam = current_beam
+
+        return observation, reward, done, info
+
+    def take_action(self, action: np.ndarray) -> None:
+        """Take `action` according to the environment's configuration."""
+        if self.action_mode == "direct":
+            self.backend.set_magnets(action)
+        elif self.action_mode == "direct_unidirectional_quads":
+            self.backend.set_magnets(action)
+        elif self.action_mode == "delta":
+            magnet_values = self.backend.get_magnets()
+            self.backend.set_magnets(magnet_values + action)
+        else:
+            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
+
+    def compute_beam_reward(self, current_beam: np.ndarray) -> float:
+        """Compute reward about the current beam's difference to the target beam."""
+        compute_beam_distance = partial(
+            self.compute_beam_distance, ord=self.beam_distance_ord
+        )
+
+        # TODO I'm not sure if the order with log is okay this way
+
+        if self.logarithmic_beam_distance:
+            compute_raw_beam_distance = compute_beam_distance
+            compute_beam_distance = lambda beam: np.log(  # noqa: E731
+                compute_raw_beam_distance(beam)
+            )
+
+        if self.reward_mode == "feedback":
+            current_distance = compute_beam_distance(current_beam)
+            beam_reward = -current_distance
+        elif self.reward_mode == "differential":
+            current_distance = compute_beam_distance(current_beam)
+            previous_distance = compute_beam_distance(self.previous_beam)
+            beam_reward = previous_distance - current_distance
+        else:
+            raise ValueError(f"Invalid value '{self.reward_mode}' for reward_mode")
+
+        if self.normalize_beam_distance:
+            initial_distance = compute_beam_distance(self.initial_screen_beam)
+            beam_reward /= initial_distance
+
+        return beam_reward
+
+    def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
+        """
+        Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
+        weighted by its configured weight.
+        """
+        weights = np.array([self.w_mu_x, self.w_sigma_x, self.w_mu_y, self.w_sigma_y])
+        weighted_current = weights * beam
+        weighted_target = weights * self.target_beam
+        return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
+
+
+class EATransverseTuning(TransverseTuningEnv):
     """
     Base class for beam positioning and focusing on AREABSCR1 in the ARES EA.
 
@@ -158,115 +344,6 @@ class EATransverseTuning(gym.Env):
         # Setup the accelerator (either simulation or the actual machine)
         self.backend.setup()
 
-    def reset(self) -> np.ndarray:
-        self.backend.reset()
-
-        if self.magnet_init_mode == "constant":
-            self.backend.set_magnets(self.magnet_init_values)
-        elif self.magnet_init_mode == "random":
-            self.backend.set_magnets(self.observation_space["magnets"].sample())
-        elif self.magnet_init_mode is None:
-            pass  # This really is intended to do nothing
-        else:
-            raise ValueError(
-                f'Invalid value "{self.magnet_init_mode}" for magnet_init_mode'
-            )
-
-        if self.target_beam_mode == "constant":
-            self.target_beam = self.target_beam_values
-        elif self.target_beam_mode == "random":
-            self.target_beam = self.observation_space["target"].sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.target_beam_mode}" for target_beam_mode'
-            )
-
-        # Update anything in the accelerator (mainly for running simulations)
-        self.backend.update()
-
-        self.initial_screen_beam = self.backend.get_beam_parameters()
-        self.previous_beam = self.initial_screen_beam
-        self.is_in_threshold_history = []
-        self.steps_taken = 0
-
-        observation = {
-            "beam": self.initial_screen_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        return observation
-
-    def step(self, action: np.ndarray) -> tuple:
-        self.take_action(action)
-
-        # Run the simulation
-        self.backend.update()
-
-        current_beam = self.backend.get_beam_parameters()
-        self.steps_taken += 1
-
-        # Build observation
-        observation = {
-            "beam": current_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        # For readibility in computations below
-        cb = current_beam
-        tb = self.target_beam
-
-        # Compute if done (beam within threshold for a certain time)
-        threshold = np.array(
-            [
-                self.target_mu_x_threshold,
-                self.target_sigma_x_threshold,
-                self.target_mu_y_threshold,
-                self.target_sigma_y_threshold,
-            ],
-            dtype=np.double,
-        )
-        threshold = np.nan_to_num(threshold)
-        is_in_threshold = np.abs(cb - tb) < threshold
-        self.is_in_threshold_history.append(is_in_threshold)
-        is_stable_in_threshold = bool(
-            np.array(self.is_in_threshold_history[-self.threshold_hold :]).all()
-        )
-        done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
-
-        # Compute reward
-        on_screen_reward = 1 if self.backend.is_beam_on_screen() else -1
-        time_reward = -1
-        done_reward = int(done)
-        beam_reward = self.compute_beam_reward(current_beam)
-
-        reward = 0
-        reward += self.w_on_screen * on_screen_reward
-        reward += self.w_beam * beam_reward
-        reward += self.w_time * time_reward
-        reward += self.w_mu_x_in_threshold * is_in_threshold[0]
-        reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
-        reward += self.w_mu_y_in_threshold * is_in_threshold[2]
-        reward += self.w_sigma_y_in_threshold * is_in_threshold[3]
-        reward += self.w_done * done_reward
-        reward = float(reward)
-
-        # Put together info
-        info = {
-            "binning": self.backend.get_binning(),
-            "l1_distance": self.compute_beam_distance(current_beam, ord=1),
-            "on_screen_reward": on_screen_reward,
-            "pixel_size": self.backend.get_pixel_size(),
-            "screen_resolution": self.backend.get_screen_resolution(),
-            "time_reward": time_reward,
-        }
-        info.update(self.backend.get_info())
-
-        self.previous_beam = current_beam
-
-        return observation, reward, done, info
-
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         assert mode == "rgb_array" or mode == "human"
 
@@ -405,60 +482,8 @@ class EATransverseTuning(gym.Env):
         else:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def take_action(self, action: np.ndarray) -> None:
-        """Take `action` according to the environment's configuration."""
-        if self.action_mode == "direct":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "delta":
-            magnet_values = self.backend.get_magnets()
-            self.backend.set_magnets(magnet_values + action)
-        else:
-            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
-    def compute_beam_reward(self, current_beam: np.ndarray) -> float:
-        """Compute reward about the current beam's difference to the target beam."""
-        compute_beam_distance = partial(
-            self.compute_beam_distance, ord=self.beam_distance_ord
-        )
-
-        # TODO I'm not sure if the order with log is okay this way
-
-        if self.logarithmic_beam_distance:
-            compute_raw_beam_distance = compute_beam_distance
-            compute_beam_distance = lambda beam: np.log(  # noqa: E731
-                compute_raw_beam_distance(beam)
-            )
-
-        if self.reward_mode == "feedback":
-            current_distance = compute_beam_distance(current_beam)
-            beam_reward = -current_distance
-        elif self.reward_mode == "differential":
-            current_distance = compute_beam_distance(current_beam)
-            previous_distance = compute_beam_distance(self.previous_beam)
-            beam_reward = previous_distance - current_distance
-        else:
-            raise ValueError(f"Invalid value '{self.reward_mode}' for reward_mode")
-
-        if self.normalize_beam_distance:
-            initial_distance = compute_beam_distance(self.initial_screen_beam)
-            beam_reward /= initial_distance
-
-        return beam_reward
-
-    def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
-        """
-        Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
-        weighted by its configured weight.
-        """
-        weights = np.array([self.w_mu_x, self.w_sigma_x, self.w_mu_y, self.w_sigma_y])
-        weighted_current = weights * beam
-        weighted_target = weights * self.target_beam
-        return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
-
-
-class BCTransverseTuning(gym.Env):
+class BCTransverseTuning(TransverseTuningEnv):
     """
     Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
 
@@ -614,115 +639,6 @@ class BCTransverseTuning(gym.Env):
         # Setup the accelerator (either simulation or the actual machine)
         self.backend.setup()
 
-    def reset(self) -> np.ndarray:
-        self.backend.reset()
-
-        if self.magnet_init_mode == "constant":
-            self.backend.set_magnets(self.magnet_init_values)
-        elif self.magnet_init_mode == "random":
-            self.backend.set_magnets(self.observation_space["magnets"].sample())
-        elif self.magnet_init_mode is None:
-            pass  # This really is intended to do nothing
-        else:
-            raise ValueError(
-                f'Invalid value "{self.magnet_init_mode}" for magnet_init_mode'
-            )
-
-        if self.target_beam_mode == "constant":
-            self.target_beam = self.target_beam_values
-        elif self.target_beam_mode == "random":
-            self.target_beam = self.observation_space["target"].sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.target_beam_mode}" for target_beam_mode'
-            )
-
-        # Update anything in the accelerator (mainly for running simulations)
-        self.backend.update()
-
-        self.initial_screen_beam = self.backend.get_beam_parameters()
-        self.previous_beam = self.initial_screen_beam
-        self.is_in_threshold_history = []
-        self.steps_taken = 0
-
-        observation = {
-            "beam": self.initial_screen_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        return observation
-
-    def step(self, action: np.ndarray) -> tuple:
-        self.take_action(action)
-
-        # Run the simulation
-        self.backend.update()
-
-        current_beam = self.backend.get_beam_parameters()
-        self.steps_taken += 1
-
-        # Build observation
-        observation = {
-            "beam": current_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        # For readibility in computations below
-        cb = current_beam
-        tb = self.target_beam
-
-        # Compute if done (beam within threshold for a certain time)
-        threshold = np.array(
-            [
-                self.target_mu_x_threshold,
-                self.target_sigma_x_threshold,
-                self.target_mu_y_threshold,
-                self.target_sigma_y_threshold,
-            ],
-            dtype=np.double,
-        )
-        threshold = np.nan_to_num(threshold)
-        is_in_threshold = np.abs(cb - tb) < threshold
-        self.is_in_threshold_history.append(is_in_threshold)
-        is_stable_in_threshold = bool(
-            np.array(self.is_in_threshold_history[-self.threshold_hold :]).all()
-        )
-        done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
-
-        # Compute reward
-        on_screen_reward = 1 if self.backend.is_beam_on_screen() else -1
-        time_reward = -1
-        done_reward = int(done)
-        beam_reward = self.compute_beam_reward(current_beam)
-
-        reward = 0
-        reward += self.w_on_screen * on_screen_reward
-        reward += self.w_beam * beam_reward
-        reward += self.w_time * time_reward
-        reward += self.w_mu_x_in_threshold * is_in_threshold[0]
-        reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
-        reward += self.w_mu_y_in_threshold * is_in_threshold[2]
-        reward += self.w_sigma_y_in_threshold * is_in_threshold[3]
-        reward += self.w_done * done_reward
-        reward = float(reward)
-
-        # Put together info
-        info = {
-            "binning": self.backend.get_binning(),
-            "l1_distance": self.compute_beam_distance(current_beam, ord=1),
-            "on_screen_reward": on_screen_reward,
-            "pixel_size": self.backend.get_pixel_size(),
-            "screen_resolution": self.backend.get_screen_resolution(),
-            "time_reward": time_reward,
-        }
-        info.update(self.backend.get_info())
-
-        self.previous_beam = current_beam
-
-        return observation, reward, done, info
-
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         # TODO Update (and probably refactor) this render function
         raise RuntimeError(
@@ -867,60 +783,8 @@ class BCTransverseTuning(gym.Env):
         else:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def take_action(self, action: np.ndarray) -> None:
-        """Take `action` according to the environment's configuration."""
-        if self.action_mode == "direct":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "delta":
-            magnet_values = self.backend.get_magnets()
-            self.backend.set_magnets(magnet_values + action)
-        else:
-            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
-    def compute_beam_reward(self, current_beam: np.ndarray) -> float:
-        """Compute reward about the current beam's difference to the target beam."""
-        compute_beam_distance = partial(
-            self.compute_beam_distance, ord=self.beam_distance_ord
-        )
-
-        # TODO I'm not sure if the order with log is okay this way
-
-        if self.logarithmic_beam_distance:
-            compute_raw_beam_distance = compute_beam_distance
-            compute_beam_distance = lambda beam: np.log(  # noqa: E731
-                compute_raw_beam_distance(beam)
-            )
-
-        if self.reward_mode == "feedback":
-            current_distance = compute_beam_distance(current_beam)
-            beam_reward = -current_distance
-        elif self.reward_mode == "differential":
-            current_distance = compute_beam_distance(current_beam)
-            previous_distance = compute_beam_distance(self.previous_beam)
-            beam_reward = previous_distance - current_distance
-        else:
-            raise ValueError(f"Invalid value '{self.reward_mode}' for reward_mode")
-
-        if self.normalize_beam_distance:
-            initial_distance = compute_beam_distance(self.initial_screen_beam)
-            beam_reward /= initial_distance
-
-        return beam_reward
-
-    def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
-        """
-        Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
-        weighted by its configured weight.
-        """
-        weights = np.array([self.w_mu_x, self.w_sigma_x, self.w_mu_y, self.w_sigma_y])
-        weighted_current = weights * beam
-        weighted_target = weights * self.target_beam
-        return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
-
-
-class DLTransverseTuning(gym.Env):
+class DLTransverseTuning(TransverseTuningEnv):
     """
     Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
 
@@ -1065,115 +929,6 @@ class DLTransverseTuning(gym.Env):
         # Setup the accelerator (either simulation or the actual machine)
         self.backend.setup()
 
-    def reset(self) -> np.ndarray:
-        self.backend.reset()
-
-        if self.magnet_init_mode == "constant":
-            self.backend.set_magnets(self.magnet_init_values)
-        elif self.magnet_init_mode == "random":
-            self.backend.set_magnets(self.observation_space["magnets"].sample())
-        elif self.magnet_init_mode is None:
-            pass  # This really is intended to do nothing
-        else:
-            raise ValueError(
-                f'Invalid value "{self.magnet_init_mode}" for magnet_init_mode'
-            )
-
-        if self.target_beam_mode == "constant":
-            self.target_beam = self.target_beam_values
-        elif self.target_beam_mode == "random":
-            self.target_beam = self.observation_space["target"].sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.target_beam_mode}" for target_beam_mode'
-            )
-
-        # Update anything in the accelerator (mainly for running simulations)
-        self.backend.update()
-
-        self.initial_screen_beam = self.backend.get_beam_parameters()
-        self.previous_beam = self.initial_screen_beam
-        self.is_in_threshold_history = []
-        self.steps_taken = 0
-
-        observation = {
-            "beam": self.initial_screen_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        return observation
-
-    def step(self, action: np.ndarray) -> tuple:
-        self.take_action(action)
-
-        # Run the simulation
-        self.backend.update()
-
-        current_beam = self.backend.get_beam_parameters()
-        self.steps_taken += 1
-
-        # Build observation
-        observation = {
-            "beam": current_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        # For readibility in computations below
-        cb = current_beam
-        tb = self.target_beam
-
-        # Compute if done (beam within threshold for a certain time)
-        threshold = np.array(
-            [
-                self.target_mu_x_threshold,
-                self.target_sigma_x_threshold,
-                self.target_mu_y_threshold,
-                self.target_sigma_y_threshold,
-            ],
-            dtype=np.double,
-        )
-        threshold = np.nan_to_num(threshold)
-        is_in_threshold = np.abs(cb - tb) < threshold
-        self.is_in_threshold_history.append(is_in_threshold)
-        is_stable_in_threshold = bool(
-            np.array(self.is_in_threshold_history[-self.threshold_hold :]).all()
-        )
-        done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
-
-        # Compute reward
-        on_screen_reward = 1 if self.backend.is_beam_on_screen() else -1
-        time_reward = -1
-        done_reward = int(done)
-        beam_reward = self.compute_beam_reward(current_beam)
-
-        reward = 0
-        reward += self.w_on_screen * on_screen_reward
-        reward += self.w_beam * beam_reward
-        reward += self.w_time * time_reward
-        reward += self.w_mu_x_in_threshold * is_in_threshold[0]
-        reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
-        reward += self.w_mu_y_in_threshold * is_in_threshold[2]
-        reward += self.w_sigma_y_in_threshold * is_in_threshold[3]
-        reward += self.w_done * done_reward
-        reward = float(reward)
-
-        # Put together info
-        info = {
-            "binning": self.backend.get_binning(),
-            "l1_distance": self.compute_beam_distance(current_beam, ord=1),
-            "on_screen_reward": on_screen_reward,
-            "pixel_size": self.backend.get_pixel_size(),
-            "screen_resolution": self.backend.get_screen_resolution(),
-            "time_reward": time_reward,
-        }
-        info.update(self.backend.get_info())
-
-        self.previous_beam = current_beam
-
-        return observation, reward, done, info
-
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         # TODO Update (and probably refactor) this render function
         raise RuntimeError(
@@ -1318,60 +1073,8 @@ class DLTransverseTuning(gym.Env):
         else:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def take_action(self, action: np.ndarray) -> None:
-        """Take `action` according to the environment's configuration."""
-        if self.action_mode == "direct":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "delta":
-            magnet_values = self.backend.get_magnets()
-            self.backend.set_magnets(magnet_values + action)
-        else:
-            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
 
-    def compute_beam_reward(self, current_beam: np.ndarray) -> float:
-        """Compute reward about the current beam's difference to the target beam."""
-        compute_beam_distance = partial(
-            self.compute_beam_distance, ord=self.beam_distance_ord
-        )
-
-        # TODO I'm not sure if the order with log is okay this way
-
-        if self.logarithmic_beam_distance:
-            compute_raw_beam_distance = compute_beam_distance
-            compute_beam_distance = lambda beam: np.log(  # noqa: E731
-                compute_raw_beam_distance(beam)
-            )
-
-        if self.reward_mode == "feedback":
-            current_distance = compute_beam_distance(current_beam)
-            beam_reward = -current_distance
-        elif self.reward_mode == "differential":
-            current_distance = compute_beam_distance(current_beam)
-            previous_distance = compute_beam_distance(self.previous_beam)
-            beam_reward = previous_distance - current_distance
-        else:
-            raise ValueError(f"Invalid value '{self.reward_mode}' for reward_mode")
-
-        if self.normalize_beam_distance:
-            initial_distance = compute_beam_distance(self.initial_screen_beam)
-            beam_reward /= initial_distance
-
-        return beam_reward
-
-    def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
-        """
-        Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
-        weighted by its configured weight.
-        """
-        weights = np.array([self.w_mu_x, self.w_sigma_x, self.w_mu_y, self.w_sigma_y])
-        weighted_current = weights * beam
-        weighted_target = weights * self.target_beam
-        return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
-
-
-class SHTransverseTuning(gym.Env):
+class SHTransverseTuning(TransverseTuningEnv):
     """
     Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
 
@@ -1516,115 +1219,6 @@ class SHTransverseTuning(gym.Env):
         # Setup the accelerator (either simulation or the actual machine)
         self.backend.setup()
 
-    def reset(self) -> np.ndarray:
-        self.backend.reset()
-
-        if self.magnet_init_mode == "constant":
-            self.backend.set_magnets(self.magnet_init_values)
-        elif self.magnet_init_mode == "random":
-            self.backend.set_magnets(self.observation_space["magnets"].sample())
-        elif self.magnet_init_mode is None:
-            pass  # This really is intended to do nothing
-        else:
-            raise ValueError(
-                f'Invalid value "{self.magnet_init_mode}" for magnet_init_mode'
-            )
-
-        if self.target_beam_mode == "constant":
-            self.target_beam = self.target_beam_values
-        elif self.target_beam_mode == "random":
-            self.target_beam = self.observation_space["target"].sample()
-        else:
-            raise ValueError(
-                f'Invalid value "{self.target_beam_mode}" for target_beam_mode'
-            )
-
-        # Update anything in the accelerator (mainly for running simulations)
-        self.backend.update()
-
-        self.initial_screen_beam = self.backend.get_beam_parameters()
-        self.previous_beam = self.initial_screen_beam
-        self.is_in_threshold_history = []
-        self.steps_taken = 0
-
-        observation = {
-            "beam": self.initial_screen_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        return observation
-
-    def step(self, action: np.ndarray) -> tuple:
-        self.take_action(action)
-
-        # Run the simulation
-        self.backend.update()
-
-        current_beam = self.backend.get_beam_parameters()
-        self.steps_taken += 1
-
-        # Build observation
-        observation = {
-            "beam": current_beam.astype("float32"),
-            "magnets": self.backend.get_magnets().astype("float32"),
-            "target": self.target_beam.astype("float32"),
-        }
-
-        # For readibility in computations below
-        cb = current_beam
-        tb = self.target_beam
-
-        # Compute if done (beam within threshold for a certain time)
-        threshold = np.array(
-            [
-                self.target_mu_x_threshold,
-                self.target_sigma_x_threshold,
-                self.target_mu_y_threshold,
-                self.target_sigma_y_threshold,
-            ],
-            dtype=np.double,
-        )
-        threshold = np.nan_to_num(threshold)
-        is_in_threshold = np.abs(cb - tb) < threshold
-        self.is_in_threshold_history.append(is_in_threshold)
-        is_stable_in_threshold = bool(
-            np.array(self.is_in_threshold_history[-self.threshold_hold :]).all()
-        )
-        done = is_stable_in_threshold and len(self.is_in_threshold_history) > 5
-
-        # Compute reward
-        on_screen_reward = 1 if self.backend.is_beam_on_screen() else -1
-        time_reward = -1
-        done_reward = int(done)
-        beam_reward = self.compute_beam_reward(current_beam)
-
-        reward = 0
-        reward += self.w_on_screen * on_screen_reward
-        reward += self.w_beam * beam_reward
-        reward += self.w_time * time_reward
-        reward += self.w_mu_x_in_threshold * is_in_threshold[0]
-        reward += self.w_sigma_x_in_threshold * is_in_threshold[1]
-        reward += self.w_mu_y_in_threshold * is_in_threshold[2]
-        reward += self.w_sigma_y_in_threshold * is_in_threshold[3]
-        reward += self.w_done * done_reward
-        reward = float(reward)
-
-        # Put together info
-        info = {
-            "binning": self.backend.get_binning(),
-            "l1_distance": self.compute_beam_distance(current_beam, ord=1),
-            "on_screen_reward": on_screen_reward,
-            "pixel_size": self.backend.get_pixel_size(),
-            "screen_resolution": self.backend.get_screen_resolution(),
-            "time_reward": time_reward,
-        }
-        info.update(self.backend.get_info())
-
-        self.previous_beam = current_beam
-
-        return observation, reward, done, info
-
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         # TODO Update (and probably refactor) this render function
         raise RuntimeError(
@@ -1768,55 +1362,3 @@ class SHTransverseTuning(gym.Env):
             cv2.waitKey(200)
         else:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    def take_action(self, action: np.ndarray) -> None:
-        """Take `action` according to the environment's configuration."""
-        if self.action_mode == "direct":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.backend.set_magnets(action)
-        elif self.action_mode == "delta":
-            magnet_values = self.backend.get_magnets()
-            self.backend.set_magnets(magnet_values + action)
-        else:
-            raise ValueError(f'Invalid value "{self.action_mode}" for action_mode')
-
-    def compute_beam_reward(self, current_beam: np.ndarray) -> float:
-        """Compute reward about the current beam's difference to the target beam."""
-        compute_beam_distance = partial(
-            self.compute_beam_distance, ord=self.beam_distance_ord
-        )
-
-        # TODO I'm not sure if the order with log is okay this way
-
-        if self.logarithmic_beam_distance:
-            compute_raw_beam_distance = compute_beam_distance
-            compute_beam_distance = lambda beam: np.log(  # noqa: E731
-                compute_raw_beam_distance(beam)
-            )
-
-        if self.reward_mode == "feedback":
-            current_distance = compute_beam_distance(current_beam)
-            beam_reward = -current_distance
-        elif self.reward_mode == "differential":
-            current_distance = compute_beam_distance(current_beam)
-            previous_distance = compute_beam_distance(self.previous_beam)
-            beam_reward = previous_distance - current_distance
-        else:
-            raise ValueError(f"Invalid value '{self.reward_mode}' for reward_mode")
-
-        if self.normalize_beam_distance:
-            initial_distance = compute_beam_distance(self.initial_screen_beam)
-            beam_reward /= initial_distance
-
-        return beam_reward
-
-    def compute_beam_distance(self, beam: np.ndarray, ord: int = 2) -> float:
-        """
-        Compute distance of `beam` to `self.target_beam`. Eeach beam parameter is
-        weighted by its configured weight.
-        """
-        weights = np.array([self.w_mu_x, self.w_sigma_x, self.w_mu_y, self.w_sigma_y])
-        weighted_current = weights * beam
-        weighted_target = weights * self.target_beam
-        return float(np.linalg.norm(weighted_target - weighted_current, ord=ord))
