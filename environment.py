@@ -11,24 +11,8 @@ from backend import TransverseTuningBaseBackend
 
 class TransverseTuningEnv(gym.Env):
     """
-    Base class for beam positioning and focusing on AREABSCR1 in a screen.
-
-    Parameters
-    ----------
-    action_mode : str
-        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or
-        `"delta"`.
-    magnet_init_mode : str
-        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
-        `"constant"` setting requires `magnet_init_values` to be set.
-    magnet_init_values : np.ndarray
-        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is
-        set to `"constant"`.
-    reward_mode : str
-        How to compute the reward. Choose from `"feedback"` or `"differential"`.
-    target_beam_mode : str
-        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
-        `"constant"` setting requires `target_beam_values` to be set.
+    Base environment for position and focusing an electron beam on a diagnostic screen
+    using quadrupole and steering magnets.
     """
 
     metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 2}
@@ -197,24 +181,64 @@ class TransverseTuningEnv(gym.Env):
 
 class EATransverseTuning(TransverseTuningEnv):
     """
-    Base class for beam positioning and focusing on AREABSCR1 in the ARES EA.
+    Environment for positioning and focusing the beam on AREABSCR1 using AREAMQZM1,
+    AREAMQZM2, AREAMCVM1, AREAMQZM3 and AREAMCHM1.
 
-    Parameters
-    ----------
-    action_mode : str
-        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or
-        `"delta"`.
-    magnet_init_mode : str
-        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
-        `"constant"` setting requires `magnet_init_values` to be set.
-    magnet_init_values : np.ndarray
-        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is
-        set to `"constant"`.
-    reward_mode : str
-        How to compute the reward. Choose from `"feedback"` or `"differential"`.
-    target_beam_mode : str
-        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
-        `"constant"` setting requires `target_beam_values` to be set.
+    :param backend: Backend for communication with either a simulation or the control
+        system
+    :param action_mode: Choose weather actions set magnet settings directly
+        (`"direct"`), are limited to predetermined polarities of the quadrupoles
+        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param beam_distance_ord: Order of distance to use to compute distance between
+        current beam and target beam.
+    :param logarithmic_beam_distance: Whether to take the logarithm of the beam
+        distance.
+    :param magnet_init_mode: Magnet initialisation on `reset`. Set to `None` for magnets
+        to stay at their current settings, `"random"` to be set to random settings or
+        `"constant"` to set them to the settings given by `magnet_init_values`.
+    :param magnet_init_values: Values to set magnets to on `reset`. Is only used when
+        `magnet_init_mode` is set to `"constant"`.
+    :param max_quad_delta: Limit of by how much quadrupole settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param max_steerer_delta: Limit of by how much steerer settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param normalize_beam_distance: Whether to divide beam distance by the initial beam
+        distance in order to scale it to a value around 1.
+    :param reward_mode: Set to `"feedback"` to compute the reward as the negative beam
+        distance. Set to `"differential"` to compute the reward as the reduction of the
+        beam distance.
+    :param target_beam_mode: Setting of target beam on `reset`. Choose from `"constant"`
+        or `"random"`. The `"constant"` setting requires `target_beam_values` to be set.
+    :param target_beam_values: Target beam to use when `target_beam_mode` is set to
+        `"constant"`.
+    :param target_mu_x_threshold: Distance from target mu_x below which mu_x is
+        considered to be achieved.
+    :param target_mu_y_threshold: Distance from target mu_y below which mu_y is
+        considered to be achieved.
+    :param target_sigma_x_threshold: Distance from target sigma_x below which sigma_x is
+        considered to be achieved.
+    :param target_sigma_y_threshold: Distance from target sigma_y below which sigma_y is
+        considered to be achieved.
+    :param threshold_hold: Number of steps that all beam parameters difference must be
+        below their thresolds before an episode is terminated as successful.
+    :param w_beam: Weight of all beam parameter-related rewards in the total reward.
+    :param w_done: Weight of the successful episode termination bonus in the total
+        reward.
+    :param w_mu_x: Weight of the mu_x component in the beam parameter-related reward.
+    :param w_mu_x_in_threshold: Weight of the bonus reward when mu_x is within its
+        threshold from the target.
+    :param w_mu_y: Weight of the mu_y component in the beam parameter-related reward.
+    :param w_mu_y_in_threshold: Weight of the bonus reward when mu_y is within its
+        threshold from the target.
+    :param w_sigma_x: Weight of the sigma_x component in the beam parameter-related
+        reward.
+    :param w_sigma_x_in_threshold: Weight of the bonus reward when sigma_x is within its
+        threshold from the target.
+    :param w_sigma_y: Weight of the sigma_y component in the beam parameter-related
+        reward.
+    :param w_sigma_y_in_threshold: Weight of the bonus reward when sigma_y is within its
+        threshold from the target.
+    :param w_time: Weight of the reward received for each passing time step.
     """
 
     def __init__(
@@ -483,24 +507,64 @@ class EATransverseTuning(TransverseTuningEnv):
 
 class BCTransverseTuning(TransverseTuningEnv):
     """
-    Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
+    Environment for positioning and focusing the beam on ARBCBSCE1 using ARMRMQZM4,
+    ARMRMQZM5, ARMRMCVM5, ARMRMCHM5 and ARMRMQZM6.
 
-    Parameters
-    ----------
-    action_mode : str
-        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or
-        `"delta"`.
-    magnet_init_mode : str
-        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
-        `"constant"` setting requires `magnet_init_values` to be set.
-    magnet_init_values : np.ndarray
-        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is
-        set to `"constant"`.
-    reward_mode : str
-        How to compute the reward. Choose from `"feedback"` or `"differential"`.
-    target_beam_mode : str
-        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
-        `"constant"` setting requires `target_beam_values` to be set.
+    :param backend: Backend for communication with either a simulation or the control
+        system
+    :param action_mode: Choose weather actions set magnet settings directly
+        (`"direct"`), are limited to predetermined polarities of the quadrupoles
+        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param beam_distance_ord: Order of distance to use to compute distance between
+        current beam and target beam.
+    :param logarithmic_beam_distance: Whether to take the logarithm of the beam
+        distance.
+    :param magnet_init_mode: Magnet initialisation on `reset`. Set to `None` for magnets
+        to stay at their current settings, `"random"` to be set to random settings or
+        `"constant"` to set them to the settings given by `magnet_init_values`.
+    :param magnet_init_values: Values to set magnets to on `reset`. Is only used when
+        `magnet_init_mode` is set to `"constant"`.
+    :param max_quad_delta: Limit of by how much quadrupole settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param max_steerer_delta: Limit of by how much steerer settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param normalize_beam_distance: Whether to divide beam distance by the initial beam
+        distance in order to scale it to a value around 1.
+    :param reward_mode: Set to `"feedback"` to compute the reward as the negative beam
+        distance. Set to `"differential"` to compute the reward as the reduction of the
+        beam distance.
+    :param target_beam_mode: Setting of target beam on `reset`. Choose from `"constant"`
+        or `"random"`. The `"constant"` setting requires `target_beam_values` to be set.
+    :param target_beam_values: Target beam to use when `target_beam_mode` is set to
+        `"constant"`.
+    :param target_mu_x_threshold: Distance from target mu_x below which mu_x is
+        considered to be achieved.
+    :param target_mu_y_threshold: Distance from target mu_y below which mu_y is
+        considered to be achieved.
+    :param target_sigma_x_threshold: Distance from target sigma_x below which sigma_x is
+        considered to be achieved.
+    :param target_sigma_y_threshold: Distance from target sigma_y below which sigma_y is
+        considered to be achieved.
+    :param threshold_hold: Number of steps that all beam parameters difference must be
+        below their thresolds before an episode is terminated as successful.
+    :param w_beam: Weight of all beam parameter-related rewards in the total reward.
+    :param w_done: Weight of the successful episode termination bonus in the total
+        reward.
+    :param w_mu_x: Weight of the mu_x component in the beam parameter-related reward.
+    :param w_mu_x_in_threshold: Weight of the bonus reward when mu_x is within its
+        threshold from the target.
+    :param w_mu_y: Weight of the mu_y component in the beam parameter-related reward.
+    :param w_mu_y_in_threshold: Weight of the bonus reward when mu_y is within its
+        threshold from the target.
+    :param w_sigma_x: Weight of the sigma_x component in the beam parameter-related
+        reward.
+    :param w_sigma_x_in_threshold: Weight of the bonus reward when sigma_x is within its
+        threshold from the target.
+    :param w_sigma_y: Weight of the sigma_y component in the beam parameter-related
+        reward.
+    :param w_sigma_y_in_threshold: Weight of the bonus reward when sigma_y is within its
+        threshold from the target.
+    :param w_time: Weight of the reward received for each passing time step.
     """
 
     def __init__(
@@ -782,24 +846,64 @@ class BCTransverseTuning(TransverseTuningEnv):
 
 class DLTransverseTuning(TransverseTuningEnv):
     """
-    Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
+    Environment for positioning and focusing the beam on ARDLBSCR1 using ARDLMCVM1,
+    ARDLCHM1, ARDLMQZM1 and ARDLMQZM2.
 
-    Parameters
-    ----------
-    action_mode : str
-        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or
-        `"delta"`.
-    magnet_init_mode : str
-        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
-        `"constant"` setting requires `magnet_init_values` to be set.
-    magnet_init_values : np.ndarray
-        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is
-        set to `"constant"`.
-    reward_mode : str
-        How to compute the reward. Choose from `"feedback"` or `"differential"`.
-    target_beam_mode : str
-        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
-        `"constant"` setting requires `target_beam_values` to be set.
+    :param backend: Backend for communication with either a simulation or the control
+        system
+    :param action_mode: Choose weather actions set magnet settings directly
+        (`"direct"`), are limited to predetermined polarities of the quadrupoles
+        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param beam_distance_ord: Order of distance to use to compute distance between
+        current beam and target beam.
+    :param logarithmic_beam_distance: Whether to take the logarithm of the beam
+        distance.
+    :param magnet_init_mode: Magnet initialisation on `reset`. Set to `None` for magnets
+        to stay at their current settings, `"random"` to be set to random settings or
+        `"constant"` to set them to the settings given by `magnet_init_values`.
+    :param magnet_init_values: Values to set magnets to on `reset`. Is only used when
+        `magnet_init_mode` is set to `"constant"`.
+    :param max_quad_delta: Limit of by how much quadrupole settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param max_steerer_delta: Limit of by how much steerer settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param normalize_beam_distance: Whether to divide beam distance by the initial beam
+        distance in order to scale it to a value around 1.
+    :param reward_mode: Set to `"feedback"` to compute the reward as the negative beam
+        distance. Set to `"differential"` to compute the reward as the reduction of the
+        beam distance.
+    :param target_beam_mode: Setting of target beam on `reset`. Choose from `"constant"`
+        or `"random"`. The `"constant"` setting requires `target_beam_values` to be set.
+    :param target_beam_values: Target beam to use when `target_beam_mode` is set to
+        `"constant"`.
+    :param target_mu_x_threshold: Distance from target mu_x below which mu_x is
+        considered to be achieved.
+    :param target_mu_y_threshold: Distance from target mu_y below which mu_y is
+        considered to be achieved.
+    :param target_sigma_x_threshold: Distance from target sigma_x below which sigma_x is
+        considered to be achieved.
+    :param target_sigma_y_threshold: Distance from target sigma_y below which sigma_y is
+        considered to be achieved.
+    :param threshold_hold: Number of steps that all beam parameters difference must be
+        below their thresolds before an episode is terminated as successful.
+    :param w_beam: Weight of all beam parameter-related rewards in the total reward.
+    :param w_done: Weight of the successful episode termination bonus in the total
+        reward.
+    :param w_mu_x: Weight of the mu_x component in the beam parameter-related reward.
+    :param w_mu_x_in_threshold: Weight of the bonus reward when mu_x is within its
+        threshold from the target.
+    :param w_mu_y: Weight of the mu_y component in the beam parameter-related reward.
+    :param w_mu_y_in_threshold: Weight of the bonus reward when mu_y is within its
+        threshold from the target.
+    :param w_sigma_x: Weight of the sigma_x component in the beam parameter-related
+        reward.
+    :param w_sigma_x_in_threshold: Weight of the bonus reward when sigma_x is within its
+        threshold from the target.
+    :param w_sigma_y: Weight of the sigma_y component in the beam parameter-related
+        reward.
+    :param w_sigma_y_in_threshold: Weight of the bonus reward when sigma_y is within its
+        threshold from the target.
+    :param w_time: Weight of the reward received for each passing time step.
     """
 
     def __init__(
@@ -1070,24 +1174,64 @@ class DLTransverseTuning(TransverseTuningEnv):
 
 class SHTransverseTuning(TransverseTuningEnv):
     """
-    Base class for beam positioning and focusing on ARBCBSCE1 in the ARES MR.
+    Environment for positioning and focusing the beam on ARSHBSCE2 using ARDLMCVM2,
+    ARDLMQZM3, ARDLMCHM2 and ARDLMQZM4.
 
-    Parameters
-    ----------
-    action_mode : str
-        How actions work. Choose `"direct"`, `"direct_unidirectional_quads"` or
-        `"delta"`.
-    magnet_init_mode : str
-        Magnet initialisation on `reset`. Set to `None`, `"random"` or `"constant"`. The
-        `"constant"` setting requires `magnet_init_values` to be set.
-    magnet_init_values : np.ndarray
-        Values to set magnets to on `reset`. May only be set when `magnet_init_mode` is
-        set to `"constant"`.
-    reward_mode : str
-        How to compute the reward. Choose from `"feedback"` or `"differential"`.
-    target_beam_mode : str
-        Setting of target beam on `reset`. Choose from `"constant"` or `"random"`. The
-        `"constant"` setting requires `target_beam_values` to be set.
+    :param backend: Backend for communication with either a simulation or the control
+        system
+    :param action_mode: Choose weather actions set magnet settings directly
+        (`"direct"`), are limited to predetermined polarities of the quadrupoles
+        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param beam_distance_ord: Order of distance to use to compute distance between
+        current beam and target beam.
+    :param logarithmic_beam_distance: Whether to take the logarithm of the beam
+        distance.
+    :param magnet_init_mode: Magnet initialisation on `reset`. Set to `None` for magnets
+        to stay at their current settings, `"random"` to be set to random settings or
+        `"constant"` to set them to the settings given by `magnet_init_values`.
+    :param magnet_init_values: Values to set magnets to on `reset`. Is only used when
+        `magnet_init_mode` is set to `"constant"`.
+    :param max_quad_delta: Limit of by how much quadrupole settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param max_steerer_delta: Limit of by how much steerer settings may be changed when
+        `action_mode` is set to `"delta"`.
+    :param normalize_beam_distance: Whether to divide beam distance by the initial beam
+        distance in order to scale it to a value around 1.
+    :param reward_mode: Set to `"feedback"` to compute the reward as the negative beam
+        distance. Set to `"differential"` to compute the reward as the reduction of the
+        beam distance.
+    :param target_beam_mode: Setting of target beam on `reset`. Choose from `"constant"`
+        or `"random"`. The `"constant"` setting requires `target_beam_values` to be set.
+    :param target_beam_values: Target beam to use when `target_beam_mode` is set to
+        `"constant"`.
+    :param target_mu_x_threshold: Distance from target mu_x below which mu_x is
+        considered to be achieved.
+    :param target_mu_y_threshold: Distance from target mu_y below which mu_y is
+        considered to be achieved.
+    :param target_sigma_x_threshold: Distance from target sigma_x below which sigma_x is
+        considered to be achieved.
+    :param target_sigma_y_threshold: Distance from target sigma_y below which sigma_y is
+        considered to be achieved.
+    :param threshold_hold: Number of steps that all beam parameters difference must be
+        below their thresolds before an episode is terminated as successful.
+    :param w_beam: Weight of all beam parameter-related rewards in the total reward.
+    :param w_done: Weight of the successful episode termination bonus in the total
+        reward.
+    :param w_mu_x: Weight of the mu_x component in the beam parameter-related reward.
+    :param w_mu_x_in_threshold: Weight of the bonus reward when mu_x is within its
+        threshold from the target.
+    :param w_mu_y: Weight of the mu_y component in the beam parameter-related reward.
+    :param w_mu_y_in_threshold: Weight of the bonus reward when mu_y is within its
+        threshold from the target.
+    :param w_sigma_x: Weight of the sigma_x component in the beam parameter-related
+        reward.
+    :param w_sigma_x_in_threshold: Weight of the bonus reward when sigma_x is within its
+        threshold from the target.
+    :param w_sigma_y: Weight of the sigma_y component in the beam parameter-related
+        reward.
+    :param w_sigma_y_in_threshold: Weight of the bonus reward when sigma_y is within its
+        threshold from the target.
+    :param w_time: Weight of the reward received for each passing time step.
     """
 
     def __init__(
