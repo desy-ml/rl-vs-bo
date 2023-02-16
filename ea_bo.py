@@ -45,7 +45,7 @@ def optimize(
     # Create the environment
     env = EATransverseTuning(
         backend=EADOOCSBackend(),
-        action_mode="direct_unidirectional_quads",
+        action_mode="direct",
         magnet_init_mode="constant",
         magnet_init_values=magnet_init_values,
         reward_mode="feedback",
@@ -58,6 +58,7 @@ def optimize(
         target_sigma_x_threshold=target_sigma_x_threshold,
         target_sigma_y_threshold=target_sigma_y_threshold,
         threshold_hold=1,
+        unidirectional_quads=True,
         w_beam=1.0,
         w_mu_x=1.0,
         w_mu_y=1.0,

@@ -130,8 +130,6 @@ class TransverseTuningEnv(gym.Env):
         """Take `action` according to the environment's configuration."""
         if self.action_mode == "direct":
             self.backend.set_magnets(action)
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.backend.set_magnets(action)
         elif self.action_mode == "delta":
             magnet_values = self.backend.get_magnets()
             self.backend.set_magnets(magnet_values + action)
@@ -186,9 +184,8 @@ class EATransverseTuning(TransverseTuningEnv):
 
     :param backend: Backend for communication with either a simulation or the control
         system
-    :param action_mode: Choose weather actions set magnet settings directly
-        (`"direct"`), are limited to predetermined polarities of the quadrupoles
-        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param action_mode: Choose weather actions set magnet settings directly (`"direct"`)
+        or change magnet settings (`"delta"`).
     :param beam_distance_ord: Order of distance to use to compute distance between
         current beam and target beam.
     :param logarithmic_beam_distance: Whether to take the logarithm of the beam
@@ -260,6 +257,7 @@ class EATransverseTuning(TransverseTuningEnv):
         target_sigma_x_threshold: float = 3.3198e-6,
         target_sigma_y_threshold: float = 2.4469e-6,
         threshold_hold: int = 1,
+        unidirectional_quads: bool = False,
         w_beam: float = 0.0,
         w_done: float = 0.0,
         w_mu_x: float = 0.0,
@@ -291,6 +289,7 @@ class EATransverseTuning(TransverseTuningEnv):
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
         self.threshold_hold = threshold_hold
+        self.unidirectional_quads = unidirectional_quads
         self.w_beam = w_beam
         self.w_done = w_done
         self.w_mu_x = w_mu_x
@@ -304,17 +303,20 @@ class EATransverseTuning(TransverseTuningEnv):
         self.w_sigma_y_in_threshold = w_sigma_y_in_threshold
         self.w_time = w_time
 
-        # Create action space
-        if self.action_mode == "direct":
-            self.action_space = spaces.Box(
-                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
-                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
-            )
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.action_space = spaces.Box(
+        if unidirectional_quads:
+            self.magnet_space = spaces.Box(
                 low=np.array([0, -72, -6.1782e-3, 0, -6.1782e-3], dtype=np.float32),
                 high=np.array([72, 0, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
             )
+        else:
+            self.magnet_space = spaces.Box(
+                low=np.array([-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32),
+                high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
+            )
+
+        # Create action space
+        if self.action_mode == "direct":
+            self.action_space = self.magnet_space
         elif self.action_mode == "delta":
             self.action_space = spaces.Box(
                 low=np.array(
@@ -348,14 +350,7 @@ class EATransverseTuning(TransverseTuningEnv):
                     low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                     high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
                 ),
-                "magnets": self.action_space
-                if self.action_mode.startswith("direct")
-                else spaces.Box(
-                    low=np.array(
-                        [-72, -72, -6.1782e-3, -72, -6.1782e-3], dtype=np.float32
-                    ),
-                    high=np.array([72, 72, 6.1782e-3, 72, 6.1782e-3], dtype=np.float32),
-                ),
+                "magnets": self.magnet_space,
                 "target": spaces.Box(
                     low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
                     high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
@@ -512,9 +507,8 @@ class BCTransverseTuning(TransverseTuningEnv):
 
     :param backend: Backend for communication with either a simulation or the control
         system
-    :param action_mode: Choose weather actions set magnet settings directly
-        (`"direct"`), are limited to predetermined polarities of the quadrupoles
-        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param action_mode: Choose weather actions set magnet settings directly (`"direct"`)
+        or change magnet settings (`"delta"`).
     :param beam_distance_ord: Order of distance to use to compute distance between
         current beam and target beam.
     :param logarithmic_beam_distance: Whether to take the logarithm of the beam
@@ -586,6 +580,7 @@ class BCTransverseTuning(TransverseTuningEnv):
         target_sigma_x_threshold: float = 3.3198e-6,
         target_sigma_y_threshold: float = 2.4469e-6,
         threshold_hold: int = 1,
+        unidirectional_quads: bool = False,
         w_beam: float = 0.0,
         w_done: float = 0.0,
         w_mu_x: float = 0.0,
@@ -617,6 +612,7 @@ class BCTransverseTuning(TransverseTuningEnv):
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
         self.threshold_hold = threshold_hold
+        self.unidirectional_quads = unidirectional_quads
         self.w_beam = w_beam
         self.w_done = w_done
         self.w_mu_x = w_mu_x
@@ -630,20 +626,26 @@ class BCTransverseTuning(TransverseTuningEnv):
         self.w_sigma_y_in_threshold = w_sigma_y_in_threshold
         self.w_time = w_time
 
-        # Create action space
-        if self.action_mode == "direct":
-            self.action_space = spaces.Box(
-                low=np.array([-72, -72, -6.1782e-3, -6.1782e-3, -72], dtype=np.float32),
-                high=np.array([72, 72, 6.1782e-3, 6.1782e-3, 72], dtype=np.float32),
-            )
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.action_space = spaces.Box(
+        if unidirectional_quads:
+            self.magnet_space = spaces.Box(
                 low=np.array([0, -72, -6.1782e-3, -6.1782e-3, 0], dtype=np.float32),
                 high=np.array(
                     [72, 0, 6.1782e-3, 6.1782e-3, 72],
                     dtype=np.float32,
                 ),
             )
+        else:
+            self.magnet_space = spaces.Box(
+                low=np.array([-72, -72, -6.1782e-3, -6.1782e-3, -72], dtype=np.float32),
+                high=np.array(
+                    [72, 72, 6.1782e-3, 6.1782e-3, 72],
+                    dtype=np.float32,
+                ),
+            )
+
+        # Create action space
+        if self.action_mode == "direct":
+            self.action_space = self.magnet_space
         elif self.action_mode == "delta":
             self.action_space = spaces.Box(
                 low=np.array(
@@ -677,18 +679,7 @@ class BCTransverseTuning(TransverseTuningEnv):
                     low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                     high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
                 ),
-                "magnets": self.action_space
-                if self.action_mode.startswith("direct")
-                else spaces.Box(
-                    low=np.array(
-                        [-72, -72, -6.1782e-3, -6.1782e-3, -72],
-                        dtype=np.float32,
-                    ),
-                    high=np.array(
-                        [72, 72, 6.1782e-3, 6.1782e-3, 72],
-                        dtype=np.float32,
-                    ),
-                ),
+                "magnets": self.magnet_space,
                 "target": spaces.Box(
                     low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
                     high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
@@ -851,9 +842,8 @@ class DLTransverseTuning(TransverseTuningEnv):
 
     :param backend: Backend for communication with either a simulation or the control
         system
-    :param action_mode: Choose weather actions set magnet settings directly
-        (`"direct"`), are limited to predetermined polarities of the quadrupoles
-        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param action_mode: Choose weather actions set magnet settings directly (`"direct"`)
+        or change magnet settings (`"delta"`).
     :param beam_distance_ord: Order of distance to use to compute distance between
         current beam and target beam.
     :param logarithmic_beam_distance: Whether to take the logarithm of the beam
@@ -925,6 +915,7 @@ class DLTransverseTuning(TransverseTuningEnv):
         target_sigma_x_threshold: float = 3.3198e-6,
         target_sigma_y_threshold: float = 2.4469e-6,
         threshold_hold: int = 1,
+        unidirectional_quads: bool = False,
         w_beam: float = 0.0,
         w_done: float = 0.0,
         w_mu_x: float = 0.0,
@@ -956,6 +947,7 @@ class DLTransverseTuning(TransverseTuningEnv):
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
         self.threshold_hold = threshold_hold
+        self.unidirectional_quads = unidirectional_quads
         self.w_beam = w_beam
         self.w_done = w_done
         self.w_mu_x = w_mu_x
@@ -969,17 +961,20 @@ class DLTransverseTuning(TransverseTuningEnv):
         self.w_sigma_y_in_threshold = w_sigma_y_in_threshold
         self.w_time = w_time
 
-        # Create action space
-        if self.action_mode == "direct":
-            self.action_space = spaces.Box(
-                low=np.array([-6.1782e-3, -6.1782e-3, -72, -72], dtype=np.float32),
-                high=np.array([6.1782e-3, 6.1782e-3, 72, 72], dtype=np.float32),
-            )
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.action_space = spaces.Box(
+        if unidirectional_quads:
+            self.magnet_space = spaces.Box(
                 low=np.array([-6.1782e-3, -6.1782e-3, 0, -72], dtype=np.float32),
                 high=np.array([6.1782e-3, 6.1782e-3, 72, 0], dtype=np.float32),
             )
+        else:
+            self.magnet_space = spaces.Box(
+                low=np.array([-6.1782e-3, -6.1782e-3, -72, -72], dtype=np.float32),
+                high=np.array([6.1782e-3, 6.1782e-3, 72, 72], dtype=np.float32),
+            )
+
+        # Create action space
+        if self.action_mode == "direct":
+            self.action_space = self.magnet_space
         elif self.action_mode == "delta":
             self.action_space = spaces.Box(
                 low=np.array(
@@ -1011,12 +1006,7 @@ class DLTransverseTuning(TransverseTuningEnv):
                     low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                     high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
                 ),
-                "magnets": self.action_space
-                if self.action_mode.startswith("direct")
-                else spaces.Box(
-                    low=np.array([-6.1782e-3, -6.1782e-3, -72, -72], dtype=np.float32),
-                    high=np.array([6.1782e-3, 6.1782e-3, 72, 72], dtype=np.float32),
-                ),
+                "magnets": self.magnet_space,
                 "target": spaces.Box(
                     low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
                     high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),
@@ -1179,9 +1169,8 @@ class SHTransverseTuning(TransverseTuningEnv):
 
     :param backend: Backend for communication with either a simulation or the control
         system
-    :param action_mode: Choose weather actions set magnet settings directly
-        (`"direct"`), are limited to predetermined polarities of the quadrupoles
-        (`"direct_unidirectional"`) or change magnet settings (`"delta"`).
+    :param action_mode: Choose weather actions set magnet settings directly (`"direct"`)
+        or change magnet settings (`"delta"`).
     :param beam_distance_ord: Order of distance to use to compute distance between
         current beam and target beam.
     :param logarithmic_beam_distance: Whether to take the logarithm of the beam
@@ -1253,6 +1242,7 @@ class SHTransverseTuning(TransverseTuningEnv):
         target_sigma_x_threshold: float = 3.3198e-6,
         target_sigma_y_threshold: float = 2.4469e-6,
         threshold_hold: int = 1,
+        unidirectional_quads: bool = False,
         w_beam: float = 0.0,
         w_done: float = 0.0,
         w_mu_x: float = 0.0,
@@ -1284,6 +1274,7 @@ class SHTransverseTuning(TransverseTuningEnv):
         self.target_sigma_x_threshold = target_sigma_x_threshold
         self.target_sigma_y_threshold = target_sigma_y_threshold
         self.threshold_hold = threshold_hold
+        self.unidirectional_quads = unidirectional_quads
         self.w_beam = w_beam
         self.w_done = w_done
         self.w_mu_x = w_mu_x
@@ -1297,17 +1288,20 @@ class SHTransverseTuning(TransverseTuningEnv):
         self.w_sigma_y_in_threshold = w_sigma_y_in_threshold
         self.w_time = w_time
 
-        # Create action space
-        if self.action_mode == "direct":
-            self.action_space = spaces.Box(
-                low=np.array([-6.1782e-3, -72, -6.1782e-3, -72], dtype=np.float32),
-                high=np.array([6.1782e-3, 72, 6.1782e-3, 72], dtype=np.float32),
-            )
-        elif self.action_mode == "direct_unidirectional_quads":
-            self.action_space = spaces.Box(
+        if unidirectional_quads:
+            self.magnet_space = spaces.Box(
                 low=np.array([-6.1782e-3, 0, -6.1782e-3, -72], dtype=np.float32),
                 high=np.array([6.1782e-3, 72, 6.1782e-3, 0], dtype=np.float32),
             )
+        else:
+            self.magnet_space = spaces.Box(
+                low=np.array([-6.1782e-3, -72, -6.1782e-3, -72], dtype=np.float32),
+                high=np.array([6.1782e-3, 72, 6.1782e-3, 72], dtype=np.float32),
+            )
+
+        # Create action space
+        if self.action_mode == "direct":
+            self.action_space = self.magnet_space
         elif self.action_mode == "delta":
             self.action_space = spaces.Box(
                 low=np.array(
@@ -1339,12 +1333,7 @@ class SHTransverseTuning(TransverseTuningEnv):
                     low=np.array([-np.inf, 0, -np.inf, 0], dtype=np.float32),
                     high=np.array([np.inf, np.inf, np.inf, np.inf], dtype=np.float32),
                 ),
-                "magnets": self.action_space
-                if self.action_mode.startswith("direct")
-                else spaces.Box(
-                    low=np.array([-6.1782e-3, -72, -6.1782e-3, -72], dtype=np.float32),
-                    high=np.array([6.1782e-3, 72, 6.1782e-3, 72], dtype=np.float32),
-                ),
+                "magnets": self.magnet_space,
                 "target": spaces.Box(
                     low=np.array([-2e-3, 0, -2e-3, 0], dtype=np.float32),
                     high=np.array([2e-3, 2e-3, 2e-3, 2e-3], dtype=np.float32),

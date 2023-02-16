@@ -32,7 +32,7 @@ def try_problem(
     )
     env = EATransverseTuning(
         backend=cheetah_backend,
-        action_mode="direct_unidirectional_quads",
+        action_mode="direct",
         magnet_init_mode="constant",
         magnet_init_values=np.array([10, -10, 0, 10, 0]),
         reward_mode="feedback",
@@ -43,6 +43,7 @@ def try_problem(
         target_sigma_x_threshold=None,
         target_sigma_y_threshold=None,
         threshold_hold=5,
+        unidirectional_quads=True,
         w_beam=1.0,
         w_mu_x=1.0,
         w_mu_y=1.0,
