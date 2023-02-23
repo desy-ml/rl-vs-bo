@@ -50,7 +50,7 @@ def try_problem(trial_index: int, trial: Trial) -> None:
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=f"data/bo_vs_rl/simulation/rl_test/problem_{trial_index:03d}",
+        save_dir=f"data/bo_vs_rl/simulation/rl_refactor_11/problem_{trial_index:03d}",
     )
     env = FilterObservation(env, ["beam", "magnets", "target"])
     env = FlattenObservation(env)
