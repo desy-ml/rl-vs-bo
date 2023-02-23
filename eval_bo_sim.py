@@ -46,7 +46,7 @@ def try_problem(trial_index: int, trial: Trial):
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_9/problem_{trial_index:03d}",
+        save_dir=f"data/bo_vs_rl/simulation/bo_refactor_11/problem_{trial_index:03d}",
     )
     env = RescaleAction(env, -3, 3)
 
@@ -74,7 +74,7 @@ def try_problem(trial_index: int, trial: Trial):
 
 
 def main():
-    trials = load_trials(Path("trials.yaml"))[:1]
+    trials = load_trials(Path("trials.yaml"))
 
     with ProcessPoolExecutor() as executor:
         _ = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)
