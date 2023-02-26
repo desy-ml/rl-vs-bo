@@ -171,7 +171,12 @@ class Episode:
         """
         maes = np.array(self.min_maes())
         arg_lower = np.argwhere(maes < threshold).squeeze()
-        return arg_lower[0] if len(arg_lower) > 0 else len(maes)
+        if len(arg_lower.shape) == 0:  # 0-dimensional one number
+            return int(arg_lower)
+        elif len(arg_lower) == 0:  # 0 elements in 1-dimensional array (no result)
+            return len(maes)
+        else:
+            return arg_lower[0]
 
     def plot_best_return_deviation_example(self) -> None:
         """
