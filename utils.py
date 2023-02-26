@@ -21,6 +21,11 @@ from tqdm import tqdm
 
 from backend import CheetahBackend
 
+try:
+    import pydoocs  # type: ignore
+except ModuleNotFoundError:
+    import dummypydoocs as pydoocs
+
 
 def load_config(path: str) -> dict:
     """
