@@ -86,16 +86,11 @@ def find_quad_aligned_incoming_beam_parameters(trial: Trial) -> np.ndarray:
     x_fit = linregress(s, x)
     y_fit = linregress(s, y)
 
-    print(f"{x_fit = }")
-    print(f"{y_fit = }")
-
     incoming_beam = trial.incoming_beam.copy()
     incoming_beam[1] = x_fit.intercept
     incoming_beam[2] = np.arctan(x_fit.slope)
     incoming_beam[3] = y_fit.intercept
     incoming_beam[4] = np.arctan(y_fit.slope)
-
-    print(f"{incoming_beam = }")
 
     return incoming_beam
 
