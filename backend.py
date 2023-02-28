@@ -185,6 +185,7 @@ class CheetahBackend(TransverseTuningBaseBackend):
         max_misalignment: float = 5e-4,
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
+        simulate_finite_screen: bool = False,
     ) -> None:
         self.screen_name = screen_name
         self.magnet_names = magnet_names
@@ -193,6 +194,7 @@ class CheetahBackend(TransverseTuningBaseBackend):
         self.max_misalignment = max_misalignment
         self.misalignment_mode = misalignment_mode
         self.misalignment_values = misalignment_values
+        self.simulate_finite_screen = simulate_finite_screen
 
         self.property_names = [
             self.get_property_name(magnet_name) for magnet_name in self.magnet_names
@@ -302,14 +304,17 @@ class CheetahBackend(TransverseTuningBaseBackend):
         self.segment(self.incoming)
 
     def get_beam_parameters(self) -> np.ndarray:
-        return np.array(
-            [
-                self.screen.read_beam.mu_x,
-                self.screen.read_beam.sigma_x,
-                self.screen.read_beam.mu_y,
-                self.screen.read_beam.sigma_y,
-            ]
-        )
+        if self.simulate_finite_screen and not self.is_beam_on_screen():
+            return np.array([0, 3.5, 0, 2.2])  # Estimates from real bo_sim data
+        else:
+            return np.array(
+                [
+                    self.screen.read_beam.mu_x,
+                    self.screen.read_beam.sigma_x,
+                    self.screen.read_beam.mu_y,
+                    self.screen.read_beam.sigma_y,
+                ]
+            )
 
     def get_incoming_parameters(self) -> np.ndarray:
         # Parameters of incoming are typed out to guarantee their order, as the
@@ -643,6 +648,7 @@ class EACheetahBackend(CheetahBackend):
         max_misalignment: float = 5e-4,
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
+        simulate_finite_screen: bool = False,
     ) -> None:
         super().__init__(
             ocelot_cell=(
@@ -675,6 +681,7 @@ class EACheetahBackend(CheetahBackend):
             max_misalignment=max_misalignment,
             misalignment_mode=misalignment_mode,
             misalignment_values=misalignment_values,
+            simulate_finite_screen=simulate_finite_screen,
         )
 
 
@@ -907,6 +914,7 @@ class BCCheetahBackend(CheetahBackend):
         max_misalignment: float = 5e-4,
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
+        simulate_finite_screen: bool = False,
     ) -> None:
         super().__init__(
             ocelot_cell=(
@@ -961,6 +969,7 @@ class BCCheetahBackend(CheetahBackend):
             max_misalignment=max_misalignment,
             misalignment_mode=misalignment_mode,
             misalignment_values=misalignment_values,
+            simulate_finite_screen=simulate_finite_screen,
         )
 
 
@@ -993,6 +1002,7 @@ class DLCheetahBackend(CheetahBackend):
         max_misalignment: float = 5e-4,
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
+        simulate_finite_screen: bool = False,
     ) -> None:
         super().__init__(
             ocelot_cell=(
@@ -1026,6 +1036,7 @@ class DLCheetahBackend(CheetahBackend):
             max_misalignment=max_misalignment,
             misalignment_mode=misalignment_mode,
             misalignment_values=misalignment_values,
+            simulate_finite_screen=simulate_finite_screen,
         )
 
 
@@ -1052,6 +1063,7 @@ class SHCheetahBackend(CheetahBackend):
         max_misalignment: float = 5e-4,
         misalignment_mode: str = "random",
         misalignment_values: Optional[np.ndarray] = None,
+        simulate_finite_screen: bool = False,
     ) -> None:
         super().__init__(
             ocelot_cell=(
@@ -1084,6 +1096,7 @@ class SHCheetahBackend(CheetahBackend):
             max_misalignment=max_misalignment,
             misalignment_mode=misalignment_mode,
             misalignment_values=misalignment_values,
+            simulate_finite_screen=simulate_finite_screen,
         )
 
 

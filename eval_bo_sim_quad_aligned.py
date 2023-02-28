@@ -20,6 +20,7 @@ def try_problem(trial_index: int, trial: Trial):
         incoming_values=trial.incoming_beam,
         misalignment_mode="constant",
         misalignment_values=trial.misalignments,
+        simulate_finite_screen=True,
     )
     env = EATransverseTuning(
         backend=cheetah_backend,
@@ -47,7 +48,9 @@ def try_problem(trial_index: int, trial: Trial):
     env = TimeLimit(env, 150)
     env = RecordEpisode(
         env,
-        save_dir=f"data/bo_vs_rl/simulation/bo_quad_aligned/problem_{trial_index:03d}",
+        save_dir=(
+            f"data/bo_vs_rl/simulation/bo_sim_finite_screen/problem_{trial_index:03d}"
+        ),
     )
     env = RescaleAction(env, -3, 3)
 
@@ -98,8 +101,8 @@ def find_quad_aligned_incoming_beam_parameters(trial: Trial) -> np.ndarray:
 def main():
     trials = load_trials(Path("trials.yaml"))
 
-    for trial in trials:
-        trial.incoming_beam = find_quad_aligned_incoming_beam_parameters(trial)
+    # for trial in trials:
+    #     trial.incoming_beam = find_quad_aligned_incoming_beam_parameters(trial)
 
     with ProcessPoolExecutor() as executor:
         _ = tqdm(executor.map(try_problem, range(len(trials)), trials), total=300)
