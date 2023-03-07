@@ -540,6 +540,23 @@ class Study:
 
         return np.mean(steps) if len(steps) > 0 else None
 
+    def std_steps_to_convergence(
+        self, threshold: float = 20e-6, max_steps: Optional[int] = None
+    ) -> Optional[float]:
+        """
+        Standard deviation of number of steps until best seen MAE no longer improves by
+        more than `threshold`. If `max_steps` is given, only consider episodes that
+        converged in less than `max_steps`. Returns `None` if no runs got there in less
+        than `max_steps`.
+        """
+        steps = [episode.steps_to_convergence(threshold) for episode in self.episodes]
+
+        if max_steps:
+            steps = np.array(steps)
+            steps = steps[steps < max_steps]
+
+        return np.std(steps) if len(steps) > 0 else None
+
     def median_steps_to_threshold(
         self, threshold: float = 20e-6, max_steps: Optional[int] = None
     ) -> Optional[float]:
@@ -571,6 +588,23 @@ class Study:
             steps = steps[steps < max_steps]
 
         return np.mean(steps) if len(steps) > 0 else None
+
+    def std_steps_to_threshold(
+        self, threshold: float = 20e-6, max_steps: Optional[int] = None
+    ) -> Optional[float]:
+        """
+        Standard deviation of number of steps until best seen MAE drops below
+        (resolution) `threshold`. If `max_steps` is given, only consider episodes that
+        got below threshold in less than `max_steps`. Returns `None` if no runs got
+        there in less than `max_steps`.
+        """
+        steps = [episode.steps_to_threshold(threshold) for episode in self.episodes]
+
+        if max_steps:
+            steps = np.array(steps)
+            steps = steps[steps < max_steps]
+
+        return np.std(steps) if len(steps) > 0 else None
 
     def rmse(self, max_steps: Optional[int] = None) -> float:
         """
