@@ -499,6 +499,13 @@ class Study:
         """
         return np.mean([episode.best_mae() for episode in self.episodes])
 
+    def std_final_mae(self) -> float:
+        """
+        Standard deviation of the final MAE that the algorithm stopped at (without
+        returning to best seen).
+        """
+        return np.std([episode.best_mae() for episode in self.episodes])
+
     def median_steps_to_convergence(
         self, threshold: float = 20e-6, max_steps: Optional[int] = None
     ) -> Optional[float]:
