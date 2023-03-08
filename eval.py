@@ -239,6 +239,11 @@ class Episode:
         ax.set_title(title)
         ax.legend()
 
+        thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
+            lambda x, p: format(int(x), ",")
+        )
+        ax.get_yaxis().set_major_formatter(thousands_comma_formatter)
+
         if xlabel:
             ax.set_xlabel("Step")
         if ylabel:
@@ -1057,6 +1062,11 @@ def plot_best_mae_over_time(
         plt.yscale("log")
     else:
         plt.ylim(0, None)
+
+        thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
+            lambda x, p: format(int(x), ",")
+        )
+        plt.gca().get_yaxis().set_major_formatter(thousands_comma_formatter)
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -1149,6 +1159,11 @@ def plot_mae_over_time(
         plt.yscale("log")
     else:
         plt.ylim(0, None)
+
+        thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
+            lambda x, p: format(int(x), ",")
+        )
+        plt.gca().get_yaxis().set_major_formatter(thousands_comma_formatter)
     plt.gca().set_axisbelow(True)
     plt.tight_layout()
 
@@ -1248,6 +1263,13 @@ def plot_screen_image(
         extent=screen_extent(resolution, pixel_size * 1e6),
         cmap="rainbow",
     )
+
+    thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
+        lambda x, p: format(int(x), ",")
+    )
+    ax.get_xaxis().set_major_formatter(thousands_comma_formatter)
+    ax.get_yaxis().set_major_formatter(thousands_comma_formatter)
+
     if xlabel:
         ax.set_xlabel(r"($\mu$m)")
     if ylabel:
@@ -1302,6 +1324,12 @@ def plot_beam_parameters_on_screen(
         (left, right, bottom, top) = screen_extent(resolution, pixel_size * 1e6)
         ax.set_xlim(left, right)
         ax.set_ylim(bottom, top)
+
+    thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
+        lambda x, p: format(int(x), ",")
+    )
+    ax.get_xaxis().set_major_formatter(thousands_comma_formatter)
+    ax.get_yaxis().set_major_formatter(thousands_comma_formatter)
 
     if xlabel:
         ax.set_xlabel(r"($\mu$m)")
