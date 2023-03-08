@@ -272,19 +272,19 @@ class Episode:
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-        ax.plot(magnets[:, 0], c=palette_colors[0], label="Q1")
-        ax.plot(magnets[:, 1], c=palette_colors[1], label="Q2")
-        ax.plot([], c=palette_colors[2], label="CV")  # Dummy for legend
-        ax.plot(magnets[:, 3], c=palette_colors[3], label="Q3")
-        ax.plot([], c=palette_colors[4], label="CH")  # Dummy for legend
+        ax.plot(magnets[:, 0], c=palette_colors[4], label="Q1")
+        ax.plot(magnets[:, 1], c=palette_colors[5], label="Q2")
+        ax.plot([], c=palette_colors[6], label="CV")  # Dummy for legend
+        ax.plot(magnets[:, 3], c="#ee3377", label="Q3")
+        ax.plot([], c="#33bbee", label="CH")  # Dummy for legend
         ax.set_xlim(0, None)
         ax.set_ylim(-72, 72)
         ax.legend()
 
         ax_twinx = ax.twinx()
 
-        ax_twinx.plot(magnets[:, 2] * 1e3, c=palette_colors[2], label="CV")
-        ax_twinx.plot(magnets[:, 4] * 1e3, c=palette_colors[4], label="CH")
+        ax_twinx.plot(magnets[:, 2] * 1e3, c=palette_colors[6], label="CV")
+        ax_twinx.plot(magnets[:, 4] * 1e3, c="#33bbee", label="CH")
         ax_twinx.set_ylabel("Steering Angle (mrad)")
         ax_twinx.set_ylim(-6.1782, 6.1782)
 
