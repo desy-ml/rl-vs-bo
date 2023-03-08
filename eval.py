@@ -199,6 +199,7 @@ class Episode:
         title: Optional[str] = None,
         xlabel: bool = True,
         ylabel: bool = True,
+        legend: bool = True,
         figsize: tuple[float, float] = (6, 3),
         ax: Optional[matplotlib.axes.Axes] = None,
         save_path: Optional[str] = None,
@@ -237,7 +238,8 @@ class Episode:
             ax.plot(np.array(targets)[:, 3] * 1e6, c=palette_colors[3], ls="--")
 
         ax.set_title(title)
-        ax.legend()
+        if legend:
+            ax.legend()
 
         thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
             lambda x, p: format(int(x), ",")
@@ -260,6 +262,7 @@ class Episode:
         xlabel: bool = True,
         ylabel_left: bool = True,
         ylabel_right: bool = True,
+        legend: bool = True,
         figsize: tuple[float, float] = (6, 3),
         ax: Optional[matplotlib.axes.Axes] = None,
         save_path: Optional[str] = None,
@@ -279,7 +282,8 @@ class Episode:
         ax.plot([], c="#33bbee", label="CH")  # Dummy for legend
         ax.set_xlim(0, None)
         ax.set_ylim(-72, 72)
-        ax.legend()
+        if legend:
+            ax.legend()
 
         ax_twinx = ax.twinx()
 
