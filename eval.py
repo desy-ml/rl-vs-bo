@@ -1284,16 +1284,17 @@ def plot_beam_parameters_on_screen(
     sigma_x = max(sigma_x, measurement_accuracy)
     sigma_y = max(sigma_y, measurement_accuracy)
 
-    ax.axvline(mu_x * 1e6)
-    ax.axhline(mu_y * 1e6)
+    ax.axvline(mu_x * 1e6, color="lightgrey", ls="--")
+    ax.axhline(mu_y * 1e6, color="lightgrey", ls="--")
 
     sigma_ellipse = Ellipse(
         xy=(mu_x * 1e6, mu_y * 1e6),
         width=6 * sigma_x * 1e6 / 2,
         height=6 * sigma_y * 1e6 / 2,
         facecolor="none",
-        edgecolor="red",
+        edgecolor="lightgrey",
         lw=1,
+        ls="--",
     )
     ax.add_patch(sigma_ellipse)
 
