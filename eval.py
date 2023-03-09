@@ -1025,6 +1025,7 @@ def plot_best_mae_over_time(
     studies: list[Study],
     threshold: Optional[float] = None,
     logarithmic: bool = False,
+    legend: bool = True,
     title: Optional[str] = "Mean Best MAE Over Time",
     ax: Optional[matplotlib.axes.Axes] = None,
     figsize: tuple[float, float] = (5, 3),
@@ -1061,7 +1062,14 @@ def plot_best_mae_over_time(
 
     if threshold is not None:
         ax.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
-    sns.lineplot(x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df, ax=ax)
+    sns.lineplot(
+        x="Step",
+        y="MAE (μm)",
+        hue=study_name_str,
+        data=combined_df,
+        legend=legend,
+        ax=ax,
+    )
     ax.set_ylabel(r"MAE ($\mu$m)")
     ax.set_title(title)
     ax.set_xlim(0, None)
