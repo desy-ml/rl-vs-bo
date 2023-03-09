@@ -1026,6 +1026,7 @@ def plot_best_mae_over_time(
     threshold: Optional[float] = None,
     logarithmic: bool = False,
     title: Optional[str] = "Mean Best MAE Over Time",
+    ax: Optional[matplotlib.axes.Axes] = None,
     figsize: tuple[float, float] = (5, 3),
     study_name_str: str = "Study",
     save_path: Optional[str] = None,
@@ -1055,29 +1056,29 @@ def plot_best_mae_over_time(
     # Convert unit to mm
     combined_df["MAE (μm)"] = combined_df["MAE (m)"] * 1e6
 
-    plt.figure(figsize=figsize)
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+
     if threshold is not None:
-        plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
-    sns.lineplot(x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df)
-    plt.ylabel(r"MAE ($\mu$m)")
-    plt.title(title)
-    plt.xlim(0, None)
+        ax.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
+    sns.lineplot(x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df, ax=ax)
+    ax.set_ylabel(r"MAE ($\mu$m)")
+    ax.set_title(title)
+    ax.set_xlim(0, None)
     if logarithmic:
-        plt.yscale("log")
+        ax.set_yscale("log")
     else:
-        plt.ylim(0, None)
+        ax.set_ylim(0, None)
 
         thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
             lambda x, p: format(int(x), ",")
         )
-        plt.gca().get_yaxis().set_major_formatter(thousands_comma_formatter)
-    plt.gca().set_axisbelow(True)
-    plt.tight_layout()
+        ax.get_yaxis().set_major_formatter(thousands_comma_formatter)
+    ax.set_axisbelow(True)
 
     if save_path is not None:
+        assert fig is not None, "Cannot save figure when axes was passed."
         plt.savefig(save_path)
-
-    plt.show()
 
 
 def plot_final_mae_box(
@@ -1122,6 +1123,7 @@ def plot_mae_over_time(
     logarithmic: bool = False,
     legend: bool = True,
     title: Optional[str] = "Mean MAE Over Time",
+    ax: Optional[matplotlib.axes.Axes] = None,
     figsize: tuple[float, float] = (5, 3),
     study_name_str: str = "Study",
     save_path: Optional[str] = None,
@@ -1150,31 +1152,36 @@ def plot_mae_over_time(
     # Convert unit to mm
     combined_df["MAE (μm)"] = combined_df["MAE (m)"] * 1e6
 
-    plt.figure(figsize=figsize)
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+
     if threshold is not None:
-        plt.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
+        ax.axhline(threshold, ls="--", color="lightsteelblue", label="Threshold")
     sns.lineplot(
-        x="Step", y="MAE (μm)", hue=study_name_str, data=combined_df, legend=legend
+        x="Step",
+        y="MAE (μm)",
+        hue=study_name_str,
+        data=combined_df,
+        legend=legend,
+        ax=ax,
     )
-    plt.title(title)
-    plt.ylabel(r"MAE ($\mu$m)")
-    plt.xlim(0, None)
+    ax.set_title(title)
+    ax.set_ylabel(r"MAE ($\mu$m)")
+    ax.set_xlim(0, None)
     if logarithmic:
-        plt.yscale("log")
+        ax.set_yscale("log")
     else:
-        plt.ylim(0, None)
+        ax.set_ylim(0, None)
 
         thousands_comma_formatter = matplotlib.ticker.FuncFormatter(
             lambda x, p: format(int(x), ",")
         )
-        plt.gca().get_yaxis().set_major_formatter(thousands_comma_formatter)
-    plt.gca().set_axisbelow(True)
-    plt.tight_layout()
+        ax.get_yaxis().set_major_formatter(thousands_comma_formatter)
+    ax.set_axisbelow(True)
 
     if save_path is not None:
+        assert fig is not None, "Cannot save figure when axes was passed."
         plt.savefig(save_path)
-
-    plt.show()
 
 
 def plot_steps_to_convergence_box(
