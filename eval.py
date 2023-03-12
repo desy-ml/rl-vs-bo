@@ -259,6 +259,7 @@ class Episode:
 
     def plot_magnets(
         self,
+        vertical_marker: Union[float, tuple[float, str]] = None,
         xlabel: bool = True,
         ylabel_left: bool = True,
         ylabel_right: bool = True,
@@ -274,6 +275,14 @@ class Episode:
 
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
+        
+        if isinstance(vertical_marker, (int, float)):
+            ax.axvline(vertical_marker, ls="--", color=palette_colors[5])
+        elif isinstance(vertical_marker, tuple):
+            marker_position, marker_label = vertical_marker
+            ax.axvline(
+                marker_position, label=marker_label, ls="--", color=palette_colors[5]
+            )
 
         ax.plot(magnets[:, 0], c=palette_colors[4], label="Q1")
         ax.plot(magnets[:, 1], c=palette_colors[5], label="Q2")
