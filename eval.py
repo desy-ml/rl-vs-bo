@@ -275,7 +275,7 @@ class Episode:
 
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
-        
+
         if isinstance(vertical_marker, (int, float)):
             ax.axvline(vertical_marker, ls="--", color=palette_colors[5])
         elif isinstance(vertical_marker, tuple):
@@ -1204,6 +1204,8 @@ def plot_mae_over_time(
 def plot_steps_to_convergence_box(
     studies: list[Study],
     threshold: float = 20e-6,
+    title: Optional[str] = "Steps to convergence",
+    figsize: tuple[float, float] = (5, 3),
     save_path: Optional[str] = None,
 ) -> None:
     """
@@ -1219,8 +1221,8 @@ def plot_steps_to_convergence_box(
         combined_steps += steps
         combined_names += names
 
-    plt.figure(figsize=(5, 0.6 * len(studies)))
-    plt.title(f"Steps to convergence (limit = {threshold})")
+    plt.figure(figsize=figsize)
+    plt.title(title)
     sns.boxplot(x=combined_steps, y=combined_names)
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
@@ -1235,6 +1237,8 @@ def plot_steps_to_convergence_box(
 def plot_steps_to_threshold_box(
     studies: list[Study],
     threshold: float = 20e-6,
+    title: Optional[str] = "Steps to MAE below threshold",
+    figsize: tuple[float, float] = (5, 3),
     save_path: Optional[str] = None,
 ) -> None:
     """
@@ -1249,8 +1253,8 @@ def plot_steps_to_threshold_box(
         combined_steps += steps
         combined_names += names
 
-    plt.figure(figsize=(5, 0.6 * len(studies)))
-    plt.title(f"Steps to MAE below {threshold}")
+    plt.figure(figsize=figsize)
+    plt.title(title)
     sns.boxplot(x=combined_steps, y=combined_names)
     plt.gca().set_axisbelow(True)
     plt.xlabel("No. of steps")
