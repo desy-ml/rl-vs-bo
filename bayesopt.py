@@ -3,7 +3,6 @@ from typing import Optional, Union
 import gym
 import numpy as np
 import torch
-import torch.nn as nn
 from botorch.acquisition import (
     ExpectedImprovement,
     ProbabilityOfImprovement,
@@ -17,8 +16,6 @@ from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.optim import optimize_acqf
 from gpytorch.means.mean import Mean
 from gpytorch.mlls import ExactMarginalLogLikelihood
-
-# TODO Just for testing, we can also add proximal biasing?
 
 
 def observation_to_scaled_action(env, observation, filter_action=[0, 1, 2, 3, 4]):
@@ -105,119 +102,6 @@ def get_next_samples(
     )
 
     return candidates
-
-
-# Use a NN as GP prior for BO
-class SimpleBeamPredictNN(nn.Module):
-    """
-    A simple FCNN to predict the output beam parameters assuming centered incoming beam.
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(
-                5,
-                8,
-                bias=True,
-            ),
-            nn.Tanh(),
-            nn.Linear(8, 8),
-            nn.Tanh(),
-            nn.Linear(8, 8),
-            nn.Tanh(),
-            nn.Linear(8, 4),
-        )
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-class SimpleBeamPredictNNV3(nn.Module):
-    def __init__(self, include_bias=False) -> None:
-        super().__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(5, 16),
-            nn.Tanh(),
-            nn.Linear(16, 16),
-            nn.Tanh(),
-            nn.Linear(16, 4, bias=include_bias),
-        )
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-class BeamNNPrior(Mean):
-    """Use a NN as GP prior mean function
-    The NN predicts the output beam, which is used to calculate the logmae objective
-    Use as
-    ```python
-    my_prior_mean = BeamNNPrior(target=torch.tensor(target_beam))  # define prior mean
-    gp = SingleTask(X, Y, mean_module=my_prior_mean)   # and construct GP model using it
-    ```
-    Optional, set the prior mean as fixed and not fit it:
-    ```
-    for param in custom_mean.mlp.parameters():
-        param.requires_grad = False
-    ```
-
-    Parameters
-    ----------
-    target : torch.Tensor
-        Target beam in [mu_x, sigma_x, mu_y, sigma_y]
-    w_on_screen: float (optional)
-        Weight of the reward given for beam being on/off screen
-    """
-
-    def __init__(
-        self,
-        target: torch.Tensor,
-        w_on_screen: float = 10,
-        screen_resolution=(2448, 2040),
-        screen_pixel_size=(3.3198e-6, 2.4469e-6),
-    ):
-        super().__init__()
-        self.mlp = SimpleBeamPredictNNV3()
-        self.mlp.load_state_dict(torch.load("nn_for_bo/v3_model_weights.pth"))
-        self.mlp.eval()
-        self.mlp.double()  # for double input from GPyTorch
-        self.target = target
-        # Screen Size calculation for on screen reward
-        self.w_on_screen_reward = w_on_screen
-        self.half_x_size = screen_resolution[0] * screen_pixel_size[0] / 2
-        self.half_y_size = screen_resolution[1] * screen_pixel_size[1] / 2
-
-        # additional scaling and shift
-        self.register_parameter(
-            name="out_weight", parameter=torch.nn.Parameter(torch.tensor([0.0]))
-        )
-        self.register_parameter(
-            name="out_bias", parameter=torch.nn.Parameter(torch.tensor([0.0]))
-        )
-
-    def forward(self, x):
-        out_beam = self.mlp(x)
-        out_beam = denormalize_output(out_beam)
-        logmae = -torch.log(torch.mean(torch.abs(out_beam - self.target), dim=-1))
-
-        is_beam_on_screen = torch.logical_and(
-            torch.abs(out_beam[..., 0]) < self.half_x_size,
-            torch.abs(out_beam[..., 2]) < self.half_y_size,
-        )  # check if both x and y position are inside the screen
-        is_beam_on_screen = torch.where(is_beam_on_screen, 1, -1)
-
-        on_screen_reward = self.w_on_screen_reward * is_beam_on_screen
-        pred_reward = logmae + on_screen_reward
-        pred_reward = (
-            pred_reward * torch.nn.functional.softplus(self.out_weight) + self.out_bias
-        )
-        return pred_reward
-
-
-def denormalize_output(y_nn: torch.Tensor) -> torch.Tensor:
-    y_nn = (y_nn + torch.tensor([0, 1, 0, 1])) * 0.005  # denormalize to 5 mm
-    return y_nn
 
 
 class BayesianOptimizationAgent:
