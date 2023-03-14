@@ -1,16 +1,25 @@
-# ARES EA RL
+# Overview ARES-EA RL Project
 
-Training and evaluating a reinforcement-learning agent on the quadrupole triplet and two correctors in the ARES experimental area.
+This repository contains the code used to evaluate the Reinforcement-Learning trained optimiser and Bayesian optimiser for the paper _"Comparative Study of Learning-based Optimisation Methods for Online Continuous Tuning of Real-world Plants"_
 
-## The Problem
+- [Overview ARES-EA RL Project](#overview-ares-ea-rl-project)
+  - [The ARES-EA Transverse Beam Tuning Task](#the-ares-ea-transverse-beam-tuning-task)
+  - [Repository Structure](#repository-structure)
+  - [Gym Environments](#gym-environments)
+    - [Observation](#observation)
+    - [Reward definition](#reward-definition)
+  - [Installation Guide](#installation-guide)
 
-We consider the _Experimental Area_ of ARES. Toward the downstream end of the Experimental Area, there is the screen `AREABSCR1` where we would like to achieve a choosable set of beam parameters, the beam position and size in both x- and y-direction. To this end, we can set the values of three quadrupoles `AREAMQZM1`, `AREAMQZM2` and `AREAMQZM3`, as well as two steerers `AREAMCVM1` and `AREAMCHM1`. Below is a simplified overview of the lattice that we consider.
+## The ARES-EA Transverse Beam Tuning Task
+
+We consider the _Experimental Area_ of ARES at DESY, Hamburg. Toward the downstream end of the Experimental Area, there is the screen `AREABSCR1` where we would like to achieve a variable set of beam parameters, consisting of the beam position and size in both x- and y-direction.
+To this end, we can set the values of three quadrupoles `AREAMQZM1`, `AREAMQZM2` and `AREAMQZM3`, as well as two steerers (dipole corrector magnets) `AREAMCVM1` and `AREAMCHM1`. Below is a simplified overview of the lattice that we consider.
 
 ![ARES EA Lattice](figures/ares_ea_lattice.jpg)
 
-__Note__ that simplified versions of this problem may be considered, where only the quadrupoles are used to achieve a certain beam size, or only the steerers are used to position the beam. Another simplification that may be considered is that the target beam parameters need not be choosable but rather the goal is to achieve the smallest and/or most centred beam possible.
+__Note__ that simplified versions of this problem may be considered, where only the quadrupoles are used to achieve a certain beam size, or only the steerers are used to position the beam. Another simplification that may be considered is that the target beam parameters need not be variable but rather the goal is to achieve the smallest and/or most centred beam possible.
 
-## Finding Your Way Around this Project
+## Repository Structure
 
 __Remark: information outdated, see below for more recent HowTo.__
 
@@ -68,64 +77,15 @@ For the x-, y-position and size, the reward values are defined as follows
 
 ---
 
-## A Brief Intro to PyDoocs
+## Installation Guide
 
-We use PyDoocs to communicate with our machines. All writable and readable values have an address, which we call channel. To read a value, one would call
+- Install conda or miniconda
+- (Suggested) Create a virtual environment and activate it
+- Install dependencies
 
-```python
-response = pydoocs.read(channel)
-value = response["data"]
+```sh
+conda env create -n ares-ea-rl python=3.9
+conda activate ares-ea-rl
+pip install -r requirements.txt
 ```
-
-and to write to the machine you run
-
-```python
-pydoocs.write(channel, value)
-```
-
-We actually created a package `dummy-pydoocs` that allows us to test the interface with PyDoocs without using the real machine.
-
-The package is imported as follows and then used in the code just like PyDoocs itself.
-
-```python
-import dummypydoocs as pydoocs
-```
-
-These are the DOOCS channels relevant to us:
-
-- Read screen image: `SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/IMAGE_EXT_ZMQ``
-- Write magnets settings:
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.SP` (unit 1/m^2)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.SP` (unit 1/m^2)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.SP` (unit 1/m^2)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.SP` (unit mrad)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.SP` (unit mrad)
-- Write magnets settings:
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/STRENGTH.RBV` (unit 1/m^2)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/STRENGTH.RBV` (unit 1/m^2)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/STRENGTH.RBV` (unit 1/m^2)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/KICK_MRAD.RBV` (unit mrad)
-  - `SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/KICK_MRAD.RBV` (unit mrad)
-- Read and write binning of the screen camera
-  - Horizontal: `SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGHORIZONTAL`
-  - Vertical: `SINBAD.DIAG/CAMERA/AR.EA.BSC.R.1/BINNINGVERTICAL`
-
-The magnets to take a few seconds to reach the set values. As a result is you may need to wait for them. Furthermore, it may not always be possible to reach a value exactly, which means that waiting for your set value to be reached is not necessarily a good idea. The middle layer server, however, can take care of that for us. Every magnet has a busy flag that is set true while the magnet is changing from one set point to another. The busy flags can be read via these channels:
-
-- `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM1/BUSY`
-- `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM2/BUSY`
-- `SINBAD.MAGNETS/MAGNET.ML/AREAMQZM3/BUSY`
-- `SINBAD.MAGNETS/MAGNET.ML/AREAMCVM1/BUSY`
-- `SINBAD.MAGNETS/MAGNET.ML/AREAMCHM1/BUSY`
-
-The following code snipped can be used as is to turn the laser on and off.
-
-```python
-def switch_cathode_laser(setto):
-    """Sets the bool switch of the cathode laser event to setto and waits a second."""
-    address = "SINBAD.DIAG/TIMER.CENTRAL/MASTER/EVENT5"
-    bits = pydoocs.read(address)["data"]
-    bits[0] = 1 if setto else 0
-    pydoocs.write(address, bits)
-    time.sleep(1)
-```
+  
