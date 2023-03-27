@@ -27,6 +27,9 @@ Below are the most important scripts
 - `backend.py` contains the different backends that the Gym environments can use to interact with either the simulation model or the real particle accelerator.
 - `bayesopt.py` implements a custom Bayesian optimization routine `BayesianOptimizationAgent` acting similar as a RL agent.
 
+The files `eval_*.py` generate the simulation results in different conditions.
+The notebooks `eval_*.ipynb` are used to analyse and evaluate the results and generate the final plots.
+
 ## Gym Environments
 
 The gym environments are built on a base class `TransverseTuningEnv`,which defines a general transverse beam tuning task using a set of magnets as actuators and a screen to for observation, with the goal to position and focus the beam to specified values.
