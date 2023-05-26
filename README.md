@@ -1,6 +1,6 @@
 # Overview ARES-EA RL Project
 
-This repository contains the code used to construct the environment and evaluate the Reinforcement-Learning trained optimiser and Bayesian optimiser for the paper _"Comparative Study of Learning-based Optimisation Methods for Online Continuous Tuning of Real-world Plants"_.
+This repository contains the code used to construct the environment and evaluate the Reinforcement-Learning trained optimiser and Bayesian optimiser for the paper _"Learning to Do or Learning While Doing: Reinforcement Learning and Bayesian Optimisation for Online Continuous Tuning"_.
 
 - [Overview ARES-EA RL Project](#overview-ares-ea-rl-project)
   - [The ARES-EA Transverse Beam Tuning Task](#the-ares-ea-transverse-beam-tuning-task)
