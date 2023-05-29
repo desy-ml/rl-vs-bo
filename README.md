@@ -5,6 +5,8 @@ This repository contains the code used to construct the environment and evaluate
 - [Overview ARES-EA RL Project](#overview-ares-ea-rl-project)
   - [The ARES-EA Transverse Beam Tuning Task](#the-ares-ea-transverse-beam-tuning-task)
   - [Repository Structure](#repository-structure)
+    - [Evaluation of the results](#evaluation-of-the-results)
+  - [The RL/BO control loop](#the-rlbo-control-loop)
   - [Gym Environments](#gym-environments)
     - [Observation](#observation)
     - [Reward definition](#reward-definition)
@@ -15,7 +17,7 @@ This repository contains the code used to construct the environment and evaluate
 We consider the _Experimental Area_ of ARES at DESY, Hamburg. Toward the downstream end of the Experimental Area, there is the screen `AREABSCR1` where we would like to achieve a variable set of beam parameters, consisting of the beam position and size in both x- and y-direction.
 To this end, we can set the values of three quadrupoles `AREAMQZM1`, `AREAMQZM2` and `AREAMQZM3`, as well as two steerers (dipole corrector magnets) `AREAMCVM1` and `AREAMCHM1`. Below is a simplified overview of the lattice that we consider.
 
-![ARES EA Lattice](figures/ares_ea_lattice.jpg)
+![ARES EA Lattice](figures/ares_ea_photo_annotated.jpg)
 
 __Note__ that simplified versions of this problem may be considered, where only the quadrupoles are used to achieve a certain beam size, or only the steerers are used to position the beam. Another simplification that may be considered is that the target beam parameters need not be variable but rather the goal is to achieve the smallest and/or most centred beam possible.
 
@@ -26,9 +28,20 @@ Below are the most important scripts
 - `environment.py` It contains the Gym environments `TransverseTuningEnv`  and its derived class `EATransverseTuning`.
 - `backend.py` contains the different backends that the Gym environments can use to interact with either the simulation model or the real particle accelerator.
 - `bayesopt.py` implements a custom Bayesian optimization routine `BayesianOptimizationAgent` acting similar as a RL agent.
+- `ea_train.py` An example training script to train a RLO agent. _Note: The RLO agent used in the paper is trained using TD3, the current version uses PPO, which might not fully reproduce the old result._
 
-The files `eval_*.py` generate the simulation results in different conditions.
-The notebooks `eval_*.ipynb` are used to analyse and evaluate the results and generate the final plots.
+### Evaluation of the results
+
+- The files `evaluation/eval_*.py` generate the simulation results in different conditions.
+- The notebooks `evaluation/eval_*.ipynb` are used to analyse and evaluate the results and generate the final plots.
+- `trails.yaml` contains the problem configuration that are used to generate the evaluation results.
+- `eval.py` contains utlity functions to load evaluation results and produce plots.
+
+_Note: to run these files, move them out of the evaluation folder to have the correct import path etc._
+
+## The RL/BO control loop
+
+![ARES EA RL Loop](figures/ARES_EA_RL_Loop.jpg)
 
 ## Gym Environments
 
