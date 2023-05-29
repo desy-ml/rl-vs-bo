@@ -11,7 +11,6 @@ wandb
 bo_nnprior_evaluation
 bo_nnprior_evaluation_2
 data
-figures
 log
 models
 old
