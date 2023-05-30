@@ -20,7 +20,7 @@ To this end, we can set the values of three quadrupoles `AREAMQZM1`, `AREAMQZM2`
 
 <img src="figures/ares_ea_photo_annotated.jpg" alt="ARES EA Lattice" width="500">
 
-__Note__ that simplified versions of this problem may be considered, where only the quadrupoles are used to achieve a certain beam size, or only the steerers are used to position the beam. Another simplification that may be considered is that the target beam parameters need not be variable but rather the goal is to achieve the smallest and/or most centred beam possible.
+*__Note__ that simplified versions of this problem may be considered, where only the quadrupoles are used to achieve a certain beam size, or only the steerers are used to position the beam. Another simplification that may be considered is that the target beam parameters need not be variable but rather the goal is to achieve the smallest and/or most centred beam possible.*
 
 ## Repository Structure
 
@@ -38,7 +38,7 @@ Below are the most important scripts
 - `trails.yaml` contains the problem configuration that are used to generate the evaluation results.
 - `eval.py` contains utlity functions to load evaluation results and produce plots.
 
-_Note: to run these files, move them out of the evaluation folder to have the correct import path etc._
+*__Note:__ To run these files, move them out of the evaluation folder to have the correct import path etc.*
 
 ## The RL/BO control loop
 
@@ -46,7 +46,7 @@ _Note: to run these files, move them out of the evaluation folder to have the co
 
 ## Gym Environments
 
-The gym environments are built on a base class `TransverseTuningEnv`,which defines a general transverse beam tuning task using a set of magnets as actuators and a screen to for observation, with the goal to position and focus the beam to specified values.
+The Gym environments are built on a base class `TransverseTuningEnv`,which defines a general transverse beam tuning task using a set of magnets as actuators and a screen to for observation, with the goal to position and focus the beam to specified values.
 The derived class `EATransverseTuning` desribes the specific task at ARES experimental area (EA).
 The `EACheetahBackend` and `EADOOCSBackend` are used to interact with the Cheetah simulation model or the real ARES accelerator.
 
