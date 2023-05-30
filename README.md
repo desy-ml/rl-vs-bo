@@ -17,7 +17,7 @@ This repository contains the code used to construct the environment and evaluate
 We consider the _Experimental Area_ of ARES at DESY, Hamburg. Toward the downstream end of the Experimental Area, there is the screen `AREABSCR1` where we would like to achieve a variable set of beam parameters, consisting of the beam position and size in both x- and y-direction.
 To this end, we can set the values of three quadrupoles `AREAMQZM1`, `AREAMQZM2` and `AREAMQZM3`, as well as two steerers (dipole corrector magnets) `AREAMCVM1` and `AREAMCHM1`. Below is a simplified overview of the lattice that we consider.
 
-![ARES EA Lattice](figures/ares_ea_photo_annotated.jpg)
+<img src="figures/ares_ea_photo_annotated.jpg" alt="ARES EA Lattice" width="500">
 
 __Note__ that simplified versions of this problem may be considered, where only the quadrupoles are used to achieve a certain beam size, or only the steerers are used to position the beam. Another simplification that may be considered is that the target beam parameters need not be variable but rather the goal is to achieve the smallest and/or most centred beam possible.
 
@@ -41,7 +41,7 @@ _Note: to run these files, move them out of the evaluation folder to have the co
 
 ## The RL/BO control loop
 
-![ARES EA RL Loop](figures/ARES_EA_RL_Loop.jpg)
+<img src="figures/ARES_EA_RL_Loop.jpg" alt="ARES EA RL Loop" width="500">
 
 ## Gym Environments
 
