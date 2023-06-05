@@ -1,4 +1,4 @@
-# Overview ARES-EA RL Project
+# Learning to Do or Learning While Doing: Reinforcement Learning and Bayesian Optimisation for Online Continuous Tuning
 
 This repository contains the code used to construct the environment and evaluate the Reinforcement-Learning trained optimiser and Bayesian optimiser for the paper _"Learning to Do or Learning While Doing: Reinforcement Learning and Bayesian Optimisation for Online Continuous Tuning"_.
 
