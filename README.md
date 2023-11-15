@@ -103,4 +103,8 @@ conda env create -n ares-ea-rl python=3.9
 conda activate ares-ea-rl
 pip install -r requirements.txt
 ```
-  
+## Acknowledgements
+
+We acknowledge the contributions of the authors to this work: Jan Kaiser, Chenran Xu, Annika Eichler, Andrea Santamaria Garcia, Oliver Stein, Erik Bründermann, Willi Kuropka, Hannes Dinter, Frank Mayet, Thomas Vinatier, Florian Burkart and Holger Schlarb.
+
+This work has in part been funded by the IVF project InternLabs-0011 (HIR3X) and the Initiative and Networking Fund by the Helmholtz Association (Autonomous Accelerator, ZT-I-PF-5-6). The authors acknowledge support from DESY (Hamburg, Germany) and KIT (Karlsruhe, Germany), members of the Helmholtz Association HGF, as well as support through the Maxwell computational resources operated at DESY and the bwHPC at SCC, KIT.
